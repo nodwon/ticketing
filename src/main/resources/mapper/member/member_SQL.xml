@@ -47,28 +47,20 @@
 	
 	<!-- 회원가입시 포인트 테이블에 '0' 추가 -->
 	<insert id="insertDefaultPoint" parameterType="hashmap">
-		<selectKey keyProperty="MEMBER_NO" resultType="int" order="BEFORE">
-			SELECT 
-				MAX(MEMBER_NO)
-			FROM 
-				MEMBER
-		</selectKey>
-		<![CDATA[
-			INSERT INTO POINT
-			(
-				POINT_NO,
-			    MEMBER_NO, 
-			    POINT_VAL,
-			    POINT_TOTAL
-			)
-			VALUES
-			(
-				POINT_NO_SEQ.NEXTVAL,
-				#{MEMBER_NO},
-				10000,
-				10000
-			)
-		]]>
+    	INSERT INTO MEMBER_POINT 
+    	(
+        	POINT_NO,
+        	MEMBER_NO,
+       	 POINT_VAL,
+        	POINT_TOTAL
+    	)
+    	VALUES
+    	(
+       		POINT_NO_SEQ.NEXTVAL,
+        	#{MEMBER_NO, jdbcType=VARCHAR},
+        	10000,
+        	10000
+    	)
 	</insert>
 	
 	<!-- 아이디 중복확인-->

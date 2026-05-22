@@ -30,7 +30,7 @@ public class QnaDAO extends AbstractDao{
 	}
 
 	public void deleteQna(Map<String, Object> map) throws Exception{
-		update("qna.deleteQna", map);
+		delete("qna.deleteQna", map);
 	}
 
 	@SuppressWarnings("unchecked")
