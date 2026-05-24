@@ -1,33 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+============================================================
+Project  : 관제 티켓 (Ticketing System)
+FileName : context-datasource.xml
+
+Modified : 2026.05.24
+
+Description :
+  DB DataSource + 트랜잭션 매니저 설정.
+
+  - 접속 정보는 jdbc.properties 에서 읽어옴 (팀 표준 db.xxx 속성)
+  - Apache Commons DBCP 1.4 커넥션 풀 사용 (pom.xml 의존성 기준)
+  - context-mapper.xml 의 SqlSessionFactoryBean 이 이 dataSource 를 참조
+
+[변경 사항]
+  - 기존: 클래스 path 안의 RDS URL 하드코딩
+  - 변경: jdbc.properties 로 환경 분리 (개발자 PC별 분리)
+
+[속성 이름]
+  팀 표준에 맞춰 db.xxx 형식 사용:
+    db.driver, db.url, db.username, db.password
+============================================================
+-->
 <beans xmlns="http://www.springframework.org/schema/beans"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:context="http://www.springframework.org/schema/context"
-    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
-                        http://www.springframework.org/schema/jdbc  http://www.springframework.org/schema/jdbc/spring-jdbc-3.0.xsd
-                        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/tx
+		http://www.springframework.org/schema/tx/spring-tx.xsd">
 
-    <!-- ============================================================ -->
-    <!-- DB 접속 정보는 외부 properties 파일에서 로드                    -->
-    <!-- 파일 위치: src/main/resources/config/jdbc.properties           -->
-    <!-- 본 파일은 .gitignore 에 의해 Git 추적 제외됨                    -->
-    <!-- 팀원은 jdbc.properties.example 을 복사해서 본인 환경에 맞게 작성 -->
-    <!-- ============================================================ -->
-    <context:property-placeholder location="classpath:config/jdbc.properties" />
+	<!-- jdbc.properties 파일 로드 -->
+	<context:property-placeholder location="classpath:jdbc.properties" />
 
-    <bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
-        <property name="driverClassName" value="${db.driver}" />
-        <property name="url"             value="${db.url}" />
-        <property name="username"        value="${db.username}" />
-        <property name="password"        value="${db.password}" />
-    </bean>
+	<!-- DataSource : Apache Commons DBCP 1.4 -->
+	<bean id="dataSource"
+		class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close">
 
-    <bean id="dataSource" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
-        <constructor-arg ref="dataSourceSpied" />
-        <property name="logFormatter">
-            <bean class="net.sf.log4jdbc.tools.Log4JdbcCustomFormatter">
-                <property name="loggingType" value="MULTI_LINE" />
-                <property name="sqlPrefix" value="SQL         :  "/>
-            </bean>
-        </property>
-    </bean>
+		<!-- 팀 표준 속성 이름 db.xxx 사용 -->
+		<property name="driverClassName" value="${db.driver}" />
+		<property name="url"             value="${db.url}" />
+		<property name="username"        value="${db.username}" />
+		<property name="password"        value="${db.password}" />
+
+		<!-- Connection Pool 설정 (DBCP 1.4 속성명, 기본값) -->
+		<property name="initialSize"     value="5" />
+		<property name="maxActive"       value="20" />
+		<property name="maxIdle"         value="10" />
+		<property name="minIdle"         value="5" />
+		<property name="maxWait"         value="10000" />
+
+		<!-- Connection 유효성 검증 (Oracle 용) -->
+		<property name="validationQuery" value="SELECT 1 FROM DUAL" />
+		<property name="testOnBorrow"    value="true" />
+		<property name="testWhileIdle"   value="true" />
+	</bean>
+
+	<!-- 트랜잭션 매니저 -->
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<!-- 어노테이션 기반 트랜잭션 활성화 (@Transactional 사용 가능) -->
+	<tx:annotation-driven transaction-manager="transactionManager" />
+
 </beans>
