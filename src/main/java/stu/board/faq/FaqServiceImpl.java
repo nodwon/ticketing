@@ -11,39 +11,39 @@ import org.apache.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 @Service("faqService")
-public class FaqServiceImpl implements FaqService{
-	Logger log = Logger.getLogger(this.getClass());
-	
-	@Resource(name="faqDAO")
-	private FaqDAO faqDAO;
-	
-	@Override
-	public List<Map<String, Object>> selectFaqList(Map<String, Object> map) throws Exception {
-		return faqDAO.selectFaqList(map);
-	}
+public class FaqServiceImpl implements FaqService {
 
-	@Override
-	public void insertFaq(Map<String, Object> map, HttpServletRequest request) throws Exception {
-		faqDAO.insertFaq(map);		
-	}
+    Logger log = Logger.getLogger(this.getClass());
 
-	@Override
-	public Map<String, Object> selectFaqDetail(Map<String, Object> map) throws Exception {
-		Map<String, Object> resultMap = new HashMap<String,Object>();
-		Map<String, Object> tempMap = faqDAO.selectFaqDetail(map);
-		resultMap.put("map", tempMap);
-		return resultMap;
-	}
+    @Resource(name = "faqDAO")
+    private FaqDAO faqDAO;
 
-	@Override
-	public void updateFaq(Map<String, Object> map, HttpServletRequest request) throws Exception{
-		faqDAO.updateFaq(map);
+    @Override
+    public List<Map<String, Object>> selectFaqList(Map<String, Object> map) throws Exception {
+        return faqDAO.selectFaqList(map);
+    }
 
-	}
+    @Override
+    public void insertFaq(Map<String, Object> map, HttpServletRequest request) throws Exception {
+        faqDAO.insertFaq(map);
+    }
 
-	@Override
-	public void deleteFaq(Map<String, Object> map) throws Exception {
-		faqDAO.deleteFaq(map);
-	}
+    @Override
+    public Map<String, Object> selectFaqDetail(Map<String, Object> map) throws Exception {
+        Map<String, Object> resultMap = new HashMap<>();
+        // 버그수정: selectFaqDetail 결과를 "map" 키로 담아 반환
+        Map<String, Object> tempMap = faqDAO.selectFaqDetail(map);
+        resultMap.put("map", tempMap);
+        return resultMap;
+    }
 
+    @Override
+    public void updateFaq(Map<String, Object> map, HttpServletRequest request) throws Exception {
+        faqDAO.updateFaq(map);
+    }
+
+    @Override
+    public void deleteFaq(Map<String, Object> map) throws Exception {
+        faqDAO.deleteFaq(map);
+    }
 }

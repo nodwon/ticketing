@@ -1,87 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="faq">
 
-	<!-- FAQ 리스트 불러오기 -->
-	<select id="selectFaqList" parameterType="hashmap" resultType="hashmap">
-		<include refid="common1.pagingPre1"/> 	
-		<![CDATA[
-			SELECT
-				ROW_NUMBER() OVER (ORDER BY NOTICE_NO DESC) RNUM, 
-				NOTICE_NO, 
-				NOTICE_TITLE, 
-				NOTICE_CONTENT,
-				TO_CHAR(NOTICE_DATE, 'YYYY.MM.DD') AS NOTICE_DATE		
-			FROM 
-				NOTICE
-			WHERE 
-				NOTICE_GUBUN = '1'
-		]]>
-		<include refid="common1.pagingPost1"/>
-	</select>
-	
-	<!-- FAQ 리스트 등록하기 -->
-	<insert id="insertFaq" parameterType="hashmap" useGeneratedKeys="true" keyProperty="NOTICE_NO">
-		<selectKey keyProperty="NOTICE_NO" resultType="string" order="BEFORE">
-			SELECT NOTICE_NO_SEQ.NEXTVAL FROM DUAL
-		</selectKey>
-		<![CDATA[
-			INSERT INTO NOTICE
-			(
-				NOTICE_NO ,
-				NOTICE_GUBUN ,
-			    NOTICE_TITLE , 
-			    NOTICE_CONTENT , 
-			    NOTICE_DATE ,
-			    MEMBER_NO 
-			)
-			VALUES
-			(
-				#{NOTICE_NO} ,
-				1 , 
-				#{NOTICE_TITLE} ,
-				#{NOTICE_CONTENT} ,
-			    SYSDATE ,
-			    #{MEMBER_NO}     
-			)
-		]]>
-	</insert>
-	
-	
-	<!-- FAQ 상세페이지 불러오기 -->
-	 <select id="selectFaqDetail" parameterType="hashmap" resultType="hashmap">
-		<![CDATA[
-			SELECT 
-				NOTICE_NO,
-				NOTICE_TITLE,
-				NOTICE_CONTENT,
-			FROM 
-				NOTICE
-			WHERE
-				NOTICE_NO = #{NOTICE_NO},
-		]]>
-	 	</select> 
-	
-	<!-- FAQ 답변 수정하기 -->
-	<update id="updateFaq" parameterType="hashmap">
-		<![CDATA[
-			UPDATE NOTICE
-			SET
-				NOTICE_TITLE = #{NOTICE_TITLE}, 
-				NOTICE_CONTENTS = #{NOTICE_CONTENTS}
-			WHERE
-				NOTICE_NO = #{NOTICE_NO}
-		]]>
-	</update>
-	
-	<!-- FAQ 삭제하기 -->
-	<delete id="deleteFaq" parameterType="hashmap">
-		<![CDATA[
-			DELETE FROM NOTICE
-			WHERE 
-				NOTICE_NO = #{NOTICE_NO}
-		]]>
-	</delete>
+    <!-- FAQ 목록 -->
+    <!-- 수정: NOTICE_CONTENT CLOB → DBMS_LOB.SUBSTR로 VARCHAR2 변환 -->
+    <select id="selectFaqList" parameterType="hashmap" resultType="hashmap">
+        <include refid="common1.pagingPre1"/>
+        <![CDATA[
+            SELECT
+                ROW_NUMBER() OVER (ORDER BY NOTICE_NO DESC) RNUM,
+                NOTICE_NO,
+                NOTICE_TITLE,
+                DBMS_LOB.SUBSTR(NOTICE_CONTENT, 4000, 1) AS NOTICE_CONTENT,
+                TO_CHAR(NOTICE_DATE, 'YYYY.MM.DD') AS NOTICE_DATE
+            FROM NOTICE
+            WHERE NOTICE_GUBUN = '1'
+        ]]>
+        <include refid="common1.pagingPost1"/>
+    </select>
+
+    <!-- FAQ 등록 -->
+    <insert id="insertFaq" parameterType="hashmap">
+        <selectKey keyProperty="NOTICE_NO" resultType="string" order="BEFORE">
+            SELECT NOTICE_NO_SEQ.NEXTVAL FROM DUAL
+        </selectKey>
+        <![CDATA[
+            INSERT INTO NOTICE (
+                NOTICE_NO,
+                NOTICE_GUBUN,
+                NOTICE_TITLE,
+                NOTICE_CONTENT,
+                NOTICE_DATE,
+                MEMBER_NO
+            ) VALUES (
+                #{NOTICE_NO},
+                '1',
+                #{NOTICE_TITLE},
+                #{NOTICE_CONTENT},
+                SYSDATE,
+                #{MEMBER_NO}
+            )
+        ]]>
+    </insert>
+
+    <!-- FAQ 상세 -->
+    <!-- 수정: 콤마 제거 + CLOB 변환 -->
+    <select id="selectFaqDetail" parameterType="hashmap" resultType="hashmap">
+        <![CDATA[
+            SELECT
+                NOTICE_NO,
+                NOTICE_TITLE,
+                DBMS_LOB.SUBSTR(NOTICE_CONTENT, 4000, 1) AS NOTICE_CONTENT,
+                TO_CHAR(NOTICE_DATE, 'YYYY.MM.DD HH24:MI:SS') AS NOTICE_DATE,
+                MEMBER_NO
+            FROM NOTICE
+            WHERE NOTICE_NO = #{NOTICE_NO}
+        ]]>
+    </select>
+
+    <!-- FAQ 수정 -->
+    <!-- 수정: NOTICE_CONTENTS → NOTICE_CONTENT -->
+    <update id="updateFaq" parameterType="hashmap">
+        <![CDATA[
+            UPDATE NOTICE
+            SET
+                NOTICE_TITLE   = #{NOTICE_TITLE},
+                NOTICE_CONTENT = #{NOTICE_CONTENT}
+            WHERE NOTICE_NO = #{NOTICE_NO}
+        ]]>
+    </update>
+
+    <!-- FAQ 삭제 -->
+    <delete id="deleteFaq" parameterType="hashmap">
+        <![CDATA[
+            DELETE FROM NOTICE
+            WHERE NOTICE_NO = #{NOTICE_NO}
+        ]]>
+    </delete>
 
 </mapper>
