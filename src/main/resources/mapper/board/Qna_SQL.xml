@@ -6,93 +6,52 @@
 	<select id="selectQnaList" parameterType="hashmap" resultType="hashmap">
 		<include refid="common1.pagingPre1"/> 
 			SELECT
-				ROW_NUMBER() OVER (ORDER BY QNA_NO DESC) RNUM,
-				QNA_NO,
-				QNA_TITLE,
-				QNA_NAME,
-				TO_CHAR(QNA_DATE, 'YYYY.MM.DD') AS QNA_DATE,
-				QNA_LEVEL,
-				QNA_PASSWD
+				ROW_NUMBER() OVER (ORDER BY QNA_ID DESC) RNUM,
+				QNA_ID AS QNA_NO,
+				TITLE AS QNA_TITLE,
+				QNA_NAME, /* 💡 새로 추가한 컬럼을 그대로 화면에 매핑 */
+				TO_CHAR(CREATED_AT, 'YYYY.MM.DD') AS QNA_DATE
 			FROM
 				QNA_POSTS
 		<include refid="common1.pagingPost1"/> 
 	</select>
 	
-	selectQnaDetail
-	<insert id="insertQna" parameterType="hashmap" useGeneratedKeys="true" keyProperty="QNA_NO">
-		<selectKey keyProperty="QNA_NO" resultType="string" order="BEFORE">
+	<insert id="insertQna" parameterType="hashmap" useGeneratedKeys="true" keyProperty="QNA_ID">
+		<selectKey keyProperty="QNA_ID" resultType="java.lang.Integer" order="BEFORE">
 			SELECT QNA_NO_SEQ.NEXTVAL FROM DUAL
 		</selectKey>
 			INSERT INTO QNA_POSTS
-			( QNA_NO, 
-			MEMBER_NO,
-			QNA_NAME,
-			QNA_LEVEL,  
-			QNA_CATEGORY,
-			QNA_TITLE,      
-			QNA_CONTENT, 
-			QNA_DATE, 
-			QNA_SECRET, 
-			QNA_PASSWD )
+			( 
+				QNA_ID, 
+				MEMBER_ID,
+				QNA_NAME, /* 💡 글 저장 시 작성자 이름도 함께 저장 */
+				TITLE,      
+				CONTENT, 
+				CREATED_AT
+			)
 		VALUES
-			( #{QNA_NO} ,
-			#{MEMBER_NO} , 
-			#{QNA_NAME} ,
-			0 ,
-			#{QNA_CATEGORY} ,
-			#{QNA_TITLE} ,
-			#{QNA_CONTENT} ,
-			SYSDATE ,
-			#{QNA_SECRET} ,
-			#{QNA_PASSWD} )
+			( 
+				#{QNA_ID},
+				#{MEMBER_ID, jdbcType=NUMERIC},
+				#{QNA_NAME, jdbcType=VARCHAR},
+				#{TITLE, jdbcType=VARCHAR},
+				#{CONTENT, jdbcType=VARCHAR},
+				SYSDATE 
+			)
 	</insert>
 	
 	<select id="selectQnaDetail" parameterType="hashmap" resultType="hashmap">
 			SELECT 
-				QNA_NO, 
-				QNA_CATEGORY, 
-				TO_CHAR(QNA_DATE, 'YYYY.MM.DD') AS QNA_DATE, 
-				QNA_TITLE,  
-				DBMS_LOB.SUBSTR(QNA_CONTENT, 4000, 1) AS QNA_CONTENT,
-				QNA_NAME,
-				DBMS_LOB.SUBSTR(QNA_AN, 4000, 1) AS QNA_AN
+				QNA_ID AS QNA_NO,
+				MEMBER_ID,
+				QNA_NAME, /* 💡 상세 페이지도 조인 없이 다이렉트 출력 */
+				TITLE AS QNA_TITLE,  
+				CONTENT AS QNA_CONTENT,
+				TO_CHAR(CREATED_AT, 'YYYY.MM.DD HH24:MI:SS') AS QNA_DATE
 			FROM 
 				QNA_POSTS
 			WHERE
-				QNA_NO = #{QNA_NO}
-	</select>
-	
-	<select id="QnaPass" parameterType="hashmap" resultType="hashmap">
-			SELECT
-				QNA_NO, 
-				QNA_PASSWD
-			FROM
-				QNA_POSTS
-			WHERE
-				QNA_NO = #{QNA_NO}
-	</select>
-	
-	
-	<update id="updateQna" parameterType="hashmap">
-			UPDATE QNA_POSTS
-			SET
-				QNA_AN = #{QNA_AN}, 
-				QNA_LEVEL = 1
-			WHERE
-				QNA_NO = #{QNA_NO}
-	</update>
-	
-	<delete id="deleteQna" parameterType="hashmap">
-		<![CDATA[
-			DELETE FROM QNA_POSTS				
-			WHERE 
-				QNA_NO = #{QNA_NO}
-		]]>
-	</delete>
-	
-	<select id="selectQnaPassword" parameterType="hashmap" resultType="hashmap">
-		SELECT qna_passwd, qna_secret FROM QNA_POSTS 
-		WHERE qna_no=#{QNA_NO}
+				QNA_ID = #{QNA_NO, jdbcType=NUMERIC}
 	</select>
 
 </mapper>
