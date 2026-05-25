@@ -173,8 +173,8 @@
         document.getElementById('seatMap').innerHTML = html;
     }
     
- // 내가 선택한 좌석 목록 (다중 선택)
-    var selectedSeats = [];
+ 	// sessionStorage에서 복원 (새로고침해도 유지)
+    var selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats_' + scheduleId) || '[]');
     
     // 좌석 클릭 처리 (선점 / 해제 통합)
     function selectSeat(seatId, status, seatRow, seatCol) {
@@ -211,6 +211,7 @@
                         seatRow: seatRow,
                         seatCol: seatCol
                     });
+                    sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
                     updateInfo();
                 } else {
                     document.getElementById('info').innerHTML = '❌ ' + res.message;
@@ -236,6 +237,7 @@
                     selectedSeats = selectedSeats.filter(function(s) {
                         return s.seatId !== seatId;
                     });
+                    sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
                     updateInfo();
                 } else {
                     document.getElementById('info').innerHTML = '❌ 해제 실패';
@@ -266,7 +268,10 @@
     }
     
     // 페이지 로드 시 좌석 불러오기
-    window.onload = loadSeats;
+    window.onload = function() {
+    loadSeats();
+    updateInfo();  // 새로고침 시 복원된 좌석 표시
+	};
 </script>
 </body>
 </html>
