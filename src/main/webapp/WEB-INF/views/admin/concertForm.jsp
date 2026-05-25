@@ -14,6 +14,13 @@
 
  History :
    2026.05.25 - URL 팀 규칙 적용 (/admin/concert/xxx.do)
+   2026.05.25 - DB 스키마와 입력 폼 일치화
+                · VENUE 컬럼이 NOT NULL 이므로 필수 입력 처리
+                  (이전 버전에서 빈 값 입력 시 ORA-01400 에러 발생)
+                · maxlength 를 DB 컬럼 길이에 맞춰 조정
+                  TITLE  : 200 → 300
+                  ARTIST : 100 → 200
+                  VENUE  : 200 → 300
 ============================================================
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
@@ -108,19 +115,19 @@
 
 			<div class="field">
 				<label>공연명 <span class="required">*</span></label>
-				<input type="text" name="title" required maxlength="200"
+				<input type="text" name="title" required maxlength="300"
 					value="<c:out value='${concert.TITLE}' />" />
 			</div>
 
 			<div class="field">
 				<label>아티스트 <span class="required">*</span></label>
-				<input type="text" name="artist" required maxlength="100"
+				<input type="text" name="artist" required maxlength="200"
 					value="<c:out value='${concert.ARTIST}' />" />
 			</div>
 
 			<div class="field">
-				<label>장소</label>
-				<input type="text" name="venue" maxlength="200"
+				<label>장소 <span class="required">*</span></label>
+				<input type="text" name="venue" required maxlength="300"
 					value="<c:out value='${concert.VENUE}' />" />
 			</div>
 
