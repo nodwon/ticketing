@@ -1,109 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+============================================================
+Project   : 관제 티켓 (Ticketing System)
+FileName  : member_SQL.xml
 
+Developer : 심재학 (feature/batman)
+Created   : 2026.05.25
+Modified  : 2026.05.25
+
+Description :
+  - 회원가입 관련 MyBatis Mapper
+  - 테이블: members
+============================================================
+-->
 <mapper namespace="join">
-	
-	<insert id="insertMember" parameterType="hashmap">
-		<selectKey keyProperty="MEMBER_NO" resultType="string" order="BEFORE">
-			SELECT MEMBER_NO_SEQ.NEXTVAL FROM DUAL
-		</selectKey>
-		INSERT INTO MEMBER
-		(
-			MEMBER_NO,
-			MEMBER_ID, 
-			MEMBER_PASSWD, 
-			MEMBER_NAME, 
-			MEMBER_BIRTH, 
-			MEMBER_EMAIL, 
-			MEMBER_PHONE,
-			MEMBER_ZIPCODE,
-			MEMBER_ADDR1,
-			MEMBER_ADDR2,
-			MEMBER_DATE,
-			MEMBER_GRADE,
-			MEMBER_LOG,
-			EMAIL_AGREE,
-			SMS_AGREE
-		)
-		VALUES
-		(
-			#{MEMBER_NO},
-			#{MEMBER_ID},
-			#{MEMBER_PASSWD},
-			#{MEMBER_NAME},
-			#{MEMBER_BIRTH},
-			#{MEMBER_EMAIL},
-			#{MEMBER_PHONE},
-			#{MEMBER_ZIPCODE},
-			#{MEMBER_ADDR1},
-			#{MEMBER_ADDR2},
-			SYSDATE,
-			'NORMAL',
-			SYSDATE,
-			#{EMAIL_AGREE},
-			#{SMS_AGREE}
-		)
-	</insert>
-	
-	<insert id="insertDefaultPoint" parameterType="hashmap">
-		/* 최종 엑셀 명세서 규격 테이블 명칭인 "POINT" 적용 및 보이지 않는 공백 제거 */
-		INSERT INTO "POINT" 
-		(
-			POINT_NO,
-			MEMBER_NO,
-			POINT_VAL,
-			POINT_TOTAL
-		)
-		VALUES
-		(
-			POINT_NO_SEQ.NEXTVAL,
-			#{MEMBER_NO, jdbcType=NUMERIC},
-			10000,
-			10000
-		)
-	</insert>
-	
-	<select id="selectIdCheck" parameterType="String" resultType="int">
-		SELECT 
-			COUNT(*) 
-		FROM 
-			MEMBER 
-		WHERE 
-			MEMBER_ID = #{MEMBER_ID}
-	</select>
-	
-	<update id="updateMemberTotal" parameterType="hashmap">
-		UPDATE MEMBER 
-		SET
-			MEMBER_TOTAL = MEMBER_TOTAL + ${ORDER_TOTAL_ORDER_PRICE}
-		WHERE
-			MEMBER_NO = #{MEMBER_NO}
-	</update>
-	
-	<select id="selectMemberTotal" parameterType="hashmap" resultType="hashmap">
-		SELECT 
-			MEMBER_TOTAL
-		FROM 
-			MEMBER
-		WHERE 
-			MEMBER_NO = #{MEMBER_NO}
-	</select>
-	
-	<update id="updateMemberGrade" parameterType="hashmap">
-		UPDATE MEMBER 
-		SET
-			MEMBER_GRADE = #{MEMBER_GRADE}
-		WHERE
-			MEMBER_NO = #{MEMBER_NO}
-	</update>
-	
-	<select id="selectEmailCheck" parameterType="String" resultType="int">
-		SELECT
-			COUNT(MEMBER_EMAIL) AS cnt
-		FROM
-			MEMBER
-		WHERE
-			MEMBER_EMAIL = #{MEMBER_EMAIL}
-	</select>
-		
+
+    <!--
+        회원가입 처리
+        - 입력 keys: MEMBER_EMAIL, MEMBER_PW, MEMBER_NAME, MEMBER_PHONE, MEMBER_BIRTH
+        - 미사용 keys (DB에 컬럼 없음): 
+          MEMBER_ID, MEMBER_ZIPCODE, MEMBER_ADDR1, MEMBER_ADDR2, EMAIL_AGREE, SMS_AGREE
+        - role: 기본값 'USER' 적용 (DB default)
+        - member_id: IDENTITY 자동 생성
+        - birth_date: YYYYMMDD 문자열을 DATE로 변환
+    -->
+    <insert id="insertMember" parameterType="hashMap">
+        INSERT INTO members (
+            email,
+            password_hash,
+            name,
+            phone,
+            birth_date,
+            role
+        ) VALUES (
+            #{MEMBER_EMAIL},
+            #{MEMBER_PW},
+            #{MEMBER_NAME},
+            #{MEMBER_PHONE},
+            TO_DATE(#{MEMBER_BIRTH}, 'YYYYMMDD'),
+            'USER'
+        )
+    </insert>
+
+    <!--
+        포인트 적립 (DB에 포인트 테이블 없음)
+        ⚠️ 자바 JoinDAO에서 호출하므로 빈 SQL로 무력화 처리.
+           추후 포인트 테이블 추가 시 실제 INSERT로 변경.
+    -->
+    <insert id="insertDefaultPoint" parameterType="hashMap">
+        SELECT 1 FROM dual
+    </insert>
+
+    <!--
+        아이디(이메일) 중복 체크
+        - 자바: selectOne("join.selectIdCheck", String) → 문자열 하나만 전달
+        - 입력: 문자열 (이메일)
+        - 출력: int (0 또는 1)
+    -->
+    <select id="selectIdCheck" parameterType="string" resultType="int">
+        SELECT COUNT(*)
+        FROM members
+        WHERE email = #{value}
+    </select>
+
+    <!--
+        이메일 중복 체크
+        - 자바: selectOne("join.selectEmailCheck", String) → 문자열 하나만 전달
+        - 입력: 문자열 (이메일)
+        - 출력: int (0 또는 1)
+    -->
+    <select id="selectEmailCheck" parameterType="string" resultType="int">
+        SELECT COUNT(*)
+        FROM members
+        WHERE email = #{value}
+    </select>
+
 </mapper>
