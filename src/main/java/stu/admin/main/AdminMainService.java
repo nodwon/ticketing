@@ -8,11 +8,16 @@ package stu.admin.main;
  *
  *  Developer : 김태희 (feature/kth)
  *  Created   : 2026.05.24
- *  Modified  : 2026.05.24
+ *  Modified  : 2026.05.25
  *
  *  Description :
  *    - 관리자 메인 Service 인터페이스
  *    - 대시보드 / 공연 / 회원 / 예매 4개 기능군의 메서드 선언
+ *
+ *  History :
+ *    2026.05.25 - deleteConcert 반환 타입 변경 (void -> int)
+ *                 · 예매 건수를 반환해서 Controller 에서 메시지 분기
+ *                 · 0 이면 Hard Delete 수행됨, 1 이상이면 Soft Delete 수행됨
  * ============================================================
  */
 
@@ -25,7 +30,7 @@ public interface AdminMainService {
 
 	// ---------- 대시보드 ----------
 
-	/** 회원/공연/예매/탬퍼 카운트를 한 번에 조회. */
+	/** 회원/공연/예매 카운트를 한 번에 조회. */
 	Map<String, Object> selectDashboard(CommandMap commandMap) throws Exception;
 
 	// ---------- 공연 ----------
@@ -42,8 +47,18 @@ public interface AdminMainService {
 	/** 공연 수정. */
 	void updateConcert(CommandMap commandMap) throws Exception;
 
-	/** 공연 삭제 (soft delete : status='CLOSED'). */
-	void deleteConcert(CommandMap commandMap) throws Exception;
+	/**
+	 * 공연 스마트 삭제.
+	 *
+	 * <pre>
+	 *  - 예매 0건  : Hard Delete (자식 데이터 다 정리 후 공연 row 삭제)
+	 *  - 예매 1건+ : Soft Delete (status = 'CLOSED' 만 변경)
+	 * </pre>
+	 *
+	 * @return 삭제 시점의 예매 건수
+	 *         (Controller 에서 0/N 으로 메시지 분기용)
+	 */
+	int deleteConcert(CommandMap commandMap) throws Exception;
 
 	// ---------- 회원 ----------
 

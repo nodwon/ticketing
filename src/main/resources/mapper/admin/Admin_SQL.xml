@@ -17,6 +17,17 @@
  History :
    2026.05.25 - 탬퍼 감지 SQL 제거 (보안 모니터링은 Splunk 측에서 처리)
                 payments 테이블 JOIN 제거
+   2026.05.25 - 검색 대소문자 무시 처리 (LOWER 함수 적용)
+                · concerts(title/artist), members(email/name),
+                  bookings(email/name/concert) 모두 적용
+   2026.05.25 - 스마트 공연 삭제용 SQL 추가
+                · countBookingsByConcert      : 예매 건수 카운트
+                · deleteConcertHard           : 공연 row 삭제
+                · deleteSchedulesByConcert    : 산하 일정 삭제
+                · deleteSeatsByConcert        : 산하 좌석 삭제
+                · deleteBookingsByConcert     : 산하 예매 삭제
+                · deleteBookingItemsByConcert : 산하 예매 항목 삭제
+                · deletePaymentsByConcert     : 산하 결제 삭제
 ============================================================
 -->
 <mapper namespace="admin">
@@ -35,9 +46,7 @@
 
 	<!-- =====================================================================
 		2. 공연 - 목록 (검색/페이징)
-		     ▶ START / END : AbstractDao.selectPagingList 에서 자동 세팅
-		     ▶ TOTAL_COUNT : 검색 조건 적용된 전체 건수
-		     ▶ 검색 컬럼   : title / artist  (searchType)
+		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
 	===================================================================== -->
 	<select id="selectConcertList" parameterType="hashMap" resultType="hashMap">
 		SELECT *
@@ -62,15 +71,15 @@
 					<if test="keyword != null and keyword != ''">
 						<choose>
 							<when test="searchType == 'title'">
-								AND c.title  LIKE '%' || #{keyword} || '%'
+								AND LOWER(c.title)  LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<when test="searchType == 'artist'">
-								AND c.artist LIKE '%' || #{keyword} || '%'
+								AND LOWER(c.artist) LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<otherwise>
 								AND (
-									c.title  LIKE '%' || #{keyword} || '%'
-									OR c.artist LIKE '%' || #{keyword} || '%'
+									LOWER(c.title)  LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(c.artist) LIKE '%' || LOWER(#{keyword}) || '%'
 								)
 							</otherwise>
 						</choose>
@@ -145,8 +154,20 @@
 
 
 	<!-- =====================================================================
-		6. 공연 - 삭제 (soft delete : status='CLOSED')
-		     ▶ 실제 row 는 남기고 상태만 변경 (FK 무결성, 감사 추적 용도)
+		6-1. 공연 삭제 - 예매 건수 카운트 (스마트 삭제 판정용)
+		      ▶ 결과가 0 이면 Hard Delete, 1 이상이면 Soft Delete
+	===================================================================== -->
+	<select id="countBookingsByConcert" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM   bookings           b
+		JOIN   concert_schedules  s ON b.schedule_id = s.schedule_id
+		WHERE  s.concert_id = #{concertId}
+	</select>
+
+
+	<!-- =====================================================================
+		6-2. 공연 삭제 - Soft : status = 'CLOSED' 만 변경
+		      ▶ 예매 내역이 있는 경우 사용 (FK 무결성 보호)
 	===================================================================== -->
 	<update id="deleteConcert" parameterType="hashMap">
 		UPDATE concerts
@@ -156,8 +177,74 @@
 
 
 	<!-- =====================================================================
+		6-3. 공연 삭제 - Hard : 공연 row 자체 삭제
+		      ▶ 자식 데이터를 모두 정리한 뒤에만 호출되어야 함
+		      ▶ Service 의 @Transactional 안에서 마지막에 실행
+	===================================================================== -->
+	<delete id="deleteConcertHard" parameterType="hashMap">
+		DELETE FROM concerts
+		WHERE  concert_id = #{concertId}
+	</delete>
+
+
+	<!-- =====================================================================
+		6-4. 공연 산하 데이터 삭제 - 가장 깊은 자식부터 (FK 역순)
+		      booking_items  →  payments  →  bookings
+		      →  seats  →  concert_schedules  →  concerts
+	===================================================================== -->
+
+	<!-- booking_items : booking_id 가 해당 공연의 예매를 참조하는 경우 -->
+	<delete id="deleteBookingItemsByConcert" parameterType="hashMap">
+		DELETE FROM booking_items
+		WHERE  booking_id IN (
+			SELECT b.booking_id
+			FROM   bookings           b
+			JOIN   concert_schedules  s ON b.schedule_id = s.schedule_id
+			WHERE  s.concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- payments : 해당 공연의 예매를 참조 -->
+	<delete id="deletePaymentsByConcert" parameterType="hashMap">
+		DELETE FROM payments
+		WHERE  booking_id IN (
+			SELECT b.booking_id
+			FROM   bookings           b
+			JOIN   concert_schedules  s ON b.schedule_id = s.schedule_id
+			WHERE  s.concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- bookings : 해당 공연의 일정에 대한 예매 -->
+	<delete id="deleteBookingsByConcert" parameterType="hashMap">
+		DELETE FROM bookings
+		WHERE  schedule_id IN (
+			SELECT schedule_id
+			FROM   concert_schedules
+			WHERE  concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- seats : 해당 공연의 일정에 속한 좌석 -->
+	<delete id="deleteSeatsByConcert" parameterType="hashMap">
+		DELETE FROM seats
+		WHERE  schedule_id IN (
+			SELECT schedule_id
+			FROM   concert_schedules
+			WHERE  concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- concert_schedules : 해당 공연의 일정 -->
+	<delete id="deleteSchedulesByConcert" parameterType="hashMap">
+		DELETE FROM concert_schedules
+		WHERE  concert_id = #{concertId}
+	</delete>
+
+
+	<!-- =====================================================================
 		7. 회원 - 목록 (검색/페이징)
-		     ▶ 검색 컬럼 : email / name  (searchType)
+		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
 	===================================================================== -->
 	<select id="selectMemberList" parameterType="hashMap" resultType="hashMap">
 		SELECT *
@@ -182,15 +269,15 @@
 					<if test="keyword != null and keyword != ''">
 						<choose>
 							<when test="searchType == 'email'">
-								AND m.email LIKE '%' || #{keyword} || '%'
+								AND LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<when test="searchType == 'name'">
-								AND m.name  LIKE '%' || #{keyword} || '%'
+								AND LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<otherwise>
 								AND (
-									m.email LIKE '%' || #{keyword} || '%'
-									OR m.name  LIKE '%' || #{keyword} || '%'
+									LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
 								)
 							</otherwise>
 						</choose>
@@ -207,7 +294,7 @@
 	<!-- =====================================================================
 		8. 예매 - 목록 (검색/페이징)
 		     ▶ 회원/공연/일정 JOIN
-		     ▶ 검색 컬럼 : email / name / concert  (searchType)
+		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
 		     ▶ 상태 필터 : status (PENDING/CONFIRMED/CANCELLED)
 	===================================================================== -->
 	<select id="selectBookingList" parameterType="hashMap" resultType="hashMap">
@@ -241,19 +328,19 @@
 					<if test="keyword != null and keyword != ''">
 						<choose>
 							<when test="searchType == 'email'">
-								AND m.email LIKE '%' || #{keyword} || '%'
+								AND LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<when test="searchType == 'name'">
-								AND m.name  LIKE '%' || #{keyword} || '%'
+								AND LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<when test="searchType == 'concert'">
-								AND c.title LIKE '%' || #{keyword} || '%'
+								AND LOWER(c.title) LIKE '%' || LOWER(#{keyword}) || '%'
 							</when>
 							<otherwise>
 								AND (
-									m.email LIKE '%' || #{keyword} || '%'
-									OR m.name  LIKE '%' || #{keyword} || '%'
-									OR c.title LIKE '%' || #{keyword} || '%'
+									LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(c.title) LIKE '%' || LOWER(#{keyword}) || '%'
 								)
 							</otherwise>
 						</choose>

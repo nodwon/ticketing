@@ -10,9 +10,13 @@
  Description :
    - 공연 목록 / 검색 (title, artist) / 페이징
    - 등록 / 수정 / 삭제 진입점
+   - 등록/수정/삭제 후 Flash Message 배너 표시
 
  History :
    2026.05.25 - URL 팀 규칙 적용 (/admin/concert/xxx.do)
+   2026.05.25 - Flash Message 배너 UI 추가 (success / info / error)
+   2026.05.25 - 스마트 삭제 confirm 메시지 개선
+                (예매 있으면 비활성, 없으면 완전 삭제됨을 미리 안내)
 ============================================================
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
@@ -35,6 +39,17 @@
 			border-radius: 6px; border: 1px solid #dcdde1; font-size: 14px;
 		}
 		.nav a:hover, .nav a.active { background: #487eb0; color: #fff; border-color: #487eb0; }
+
+		/* Flash Message 배너 */
+		.flash {
+			padding: 14px 20px; border-radius: 6px; margin-bottom: 15px;
+			font-size: 14px; display: flex; align-items: center;
+			border-left: 4px solid;
+		}
+		.flash.success { background: #e8f5e9; color: #2d7a2d; border-color: #44bd32; }
+		.flash.info    { background: #e3f2fd; color: #1565c0; border-color: #487eb0; }
+		.flash.error   { background: #fff5f5; color: #c23616; border-color: #e84118; }
+		.flash .icon   { font-size: 18px; margin-right: 10px; }
 
 		.toolbar {
 			background: #fff; padding: 15px 20px; border-radius: 8px;
@@ -101,6 +116,20 @@
 		<a href="/admin/booking/list.do">예매 내역</a>
 	</div>
 
+	<%-- Flash Message 배너 (등록/수정/삭제 결과) --%>
+	<c:if test="${not empty msg}">
+		<div class="flash ${empty msgType ? 'success' : msgType}">
+			<span class="icon">
+				<c:choose>
+					<c:when test="${msgType eq 'info'}">ⓘ</c:when>
+					<c:when test="${msgType eq 'error'}">⚠</c:when>
+					<c:otherwise>✅</c:otherwise>
+				</c:choose>
+			</span>
+			<span><c:out value="${msg}" /></span>
+		</div>
+	</c:if>
+
 	<form method="get" action="/admin/concert/list.do">
 		<div class="toolbar">
 			<select name="searchType">
@@ -149,7 +178,7 @@
 								<form method="post" action="/admin/concert/delete.do" style="display:inline;">
 									<input type="hidden" name="concertId" value="${row.CONCERT_ID}" />
 									<button type="submit" class="delete"
-										onclick="return confirm('정말 삭제하시겠습니까? (상태가 CLOSED 로 변경됩니다)');">
+										onclick="return confirm('이 공연을 삭제하시겠습니까?\n\n• 예매 내역이 없으면 완전히 삭제됩니다.\n• 예매 내역이 있으면 비활성 처리(CLOSED)됩니다.');">
 										삭제
 									</button>
 								</form>

@@ -19,6 +19,10 @@ package stu.admin.main;
  *    2026.05.25 - 탬퍼 탐지 로직 제거 (Splunk 측 처리)
  *    2026.05.25 - URL 네이밍 팀 규칙 적용 (소문자 + 슬래시 분리)
  *                 예) /admin/concertList.do → /admin/concert/list.do
+ *    2026.05.25 - 공연 등록/수정/삭제 처리 결과를 Flash Message 로 전달
+ *                 · RedirectAttributes 사용 (Spring 표준)
+ *                 · 삭제는 스마트 삭제 결과(0건=Hard, N건=Soft)에 따라 메시지 분기
+ *                 · 리턴 타입 ModelAndView → String 변경 (PRG 패턴 단순화)
  * ============================================================
  */
 
@@ -33,7 +37,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import stu.common.common.CommandMap;
 
@@ -85,7 +89,6 @@ public class AdminMainController {
 		List<Map<String, Object>> concertList = adminMainService.selectConcertList(commandMap.getMap());
 		mv.addObject("concertList", concertList);
 
-		// 페이징/검색 파라미터 유지
 		mv.addObject("searchType",  commandMap.get("searchType"));
 		mv.addObject("keyword",     commandMap.get("keyword"));
 		mv.addObject("PAGE_INDEX",  commandMap.get("PAGE_INDEX"));
@@ -127,16 +130,20 @@ public class AdminMainController {
 	 * URL : POST /admin/concert/insert.do
 	 */
 	@RequestMapping(value = "/concert/insert.do", method = RequestMethod.POST)
-	public ModelAndView concertInsert(CommandMap commandMap, HttpServletRequest request)
-			throws Exception {
+	public String concertInsert(CommandMap commandMap,
+			HttpServletRequest request,
+			RedirectAttributes redirectAttributes) throws Exception {
 
 		log.info("[AUDIT][admin] concertInsert called from ip=" + getClientIp(request)
 				+ ", title=" + commandMap.get("title"));
 
 		adminMainService.insertConcert(commandMap);
 
-		// PRG 패턴 (POST 후 GET 리다이렉트)
-		return new ModelAndView(new RedirectView("/admin/concert/list.do"));
+		redirectAttributes.addFlashAttribute("msg",
+			"공연이 등록되었습니다.");
+		redirectAttributes.addFlashAttribute("msgType", "success");
+
+		return "redirect:/admin/concert/list.do";
 	}
 
 	/**
@@ -144,31 +151,50 @@ public class AdminMainController {
 	 * URL : POST /admin/concert/update.do
 	 */
 	@RequestMapping(value = "/concert/update.do", method = RequestMethod.POST)
-	public ModelAndView concertUpdate(CommandMap commandMap, HttpServletRequest request)
-			throws Exception {
+	public String concertUpdate(CommandMap commandMap,
+			HttpServletRequest request,
+			RedirectAttributes redirectAttributes) throws Exception {
 
 		log.info("[AUDIT][admin] concertUpdate called from ip=" + getClientIp(request)
 				+ ", concertId=" + commandMap.get("concertId"));
 
 		adminMainService.updateConcert(commandMap);
 
-		return new ModelAndView(new RedirectView("/admin/concert/list.do"));
+		redirectAttributes.addFlashAttribute("msg",
+			"공연 정보가 수정되었습니다.");
+		redirectAttributes.addFlashAttribute("msgType", "success");
+
+		return "redirect:/admin/concert/list.do";
 	}
 
 	/**
-	 * 공연 삭제 처리 (soft delete : status='CLOSED').
+	 * 공연 삭제 처리 (스마트 삭제).
 	 * URL : POST /admin/concert/delete.do
+	 *
+	 *  - 예매 0건  : Hard Delete  → "공연이 완전히 삭제되었습니다." (success)
+	 *  - 예매 1건+ : Soft Delete  → "예매 내역(N건)이 있어 비활성 처리되었습니다." (info)
 	 */
 	@RequestMapping(value = "/concert/delete.do", method = RequestMethod.POST)
-	public ModelAndView concertDelete(CommandMap commandMap, HttpServletRequest request)
-			throws Exception {
+	public String concertDelete(CommandMap commandMap,
+			HttpServletRequest request,
+			RedirectAttributes redirectAttributes) throws Exception {
 
 		log.info("[AUDIT][admin] concertDelete called from ip=" + getClientIp(request)
 				+ ", concertId=" + commandMap.get("concertId"));
 
-		adminMainService.deleteConcert(commandMap);
+		int bookingCount = adminMainService.deleteConcert(commandMap);
 
-		return new ModelAndView(new RedirectView("/admin/concert/list.do"));
+		if (bookingCount > 0) {
+			redirectAttributes.addFlashAttribute("msg",
+				"예매 내역이 " + bookingCount + "건 있어 공연을 비활성 처리했습니다. (상태: CLOSED)");
+			redirectAttributes.addFlashAttribute("msgType", "info");
+		} else {
+			redirectAttributes.addFlashAttribute("msg",
+				"공연이 완전히 삭제되었습니다.");
+			redirectAttributes.addFlashAttribute("msgType", "success");
+		}
+
+		return "redirect:/admin/concert/list.do";
 	}
 
 	// =====================================================================
