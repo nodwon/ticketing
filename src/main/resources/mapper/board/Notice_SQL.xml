@@ -1,82 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="notice">
-	
-	<select id="selectNoticeList" parameterType="hashmap" resultType="hashmap">
-		<include refid="common1.pagingPre1"/> 
-		<![CDATA[
-			SELECT
-				ROW_NUMBER() OVER (ORDER BY NOTICE_NO DESC) RNUM,
-			    NOTICE_NO,
-			    NOTICE_TITLE,
-			    TO_CHAR(NOTICE_DATE, 'YYYY.MM.DD') AS NOTICE_DATE
-			FROM
-			    NOTICE
-			WHERE
-				NOTICE_GUBUN = '0'
-		]]>
-		<include refid="common1.pagingPost1"/> 
-	</select>
-	
-	<insert id="insertNotice" parameterType="hashmap" useGeneratedKeys="true" keyProperty="NOTICE_NO">
-		<selectKey keyProperty="NOTICE_NO" resultType="string" order="BEFORE">
-			SELECT NOTICE_NO_SEQ.NEXTVAL FROM DUAL
-		</selectKey>
-		<![CDATA[
-			INSERT INTO NOTICE
-			(
-				NOTICE_NO,
-			    NOTICE_TITLE, 
-			    NOTICE_CONTENT, 
-			    NOTICE_GUBUN,
-			    NOTICE_DATE, 
-			    MEMBER_NO
-			)
-			VALUES
-			(
-				#{NOTICE_NO}, 
-				#{NOTICE_TITLE},
-				#{NOTICE_CONTENT},
-			    0, 
-			    SYSDATE, 
-			    #{MEMBER_NO}
-			)
-		]]>
-	</insert>	
-	
-	<select id="selectNoticeDetail" parameterType="hashmap" resultType="hashmap">
-		<![CDATA[
-			SELECT
-				NOTICE_NO,
-				NOTICE_DATE,
-				NOTICE_TITLE,
-				NOTICE_CONTENT
-			FROM
-				NOTICE
-			WHERE
-				NOTICE_NO = #{NOTICE_NO}		
-		]]>
-	</select>
-	
-	<update id="updateNotice" parameterType="hashmap">
-		<![CDATA[
-			UPDATE NOTICE 
-			SET
-				NOTICE_TITLE = #{NOTICE_TITLE},
-				NOTICE_CONTENT = #{NOTICE_CONTENT}
-			WHERE
-				NOTICE_NO = #{NOTICE_NO}	
-		]]>
-	</update>
-	
-	<update id="deleteNotice" parameterType="hashmap">
-		<![CDATA[
-			DELETE 
-				NOTICE
-			WHERE
-				NOTICE_NO = #{NOTICE_NO}
-		]]>
-	</update>
+
+    <!-- 공지사항 목록 (페이징) -->
+    <!-- 수정: NOTICE_CONTENT CLOB → DBMS_LOB.SUBSTR로 VARCHAR2 변환 (JSON 직렬화 오류 방지) -->
+    <select id="selectNoticeList" parameterType="hashmap" resultType="hashmap">
+        <![CDATA[
+            SELECT AAA.*
+            FROM (
+                SELECT COUNT(*) OVER() AS TOTAL_COUNT,
+                       AA.*
+                FROM (
+                    SELECT
+                        ROW_NUMBER() OVER (ORDER BY NOTICE_NO DESC) RNUM,
+                        NOTICE_NO,
+                        NOTICE_TITLE,
+                        DBMS_LOB.SUBSTR(NOTICE_CONTENT, 4000, 1) AS NOTICE_CONTENT,
+                        NOTICE_GUBUN,
+                        TO_CHAR(NOTICE_DATE, 'YYYY.MM.DD') AS NOTICE_DATE,
+                        MEMBER_NO
+                    FROM NOTICE
+                    WHERE NOTICE_GUBUN = '0'
+                ) AA
+            ) AAA
+            WHERE AAA.RNUM BETWEEN #{START} AND #{END}
+        ]]>
+    </select>
+
+    <!-- 공지사항 상세 -->
+    <!-- 수정: NOTICE_CONTENT CLOB → DBMS_LOB.SUBSTR 변환 -->
+    <select id="selectNoticeDetail" parameterType="hashmap" resultType="hashmap">
+        <![CDATA[
+            SELECT
+                NOTICE_NO,
+                NOTICE_TITLE,
+                DBMS_LOB.SUBSTR(NOTICE_CONTENT, 4000, 1) AS NOTICE_CONTENT,
+                NOTICE_GUBUN,
+                TO_CHAR(NOTICE_DATE, 'YYYY.MM.DD HH24:MI:SS') AS NOTICE_DATE,
+                MEMBER_NO
+            FROM NOTICE
+            WHERE NOTICE_NO = #{NOTICE_NO}
+        ]]>
+    </select>
+
+    <!-- 공지사항 등록 -->
+    <insert id="insertNotice" parameterType="hashmap">
+        <selectKey keyProperty="NOTICE_NO" resultType="string" order="BEFORE">
+            SELECT NOTICE_NO_SEQ.NEXTVAL FROM DUAL
+        </selectKey>
+        <![CDATA[
+            INSERT INTO NOTICE (
+                NOTICE_NO,
+                NOTICE_TITLE,
+                NOTICE_CONTENT,
+                NOTICE_GUBUN,
+                NOTICE_DATE,
+                MEMBER_NO
+            ) VALUES (
+                #{NOTICE_NO},
+                #{NOTICE_TITLE},
+                #{NOTICE_CONTENT},
+                '0',
+                SYSDATE,
+                #{MEMBER_NO}
+            )
+        ]]>
+    </insert>
+
+    <!-- 공지사항 수정 -->
+    <update id="updateNotice" parameterType="hashmap">
+        <![CDATA[
+            UPDATE NOTICE
+            SET
+                NOTICE_TITLE   = #{NOTICE_TITLE},
+                NOTICE_CONTENT = #{NOTICE_CONTENT}
+            WHERE NOTICE_NO = #{NOTICE_NO}
+        ]]>
+    </update>
+
+    <!-- 공지사항 삭제 (소프트 삭제: GUBUN = '9') -->
+    <update id="deleteNotice" parameterType="hashmap">
+        <![CDATA[
+            UPDATE NOTICE
+            SET NOTICE_GUBUN = '9'
+            WHERE NOTICE_NO = #{NOTICE_NO}
+        ]]>
+    </update>
 
 </mapper>
