@@ -4,11 +4,27 @@
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
 						http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-3.0.xsd">
 
+<<<<<<< HEAD
 	<bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="oracle.jdbc.driver.OracleDriver"/>
  		<property name="url" value="jdbc:oracle:thin:@//localhost:1521/XEPDB1"/>
     	<property name="username" value="ticket_dev" />
     	<property name="password" value="ticket_dev_2026" />
+=======
+    <!-- ============================================================ -->
+    <!-- DB 접속 정보는 외부 properties 파일에서 로드                    -->
+    <!-- 파일 위치: src/main/resources/config/jdbc.properties           -->
+    <!-- 본 파일은 .gitignore 에 의해 Git 추적 제외됨                    -->
+    <!-- 팀원은 jdbc.properties.example 을 복사해서 본인 환경에 맞게 작성 -->
+    <!-- ============================================================ -->
+    <context:property-placeholder location="classpath:config/jdbc.properties" />
+
+    <bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="${db.driver}" />
+        <property name="url"             value="${db.url}" />
+        <property name="username"        value="${db.username}" />
+        <property name="password"        value="${db.password}" />
+>>>>>>> origin/feature/jhyjhy
     </bean>
 
     <bean id="dataSource" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
