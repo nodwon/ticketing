@@ -130,6 +130,21 @@
     좌석을 선택해 주세요
 </div>
 
+
+<div style="text-align:center; margin-top:20px;">
+    <button onclick="goToBooking()" 
+            style="padding:15px 50px; 
+                   background:#3498db; 
+                   color:white; 
+                   border:none; 
+                   border-radius:5px; 
+                   font-size:16px; 
+                   font-weight:bold;
+                   cursor:pointer;">
+        🎫 예매하기
+    </button>
+</div>
+
 <script>
     // 페이지 진입 시 scheduleId 받기 (Controller에서 넘긴 값)
     var scheduleId = '${scheduleId}';
@@ -266,6 +281,23 @@
         
         document.getElementById('info').innerHTML = msg;
     }
+    
+ // 예매 페이지로 이동
+    function goToBooking() {
+        if (selectedSeats.length === 0) {
+            alert('좌석을 먼저 선택해주세요!');
+            return;
+        }
+        
+        // 선택한 좌석 ID들을 콤마로 연결
+        var seatIds = selectedSeats.map(function(s) {
+            return s.seatId;
+        }).join(',');
+        
+        // 예매 페이지로 이동
+        location.href = '/booking/form.do?scheduleId=' + scheduleId + '&seatIds=' + seatIds;
+    }
+    
     
     // 페이지 로드 시 좌석 불러오기
     window.onload = function() {
