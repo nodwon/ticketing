@@ -28,13 +28,13 @@ public class QnaServiceImpl implements QnaService{
 	}
 
 	@Override
-	public Map<String, Object> selectQnaDetail(Map<String, Object> map) throws Exception {
-		Map<String, Object> resultMap = new HashMap<String,Object>();
-		Map<String, Object> tempMap = qnaDAO.selectQnaDetail(map);
-		tempMap.put("RNUM", map.get("RNUM"));
-		resultMap.put("map", tempMap);		
-		return resultMap;
-	}
+    public Map<String, Object> selectQnaDetail(Map<String, Object> map) throws Exception {
+        Map<String, Object> resultMap = new HashMap<String,Object>();
+        Map<String, Object> tempMap = qnaDAO.selectQnaDetail(map);
+        if(tempMap != null) tempMap.put("RNUM", map.get("RNUM"));
+        resultMap.put("map", tempMap);        
+        return resultMap;
+    }
 
 	@Override
 	public void updateQna(Map<String, Object> map, HttpServletRequest request) throws Exception{

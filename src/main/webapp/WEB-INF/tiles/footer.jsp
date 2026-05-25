@@ -49,7 +49,7 @@
         <h5>고객지원</h5>
         <ul>
           <li><a href="/notice/openNoticeList.do">공지사항</a></li>
-          <li><a href="/qna/openQnaList.do">Q&amp;N 문의게시판</a></li>
+          <li><a href="/qna/openQnaList.do">Q&amp;A 문의게시판</a></li>
           <li><a href="/faq/openFaqList.do">FAQ</a></li>
           <li><a href="#">이용약관</a></li>
           <li><a href="#">개인정보처리방침</a></li>

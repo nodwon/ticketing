@@ -105,7 +105,7 @@ a { text-decoration: none; color: inherit; }
         </a>
         <a href="/qna/openQnaList.do">
           <span class="icon">💬</span>
-          <span>Q&amp;N</span>
+          <span>Q&amp;A</span>
         </a>
         <c:choose>
           <c:when test="${SESSION_NO eq null}">
