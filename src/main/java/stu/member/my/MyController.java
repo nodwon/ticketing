@@ -57,7 +57,7 @@ public class MyController {
         ModelAndView mv = new ModelAndView();
 
         // 로그인 체크
-        Object memberId = session.getAttribute("MEMBER_ID");
+        Object memberId = session.getAttribute("memberId");
         if (memberId == null) {
             log.debug("[MY/INFO] 미로그인 → 로그인 페이지로 이동");
             mv.setViewName("redirect:/member/loginForm.do");
@@ -86,7 +86,7 @@ public class MyController {
     public ModelAndView updateMemberInfo(CommandMap commandMap, HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("MEMBER_ID");
+        Object memberId = session.getAttribute("memberId");
         if (memberId == null) {
             mv.setViewName("redirect:/member/loginForm.do");
             return mv;
@@ -122,7 +122,7 @@ public class MyController {
     public ModelAndView getBookingList(HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("MEMBER_ID");
+        Object memberId = session.getAttribute("memberId");
         if (memberId == null) {
             mv.setViewName("redirect:/member/loginForm.do");
             return mv;
@@ -150,7 +150,7 @@ public class MyController {
     public ModelAndView deleteMember(HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("MEMBER_ID");
+        Object memberId = session.getAttribute("memberId");
         if (memberId == null) {
             mv.setViewName("redirect:/member/loginForm.do");
             return mv;
