@@ -1,3 +1,20 @@
+/**
+ * ============================================================
+ * Project   : 관제 티켓 (Ticketing System)
+ * Package   : stu.member.login
+ * FileName  : LoginService.java
+ *
+ * Developer : 심재학 (feature/batman)
+ * Created   : 2026.05.25
+ * Modified  : 2026.05.25
+ *
+ * Description :
+ *   - 로그인 처리 인터페이스
+ *   - 이메일/비밀번호 검증
+ *   - 아이디(이메일)/비밀번호 찾기
+ *   - 마지막 로그인 시각 갱신
+ * ============================================================
+ */
 package stu.member.login;
 
 import java.util.Map;

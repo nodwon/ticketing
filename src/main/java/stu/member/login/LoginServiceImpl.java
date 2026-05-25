@@ -1,3 +1,18 @@
+/**
+ * ============================================================
+ * Project   : 관제 티켓 (Ticketing System)
+ * Package   : stu.member.login
+ * FileName  : LoginServiceImpl.java
+ *
+ * Developer : 심재학 (feature/batman)
+ * Created   : 2026.05.25
+ * Modified  : 2026.05.25
+ *
+ * Description :
+ *   - LoginService 인터페이스 구현체
+ *   - 보안 이벤트 로그 분리 (Splunk 수집용)
+ * ============================================================
+ */
 package stu.member.login;
 
 import java.util.Map;

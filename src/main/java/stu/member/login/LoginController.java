@@ -1,3 +1,18 @@
+/**
+ * ============================================================
+ * Project   : 관제 티켓 (Ticketing System)
+ * Package   : stu.member.login
+ * FileName  : LoginController.java
+ *
+ * Developer : 심재학 (feature/batman)
+ * Created   : 2026.05.25
+ * Modified  : 2026.05.25
+ *
+ * Description :
+ *   - 로그인 폼 / 로그인 처리 / 로그아웃
+ *   - 아이디(이메일) 찾기 / 비밀번호 초기화
+ * ============================================================
+ */
 package stu.member.login;
 
 import java.util.Map;
