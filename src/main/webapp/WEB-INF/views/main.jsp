@@ -15,7 +15,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>관제 티켓 – GWANJE TICKET</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -42,70 +42,7 @@ a { text-decoration: none; color: inherit; }
 ul { list-style: none; }
 img { display: block; }
 
-/* ═══════════════════════════════════
-   HEADER / NAV
-═══════════════════════════════════ */
-.site-header {
-    position: sticky; top: 0; z-index: 999;
-    background: var(--dark);
-    border-bottom: 2px solid var(--red);
-}
-.header-inner {
-    max-width: 1280px; margin: 0 auto;
-    padding: 0 24px;
-    display: flex; align-items: center; justify-content: space-between;
-    height: 64px;
-}
-.logo {
-    font-family: var(--font-en);
-    font-size: 26px; font-weight: 800;
-    letter-spacing: 4px; color: var(--white);
-    display: flex; align-items: center; gap: 10px;
-}
-.logo span { color: var(--red); }
-.logo .logo-sub {
-    font-family: var(--font-kr);
-    font-size: 10px; font-weight: 300;
-    letter-spacing: 3px; color: #aaa;
-    display: block; line-height: 1.2;
-    margin-top: 2px;
-}
 
-.gnb { display: flex; align-items: center; gap: 6px; }
-.gnb-item {
-    position: relative;
-    padding: 0 14px; height: 64px;
-    display: flex; align-items: center;
-    font-size: 13px; font-weight: 600;
-    color: #ccc; letter-spacing: 1px;
-    transition: color .2s;
-    cursor: pointer;
-}
-.gnb-item:hover, .gnb-item.active { color: var(--white); }
-.gnb-item::after {
-    content: ''; position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 2px; background: var(--red);
-    transform: scaleX(0); transition: transform .2s;
-}
-.gnb-item:hover::after, .gnb-item.active::after { transform: scaleX(1); }
-
-.header-util {
-    display: flex; align-items: center; gap: 16px;
-}
-.util-btn {
-    font-size: 12px; font-weight: 600;
-    letter-spacing: 1px; color: #aaa;
-    padding: 6px 14px; border-radius: 2px;
-    border: 1px solid #333; cursor: pointer;
-    transition: all .2s;
-}
-.util-btn:hover { color: var(--white); border-color: var(--white); }
-.util-btn.primary {
-    background: var(--red); color: var(--white);
-    border-color: var(--red);
-}
-.util-btn.primary:hover { background: #c00016; }
 
 /* ═══════════════════════════════════
    CATEGORY BAR
@@ -502,58 +439,6 @@ img { display: block; }
 </head>
 <body>
 
-<!-- ══ HEADER ══════════════════════════════════ -->
-<header class="site-header">
-    <div class="header-inner">
-        <a href="/main.do" class="logo">
-            <div>
-                GWANJE<span>TICKET</span>
-                <small class="logo-sub">관제 티켓</small>
-            </div>
-        </a>
-
-        <nav class="gnb">
-            <a href="#" class="gnb-item active">콘서트</a>
-            <a href="#" class="gnb-item">뮤지컬</a>
-            <a href="#" class="gnb-item">연극</a>
-            <a href="#" class="gnb-item">클래식/무용</a>
-            <a href="#" class="gnb-item">전시/스포츠</a>
-            <a href="#" class="gnb-item">가족/어린이</a>
-            <a href="#" class="gnb-item">이벤트</a>
-        </nav>
-
-        <div class="header-util">
-            <%if (isLogin) {%>
-                <span style="font-size:12px;color:#aaa;">Hi, <strong style="color:#fff;"><%=sessionName%></strong>님!</span>
-                <%if (isAdmin) {%>
-                    <a href="/adminMain.do" class="util-btn">관리자</a>
-                <%}%>
-                <a href="/my/info.do" class="util-btn">마이페이지</a>
-                <a href="#" class="util-btn" id="logoutBtn">로그아웃</a>
-            <%} else {%>
-                <a href="/loginForm.do" class="util-btn">로그인</a>
-                <a href="/joinForm.do" class="util-btn primary">회원가입</a>
-            <%}%>
-        </div>
-    </div>
-</header>
-
-<!-- ══ CATEGORY BAR ════════════════════════════ -->
-<div class="cat-bar">
-    <div class="cat-inner">
-        <div class="cat-item active" onclick="filterGoods('ALL')">전체</div>
-        <div class="cat-item" onclick="filterGoods('POP')">K-POP</div>
-        <div class="cat-item" onclick="filterGoods('ROCK')">록/인디</div>
-        <div class="cat-item" onclick="filterGoods('TROT')">트로트</div>
-        <div class="cat-item" onclick="filterGoods('JAZZ')">재즈</div>
-        <div class="cat-item" onclick="filterGoods('CLASSIC')">클래식</div>
-        <div class="cat-item" onclick="filterGoods('MUSICAL')">뮤지컬</div>
-        <div class="cat-item" onclick="filterGoods('PLAY')">연극</div>
-        <div class="cat-item" onclick="filterGoods('FAMILY')">가족</div>
-        <div class="cat-item" onclick="filterGoods('SPORT')">스포츠</div>
-    </div>
-</div>
-
 <!-- ══ HERO SLIDER ═════════════════════════════ -->
 <div class="hero-slider-wrap">
     <ul class="bxslider" id="heroSlider">
@@ -565,7 +450,7 @@ img { display: block; }
                     <span class="slide-tag">WORLD TOUR 2026</span>
                     <h1 class="slide-title">IU HEREH<br>WORLD TOUR</h1>
                     <p class="slide-subtitle">서울올림픽주경기장 · 2026.08.15~16</p>
-                    <div class="slide-btn" onclick="goDetail(1)">예매하기 →</div>
+                    <div class="slide-btn" onclick="location.href='/concert/list.do'">예매하기 →</div>
                 </div>
             </div>
         </li>
@@ -577,7 +462,7 @@ img { display: block; }
                     <span class="slide-tag">CONCERT 2026</span>
                     <h1 class="slide-title">BTS<br>PERMISSION TO DANCE</h1>
                     <p class="slide-subtitle">KSPO DOME · 2026.09.05~06</p>
-                    <div class="slide-btn" onclick="goDetail(2)">예매하기 →</div>
+                    <div class="slide-btn" onclick="location.href='/concert/list.do'">예매하기 →</div>
                 </div>
             </div>
         </li>
@@ -589,7 +474,7 @@ img { display: block; }
                     <span class="slide-tag">FAN MEETING 2026</span>
                     <h1 class="slide-title">NewJeans<br>BUNNIES CAMP</h1>
                     <p class="slide-subtitle">잠실실내체육관 · 2026.11.22</p>
-                    <div class="slide-btn" onclick="goDetail(3)">예매하기 →</div>
+                    <div class="slide-btn" onclick="location.href='/concert/list.do'">예매하기 →</div>
                 </div>
             </div>
         </li>
@@ -599,27 +484,27 @@ img { display: block; }
 <!-- ══ QUICK LINKS ══════════════════════════════ -->
 <div class="quick-section">
     <div class="quick-inner">
-        <div class="quick-item" onclick="location.href='#'">
+        <div class="quick-item" onclick="location.href='/concert/list.do'">
             <div class="quick-icon">🎤</div>
             <span class="quick-label">콘서트</span>
         </div>
-        <div class="quick-item" onclick="location.href='#'">
+        <div class="quick-item" onclick="location.href='/concert/list.do'">
             <div class="quick-icon">🎭</div>
             <span class="quick-label">뮤지컬/연극</span>
         </div>
-        <div class="quick-item" onclick="location.href='#'">
+        <div class="quick-item" onclick="location.href='/concert/list.do'">
             <div class="quick-icon">🎻</div>
             <span class="quick-label">클래식/무용</span>
         </div>
-        <div class="quick-item" onclick="location.href='#'">
+        <div class="quick-item" onclick="location.href='/concert/list.do'">
             <div class="quick-icon">⚽</div>
             <span class="quick-label">전시/스포츠</span>
         </div>
-        <div class="quick-item" onclick="location.href='#'">
+        <div class="quick-item" onclick="location.href='/concert/list.do'">
             <div class="quick-icon">🎪</div>
             <span class="quick-label">가족/어린이</span>
         </div>
-        <div class="quick-item" onclick="location.href='#'">
+        <div class="quick-item" onclick="location.href='/concert/list.do'">
             <div class="quick-icon">🎟</div>
             <span class="quick-label">이벤트</span>
         </div>
@@ -646,7 +531,7 @@ img { display: block; }
             지금 가장 뜨거운 공연
             <span class="en">WHAT'S HOT</span>
         </h2>
-        <span class="section-more" onclick="location.href='#'">전체보기</span>
+        <span class="section-more" onclick="location.href='/concert/list.do'">전체보기</span>
     </div>
     <div class="poster-grid" id="newGrid">
         <!-- 스켈레톤 -->
@@ -689,7 +574,7 @@ img { display: block; }
             인기 공연 랭킹
             <span class="en">BEST</span>
         </h2>
-        <span class="section-more" onclick="location.href='#'">전체보기</span>
+        <span class="section-more" onclick="location.href='/concert/list.do'">전체보기</span>
     </div>
     <div class="poster-grid col6" id="bestGrid">
         <div class="skeleton-card poster-card"><div class="poster-thumb"></div><div class="s-line"></div><div class="s-line short"></div></div>
@@ -705,79 +590,7 @@ img { display: block; }
 
 <form id="commonForm" name="commonForm"></form>
 
-<!-- ══ FOOTER ═════════════════════════════════ -->
-<footer class="site-footer">
-    <div class="footer-top">
-        <div class="footer-top-inner">
-            <div class="footer-brand">
-                <div class="logo-footer">GWANJE<span>TICKET</span></div>
-                <p>30기 최종 프로젝트 · TEAM JANUS</p>
-                <div class="footer-link-group">
-                    <a href="https://github.com/nodwon/ticketing" target="_blank">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.11.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.48 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 013-.4c1.02 0 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58C20.57 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
-                        GitHub
-                    </a>
-                    <a href="https://www.notion.so/30-362e2b387a8680b7bbbdc394878a7215" target="_blank">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.46 2.43C5.1 2.96 5.35 2.92 6.58 2.85l12.1-.71c.24 0 .02-.24-.04-.28L16.4.27C15.88-.08 15.17 0 14.52 0L2.88.75C2.17.8 1.99 1.14 2.27 1.4l2.19 1.03zM5.63 5.1V19.4c0 .71.35 1.03 1.15 1l13.25-.75c.8-.05 1-.47 1-1.05V4.37c0-.57-.24-.87-.75-.83l-13.7.79c-.54.04-.95.42-.95.77zm12.7.65v12.45l-11.4.65V5.9l11.4-.15zM17.28 6.2c.08.35 0 .7-.35.75l-.6.12v8.77c-.52.28-.99.44-1.4.44-.65 0-.8-.2-1.3-.79l-3.96-6.23v6.03l1.26.28s0 .7-.97.7L7.85 16.4c-.08-.19 0-.65.28-.71l.73-.2V8.2L7.85 8.1c-.08-.35.12-.83.7-.87l2.64-.16 4.1 6.28V7.66L14.1 7.5c-.08-.43.2-.75.6-.79l2.58-.51z"/></svg>
-                        Notion
-                    </a>
-                </div>
-            </div>
 
-            <div class="footer-col">
-                <h5>고객지원</h5>
-                <ul>
-                    <li><a href="/notice/openNoticeList.do">공지사항</a></li>
-                    <li><a href="/faq/openFaqList.do">FAQ</a></li>
-                    <li><a href="/qna/openQnaList.do">1:1 문의</a></li>
-                    <li><a href="#">이용약관</a></li>
-                    <li><a href="#">개인정보처리방침</a></li>
-                </ul>
-            </div>
-
-            <div class="footer-col">
-                <h5>서비스</h5>
-                <ul>
-                    <li><a href="#">콘서트</a></li>
-                    <li><a href="#">뮤지컬/연극</a></li>
-                    <li><a href="#">전시/스포츠</a></li>
-                    <li><a href="#">이벤트</a></li>
-                    <li><a href="#">티켓 판매 안내</a></li>
-                </ul>
-            </div>
-
-            <div class="footer-col footer-cs">
-                <h5>CS CENTER</h5>
-                <div class="cs-num">070-7111-2427</div>
-                <div class="cs-time">
-                    평일 10:00 ~ 17:00<br>
-                    토·일·공휴일 휴무<br>
-                    점심시간 13:00 ~ 14:00
-                </div>
-            </div>
-        </div>
-        <div style="max-width:1280px;margin:0 auto;padding:20px 24px 0;">
-            <div class="footer-info">
-                <span>팀명: TEAM JANUS</span>
-                <span>30기 최종 프로젝트</span>
-                <span>사업자등록번호: 111-81-01111</span>
-                <span>주소: 서울 금천구 중구 동호로 256</span>
-                <span>개인정보관리책임자: 전형준 (a@a.co.kr)</span>
-            </div>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <div class="footer-bottom-links">
-            <a href="#">회사소개</a>
-            <a href="#">이용약관</a>
-            <a href="#" class="em">개인정보처리방침</a>
-            <a href="#">청소년보호정책</a>
-            <a href="https://github.com/nodwon/ticketing" target="_blank">GitHub</a>
-            <a href="https://www.notion.so/30-362e2b387a8680b7bbbdc394878a7215" target="_blank">Notion</a>
-        </div>
-        <div class="footer-copy">© 2026 TEAM JANUS · GWANJE TICKET. ALL RIGHTS RESERVED.</div>
-    </div>
-</footer>
 
 <script>
 /* ── Canvas로 배너 이미지 생성 ────────────── */
@@ -924,8 +737,8 @@ function renderGrid(gridId, data, showRank) {
 
 function goDetail(no) {
     var comSubmit = new ComSubmit();
-    comSubmit.setUrl('<c:url value="/shop/goodsDetail.do"/>');
-    comSubmit.addParam('IDX', no);
+    comSubmit.setUrl('<c:url value="/concert/detail.do"/>');
+    comSubmit.addParam('concertId', no);
     comSubmit.submit();
 }
 
