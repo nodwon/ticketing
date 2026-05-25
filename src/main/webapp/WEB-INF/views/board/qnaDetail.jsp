@@ -6,6 +6,11 @@
 <%
 	String sessionId = (String) session.getAttribute("SESSION_NAME");
 	String sessionName = (String) session.getAttribute("SESSION_ID");
+	
+	// 💡 [1차 Null 방어막] 비회원 접속 시 sessionId가 null이 되는 것을 방지
+	if (sessionId == null) {
+		sessionId = "";
+	}
 %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions"%>
@@ -13,7 +18,6 @@
 <link rel="stylesheet" type="text/css"
 	href="<c:url value='/css/uii.css'/>" />
 
-<!-- jQuery -->
 <script
 	src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
 <script src="<c:url value='/js/commonn.js'/>" charset="utf-8"></script>
@@ -23,7 +27,6 @@
 a {
   text-decoration: none;
   color: #666;
-  text-decoration:none
 }
 
 h1 {
@@ -97,7 +100,8 @@ h1 {
 				fn_openQnaUpdate();
 			});
 	<%
-	if (sessionId.trim().equals("admin")) {
+	// 💡 [2차 안전 연산] trim()을 수행하기 전 한 번 더 null 체크 안전성 보장
+	if (sessionId != null && sessionId.trim().equals("admin")) {
 	%>
 		$("#update").show();
 	<%

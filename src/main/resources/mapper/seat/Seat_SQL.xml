@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    ============================================================
+    Project  : 관제 티켓 (Ticketing System)
+    Package  : mapper.seat
+    FileName : Seat_SQL.xml
+    
+    Developer : 정희영 (feature/jhyjhy)
+    Created  : 2026.05.24
+    Modified  : 2026.05.25
+    
+    Description :
+    - 좌석 관련 SQL 매퍼
+    - namespace = "seat"
+    - 컬럼 별칭에 큰따옴표 사용 (Oracle camelCase 반환을 위함)
+    
+    [SQL 목록]
+    - selectSeatList : 좌석 현황 조회 (스케줄별 전체)
+    - selectSeat     : 좌석 단건 조회
+    - holdSeat       : 좌석 임시 선점 (조건부 UPDATE)
+    - releaseSeat    : 좌석 선점 해제 (조건부 UPDATE)
+    ============================================================
+-->
+<mapper namespace="seat">
+    
+    <!-- 1. 좌석 현황 조회 (특정 스케줄의 모든 좌석) -->
+    <select id="selectSeatList" parameterType="map" resultType="hashmap">
+        SELECT
+            seat_id      AS "seatId",
+            schedule_id  AS "scheduleId",
+            seat_row     AS "seatRow",
+            seat_col     AS "seatCol",
+            price        AS "price",
+            status       AS "status"
+        FROM seats
+        WHERE schedule_id = #{scheduleId}
+        ORDER BY seat_row, seat_col
+    </select>
+    
+    <!-- 2. 좌석 단건 조회 -->
+    <select id="selectSeat" parameterType="map" resultType="hashmap">
+        SELECT
+            seat_id      AS "seatId",
+            schedule_id  AS "scheduleId",
+            seat_row     AS "seatRow",
+            seat_col     AS "seatCol",
+            price        AS "price",
+            status       AS "status"
+        FROM seats
+        WHERE seat_id = #{seatId}
+    </select>
+    
+    <!-- 3. 좌석 임시 선점 (AVAILABLE → HELD) -->
+    <!--    조건부 UPDATE: status가 AVAILABLE일 때만 변경 -->
+    <!--    Race Condition 방지의 1차 방어선 -->
+    <update id="holdSeat" parameterType="map">
+        UPDATE seats
+        SET status = 'HELD'
+        WHERE seat_id = #{seatId}
+          AND status = 'AVAILABLE'
+    </update>
+    
+    <!-- 4. 좌석 선점 해제 (HELD → AVAILABLE) -->
+    <!--    조건부 UPDATE: status가 HELD일 때만 변경 -->
+    <update id="releaseSeat" parameterType="map">
+        UPDATE seats
+        SET status = 'AVAILABLE'
+        WHERE seat_id = #{seatId}
+          AND status = 'HELD'
+    </update>
+    
+</mapper>

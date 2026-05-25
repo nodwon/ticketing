@@ -1,5 +1,28 @@
 package stu.admin.main;
 
+/**
+ * ============================================================
+ *  Project   : 관제 티켓 (Ticketing System)
+ *  Package   : stu.admin.main
+ *  FileName  : AdminMainServiceImpl.java
+ *
+ *  Developer : 김태희 (feature/kth)
+ *  Created   : 2026.05.24
+ *  Modified  : 2026.05.25
+ *
+ *  Description :
+ *    - AdminMainService 구현체 (비즈니스 로직 + AUDIT 로그)
+ *    - DAO 호출 + 관리자 활동 로그 기록
+ *
+ *  History :
+ *    2026.05.25 - 탬퍼 감지 로직 제거 (Splunk 측 처리)
+ *    2026.05.25 - 스마트 공연 삭제 구현
+ *                 · 예매 0건 -> Hard Delete (FK 역순으로 자식 삭제 후 본인 삭제)
+ *                 · 예매 1건+ -> Soft Delete (status = 'CLOSED')
+ *                 · @Transactional 로 트랜잭션 보장 (중간 실패 시 롤백)
+ * ============================================================
+ */
+
 import java.util.List;
 import java.util.Map;
 
@@ -7,149 +30,106 @@ import javax.annotation.Resource;
 
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import stu.common.common.CommandMap;
 
 @Service("adminMainService")
 public class AdminMainServiceImpl implements AdminMainService {
-	
-	Logger log = Logger.getLogger(this.getClass()); // 로그
-	
-	@Resource(name="adminDao")
+
+	private Logger log = Logger.getLogger(this.getClass());
+
+	/** AUDIT 로그 prefix (관리자 활동 추적용). */
+	private static final String AUDIT_TAG = "[AUDIT][admin]";
+
+	@Resource(name = "adminDao")
 	private AdminDao adminDao;
 
+	// ---------- 대시보드 ----------
+
 	@Override
-	public List<Map<String, Object>> dashBoard(CommandMap map) throws Exception { //adminMain대쉬보드
-		// TODO Auto-generated method stub
-		return adminDao.dashBoard(map);
+	public Map<String, Object> selectDashboard(CommandMap commandMap) throws Exception {
+		return adminDao.selectDashboard(commandMap.getMap());
 	}
-	
+
+	// ---------- 공연 ----------
+
 	@Override
-	public List<Map<String, Object>> order_admin_a(CommandMap map) throws Exception { //주문/배송-신규주문
-		// TODO Auto-generated method stub
-		return adminDao.order_admin_a(map);
+	public List<Map<String, Object>> selectConcertList(Map<String, Object> map) throws Exception {
+		return adminDao.selectConcertList(map);
 	}
 
 	@Override
-	public void order_state(CommandMap map) throws Exception { // 주문상태 변경
-		// TODO Auto-generated method stub
-		adminDao.order_state(map);
+	public Map<String, Object> selectConcert(CommandMap commandMap) throws Exception {
+		return adminDao.selectConcert(commandMap.getMap());
 	}
 
 	@Override
-	public void order_state_ex(CommandMap map) throws Exception {  // 주문상태에 배송도 변경
-		// TODO Auto-generated method stub
-		adminDao.order_state_ex(map);
+	public void insertConcert(CommandMap commandMap) throws Exception {
+		log.info(AUDIT_TAG + " insertConcert title=" + commandMap.get("title")
+				+ ", artist=" + commandMap.get("artist"));
+		adminDao.insertConcert(commandMap.getMap());
 	}
 
 	@Override
-	public List<Map<String, Object>> order_detail(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		return adminDao.order_detail(commandMap);
-	}
-	
-	@Override
-	public List<Map<String, Object>> order_detail_sub(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		return adminDao.order_detail_sub(commandMap);
+	public void updateConcert(CommandMap commandMap) throws Exception {
+		log.info(AUDIT_TAG + " updateConcert concertId=" + commandMap.get("concertId"));
+		adminDao.updateConcert(commandMap.getMap());
 	}
 
+	/**
+	 * 공연 스마트 삭제.
+	 *
+	 *  1) 해당 공연의 예매 건수를 조회
+	 *  2) 0건  : Hard Delete (자식 데이터 FK 역순 정리 후 공연 삭제)
+	 *  3) 1건+ : Soft Delete (status='CLOSED')
+	 *
+	 *  여러 DELETE 가 묶이므로 트랜잭션으로 보호.
+	 *  중간 실패 시 전체 롤백 -> 일부만 삭제되어 데이터 깨지는 사고 방지.
+	 */
 	@Override
-	public List<Map<String, Object>> as_admin_list(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		return adminDao.as_admin_list(commandMap);
+	@Transactional(rollbackFor = Exception.class)
+	public int deleteConcert(CommandMap commandMap) throws Exception {
+
+		Map<String, Object> map = commandMap.getMap();
+		Object concertId = map.get("concertId");
+
+		int bookingCount = adminDao.countBookingsByConcert(map);
+
+		if (bookingCount > 0) {
+			// 예매 내역이 있으면 안전하게 Soft Delete
+			log.info(AUDIT_TAG + " deleteConcert (SOFT) concertId=" + concertId
+					+ ", bookingCount=" + bookingCount);
+			adminDao.deleteConcert(map);
+		} else {
+			// 예매 내역이 없으면 Hard Delete (자식부터 정리)
+			log.info(AUDIT_TAG + " deleteConcert (HARD) concertId=" + concertId);
+
+			// FK 역순으로 삭제 (가장 깊은 자식부터)
+			//   booking_items  →  payments  →  bookings  →  seats  →  concert_schedules  →  concerts
+			adminDao.deleteBookingItemsByConcert(map);
+			adminDao.deletePaymentsByConcert(map);
+			adminDao.deleteBookingsByConcert(map);
+			adminDao.deleteSeatsByConcert(map);
+			adminDao.deleteSchedulesByConcert(map);
+			adminDao.deleteConcertHard(map);
+		}
+
+		return bookingCount;
 	}
 
-	@Override
-	public void as_cancle_a(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		adminDao.as_cancle_a(commandMap);
-	}
+	// ---------- 회원 ----------
 
 	@Override
-	public void as_cancle_b(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		adminDao.order_list_cancle(commandMap);
-		adminDao.as_cancle_a(commandMap);
-	}
-
-	@Override
-	public void as_ok_a(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		adminDao.as_ok_state(commandMap);
-		adminDao.as_ok_orderState(commandMap);
-	}
-
-	@Override
-	public List<Map<String, Object>> change_form_a(CommandMap commandMap) throws Exception { //AS_list에서 정보 가져옴  전부* 
-		// TODO Auto-generated method stub
-		return adminDao.change_form_a(commandMap);
-	}
-
-	@Override
-	public List<Map<String, Object>> change_form_b(CommandMap commandMap) throws Exception { //교환요청한 상품속성 가져옴
-		// TODO Auto-generated method stub
-		return adminDao.change_form_b(commandMap);
-	}
-
-	@Override
-	public void change_detail_insert(CommandMap commandMap) throws Exception { // order_detail에 insert 시킴 10(출고)
-		// TODO Auto-generated method stub
-		adminDao.change_detail_insert(commandMap);
-	}
-
-	@Override
-	public void change_detail_state(CommandMap commandMap) throws Exception { //order_detail에서 detail_state 20(반품)
-		// TODO Auto-generated method stub
-		adminDao.change_detail_state(commandMap);
-	}
-
-	@Override
-	public void change_goods_att_plus(CommandMap commandMap) throws Exception { //goods_attribute에서 (반품)상품속성번호에 수량 증가
-		// TODO Auto-generated method stub
-		adminDao.change_goods_att_plus(commandMap);
-	}
-
-	@Override
-	public void change_goods_att_minus(CommandMap commandMap) throws Exception { //goods_attribute에서 (출고)상품속성번호에 수량 감소
-		// TODO Auto-generated method stub
-		adminDao.change_goods_att_minus(commandMap);
-	}
-
-	@Override
-	public void as_ok_b(CommandMap commandMap) throws Exception { // AS_LIST에서 state = 3, edate=update
-		// TODO Auto-generated method stub
-		adminDao.as_final_state(commandMap);
-		adminDao.change_final_orderState(commandMap);
-	}
-
-	@Override
-	public void order_list_chagam(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		adminDao.order_list_chagam(commandMap);
-	}
-
-	@Override
-	public void point_chagam(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		adminDao.point_chagam(commandMap);
-	}
-
-	@Override
-	public List<Map<String, Object>> point_total(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		return adminDao.point_total(commandMap);
-	}
-
-	@Override
-	public void as_ok_c(CommandMap commandMap) throws Exception {
-		// TODO Auto-generated method stub
-		adminDao.as_final_state(commandMap);
-		adminDao.cashback_final_orderState(commandMap);
-	}
-
 	public List<Map<String, Object>> selectMemberList(Map<String, Object> map) throws Exception {
 		return adminDao.selectMemberList(map);
 	}
-	
+
+	// ---------- 예매 ----------
+
+	@Override
+	public List<Map<String, Object>> selectBookingList(Map<String, Object> map) throws Exception {
+		return adminDao.selectBookingList(map);
+	}
+
 }

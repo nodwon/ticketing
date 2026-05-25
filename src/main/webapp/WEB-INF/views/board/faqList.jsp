@@ -20,18 +20,21 @@ li { list-style: none; float: left; }
 </style>
 </head>
 <body>
-<br/>
-<div class="pagemid">
-    <div class="wrapper3">
-        <ul class="flex-menu">
-            <li><a href="/faq/openFaqList.do">FAQ</a></li>
-            <li><a href="/notice/openNoticeList.do">공지사항</a></li>
-            <li><a href="/qna/openQnaList.do">QNA</a></li>
-        </ul>
-        <br>
-        <div class="bar"></div>
-    </div>
-</div>
+   <style>
+   .board-tab-wrap { max-width: 1000px; margin: 28px auto 0; padding: 0 20px; }
+   .board-tab-list { display: flex; list-style: none; margin: 0; padding: 0; border-bottom: 2px solid #e0e0e0; }
+   .board-tab-list li { float: none; }
+   .board-tab-list li a { display: block; padding: 12px 28px; font-size: 14px; font-weight: 600; color: #999; text-decoration: none; letter-spacing: 0.5px; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .18s, border-color .18s; }
+   .board-tab-list li a:hover { color: #222; }
+   .board-tab-list li a.tab-active { color: #e8001c; border-bottom-color: #e8001c; }
+   </style>
+   <div class="board-tab-wrap">
+      <ul class="board-tab-list">
+            <li><a href="/faq/openFaqList.do" class="tab-active">FAQ</a></li>
+         <li><a href="/notice/openNoticeList.do">공지사항</a></li>
+         <li><a href="/qna/openQnaList.do">Q&amp;A</a></li>
+      </ul>
+   </div>
 <br/><br/><br/>
 <h2>FAQ 자주묻는질문</h2>
 <br/><br/>

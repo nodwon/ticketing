@@ -40,7 +40,7 @@
 			<artifactId>ojdbc8</artifactId>
 			<version>21.5.0.0</version>
 		</dependency>
-
+		
 		<!-- Spring -->
 		<dependency>
 			<groupId>org.springframework</groupId>

@@ -1,54 +1,77 @@
 package stu.admin.main;
 
+/**
+ * ============================================================
+ *  Project   : 관제 티켓 (Ticketing System)
+ *  Package   : stu.admin.main
+ *  FileName  : AdminMainService.java
+ *
+ *  Developer : 김태희 (feature/kth)
+ *  Created   : 2026.05.24
+ *  Modified  : 2026.05.25
+ *
+ *  Description :
+ *    - 관리자 메인 Service 인터페이스
+ *    - 대시보드 / 공연 / 회원 / 예매 4개 기능군의 메서드 선언
+ *
+ *  History :
+ *    2026.05.25 - deleteConcert 반환 타입 변경 (void -> int)
+ *                 · 예매 건수를 반환해서 Controller 에서 메시지 분기
+ *                 · 0 이면 Hard Delete 수행됨, 1 이상이면 Soft Delete 수행됨
+ * ============================================================
+ */
+
 import java.util.List;
 import java.util.Map;
 
 import stu.common.common.CommandMap;
 
 public interface AdminMainService {
-	
-	List<Map<String, Object>> dashBoard(CommandMap commandMap) throws Exception; // AdminMain대쉬보드
-	
-	List<Map<String, Object>> order_admin_a(CommandMap map) throws Exception; // 주문/배송-신규주문건
-	
-	void order_state(CommandMap map) throws Exception; // 주문/배송- 주문상태변경
-	
-	void order_state_ex(CommandMap commandMap) throws Exception; // 주문/배송 - 송장번호 입력
 
-	List<Map<String, Object>> order_detail(CommandMap commandMap) throws Exception; //어드민 - 주문변경 상세
+	// ---------- 대시보드 ----------
 
-	List<Map<String, Object>> order_detail_sub(CommandMap commandMap) throws Exception;//어드민 - 주문변경 detail상세
+	/** 회원/공연/예매 카운트를 한 번에 조회. */
+	Map<String, Object> selectDashboard(CommandMap commandMap) throws Exception;
 
-	List<Map<String, Object>> as_admin_list(CommandMap commandMap) throws Exception; // 교환.환불.AS 신청목록 
+	// ---------- 공연 ----------
 
-	void as_cancle_a(CommandMap commandMap) throws Exception; // 교환.환불.AS (1)요청확인전에서 취소
+	/** 공연 목록 (검색/페이징). */
+	List<Map<String, Object>> selectConcertList(Map<String, Object> map) throws Exception;
 
-	void as_cancle_b(CommandMap commandMap) throws Exception; // 교환.환불.AS (2)요청확인후에서 취소
+	/** 공연 단건 조회 (수정 폼). */
+	Map<String, Object> selectConcert(CommandMap commandMap) throws Exception;
 
-	void as_ok_a(CommandMap commandMap) throws Exception; // as_list 교환.환불.AS (1)신규요청 처리
+	/** 공연 등록. */
+	void insertConcert(CommandMap commandMap) throws Exception;
 
-	List<Map<String, Object>> change_form_a(CommandMap commandMap) throws Exception; //AS_list에서 정보 가져옴  전부* 
+	/** 공연 수정. */
+	void updateConcert(CommandMap commandMap) throws Exception;
 
-	List<Map<String, Object>> change_form_b(CommandMap commandMap) throws Exception; //교환요청한 상품속성 가져옴
+	/**
+	 * 공연 스마트 삭제.
+	 *
+	 * <pre>
+	 *  - 예매 0건  : Hard Delete (자식 데이터 다 정리 후 공연 row 삭제)
+	 *  - 예매 1건+ : Soft Delete (status = 'CLOSED' 만 변경)
+	 * </pre>
+	 *
+	 * @return 삭제 시점의 예매 건수
+	 *         (Controller 에서 0/N 으로 메시지 분기용)
+	 */
+	int deleteConcert(CommandMap commandMap) throws Exception;
 
-	void change_detail_insert(CommandMap commandMap) throws Exception; // order_detail에 insert 시킴 10(출고)
+	// ---------- 회원 ----------
 
-	void change_detail_state(CommandMap commandMap) throws Exception; //order_detail에서 detail_state 20(반품)
+	/** 회원 목록 (검색/페이징). */
+	List<Map<String, Object>> selectMemberList(Map<String, Object> map) throws Exception;
 
-	void change_goods_att_plus(CommandMap commandMap) throws Exception; //goods_attribute에서 (반품)상품속성번호에 수량 증가
+	// ---------- 예매 ----------
 
-	void change_goods_att_minus(CommandMap commandMap) throws Exception; //goods_attribute에서 (출고)상품속성번호에 수량 감소
+	/** 예매 목록 (검색/페이징/탬퍼 필터). */
+	List<Map<String, Object>> selectBookingList(Map<String, Object> map) throws Exception;
 
-	void as_ok_b(CommandMap commandMap) throws Exception; // AS_LIST에서 state = 3, edate=update
+	List<Map<String, Object>> order_detail(CommandMap commandMap);
 
-	void order_list_chagam(CommandMap commandMap) throws Exception; ////order_list에서 총결제금액차감 , 총적립포인트차감
-
-	void point_chagam(CommandMap commandMap) throws Exception; //point에서 적립포인트 차감
-
-	List<Map<String, Object>> point_total(CommandMap commandMap) throws Exception ; // order_no로 사용자의 최근 point_total을 가져옴
-
-	void as_ok_c(CommandMap commandMap) throws Exception;
-	
-	List<Map<String, Object>> selectMemberList(Map<String, Object> map) throws Exception ;
+	List<Map<String, Object>> order_detail_sub(CommandMap commandMap);
 
 }

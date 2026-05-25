@@ -52,7 +52,3 @@ SELECT table_name, (
 ) AS exists_flag
 FROM user_tables ut
 ORDER BY table_name;
-
-PROMPT
-PROMPT [완료] 모든 더미 데이터가 삭제되었습니다.
-PROMPT       이제 seed-data/ 의 01~05 SQL을 순서대로 다시 실행하세요.

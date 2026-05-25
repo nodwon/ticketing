@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ============================================================
+    Project    : 관제 티켓 (Ticketing System)
+    Package    : payment (MyBatis Mapper)
+    FileName   : Payment_SQL.xml
+ 
+    Developer  : 이규왕 (feature/king)
+    Created    : 2026.05.22
+    Modified   : 2026.05.24
+ 
+    Description :
+      payments 테이블 MyBatis 매퍼.
+        - 모든 동적 값은 #{} 바인딩 (PreparedStatement)
+        - payment_id 는 ERD에서 GENERATED ALWAYS AS IDENTITY 이므로
+          INSERT 시 값을 지정하지 않고 Oracle이 자동 생성하게 둔다.
+        - 생성된 payment_id 는 keyProperty 로 VO에 자동 채워진다.
+    ============================================================
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ 
+<mapper namespace="Payment">
+ 
+    <!-- ============================================================ -->
+    <!-- 1) 결제 INSERT (PENDING)                                       -->
+    <!--    payment_id 는 IDENTITY 컬럼 — INSERT 절에서 제외             -->
+    <!-- ============================================================ -->
+    <insert id="insertPayment" parameterType="stu.payment.PaymentVO"
+            useGeneratedKeys="true" keyProperty="paymentId" keyColumn="PAYMENT_ID">
+        INSERT INTO payments (
+            booking_id,
+            member_id,
+            transaction_id,
+            requested_amount,
+            status
+        ) VALUES (
+            #{bookingId},
+            #{memberId},
+            #{transactionId},
+            #{requestedAmount},
+            #{status}
+        )
+    </insert>
+ 
+    <!-- ============================================================ -->
+    <!-- 2) 결제 상태 UPDATE                                            -->
+    <!-- ============================================================ -->
+    <update id="updateStatus" parameterType="stu.payment.PaymentVO">
+        UPDATE payments
+           SET status = #{status}
+         WHERE transaction_id = #{transactionId}
+    </update>
+ 
+    <!-- ============================================================ -->
+    <!-- 3) 거래 ID 기반 단건 조회 (Map 반환 — Oracle 대문자 컬럼)       -->
+    <!-- ============================================================ -->
+    <select id="selectByTxId" parameterType="string"
+            resultType="java.util.HashMap">
+        SELECT payment_id,
+               booking_id,
+               member_id,
+               transaction_id,
+               requested_amount,
+               status
+          FROM payments
+         WHERE transaction_id = #{transactionId}
+    </select>
+ 
+    <!-- ============================================================ -->
+    <!-- 4) 회원별 결제 내역 (List<Map> 반환)                            -->
+    <!-- ============================================================ -->
+    <select id="selectHistoryByMember" parameterType="long"
+            resultType="java.util.HashMap">
+        SELECT payment_id,
+               booking_id,
+               member_id,
+               transaction_id,
+               requested_amount,
+               status
+          FROM payments
+         WHERE member_id = #{memberId}
+         ORDER BY payment_id DESC
+    </select>
+ 
+    <!-- ============================================================ -->
+    <!-- 5) 결제 폼 표시용 — booking + schedule + concert JOIN          -->
+    <!-- ============================================================ -->
+    <select id="selectBookingForPayment" parameterType="long"
+            resultType="java.util.HashMap">
+        SELECT b.booking_id      AS bookingId,
+               b.member_id        AS memberId,
+               b.schedule_id      AS scheduleId,
+               b.total_price      AS totalPrice,
+               b.status           AS bookingStatus,
+               s.performance_date AS performanceDate,
+               c.concert_id       AS concertId,
+               c.title            AS concertTitle,
+               c.artist           AS artist,
+               c.venue            AS venue
+          FROM bookings           b
+          JOIN concert_schedules  s ON s.schedule_id = b.schedule_id
+          JOIN concerts           c ON c.concert_id  = s.concert_id
+         WHERE b.booking_id = #{bookingId}
+    </select>
+ 
+</mapper>
