@@ -8,20 +8,17 @@ package stu.member.my;
  *
  * Developer  : 김희재 (feature/khj)
  * Created    : 2026.05.24
- * Modified   : 2026.05.24
+ * Modified   : 2026.05.25
  *
  * Description :
  *   - 마이페이지 Controller
  *   - URL 매핑:
- *       GET  /my/info.do        → 회원정보 조회
+ *       GET  /my/info.do        → 회원정보 조회 (memberModify.jsp)
  *       POST /my/info.do        → 회원정보 수정
- *       GET  /my/bookingList.do → 예매 내역 조회
+ *       GET  /my/bookingList.do → 예매 내역 조회 (myBookingList.jsp)
  *       POST /my/delete.do      → 회원 탈퇴
  *
- *   - 세션 키 (로그인 모듈과 협의 필요):
- *       MEMBER_ID : members.member_id (NUMBER)
- *       EMAIL     : 로그인 이메일
- *       NAME      : 회원명
+ *   - 세션 키 (팀 컨벤션): memberId
  * ============================================================
  */
 
@@ -56,7 +53,6 @@ public class MyController {
     public ModelAndView getMemberInfo(HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        // 로그인 체크
         Object memberId = session.getAttribute("memberId");
         if (memberId == null) {
             log.debug("[MY/INFO] 미로그인 → 로그인 페이지로 이동");
@@ -69,7 +65,7 @@ public class MyController {
 
         Map<String, Object> memberInfo = myService.getMemberInfo(param);
         mv.addObject("member", memberInfo);
-        mv.setViewName("my/info");
+        mv.setViewName("my/memberModify");
 
         log.debug("[MY/INFO] member_id=" + memberId);
         return mv;
@@ -78,9 +74,6 @@ public class MyController {
 
     // =====================================================================
     // 2. 회원정보 수정 (POST /my/info.do)
-    //    - 이름, 휴대폰, 생년월일만 수정 가능
-    //    - 이메일/비번/role 은 별도 메뉴 (권한 상승 방지)
-    //    - MEMBER_ID 는 세션값으로 강제 (파라미터 변조 차단)
     // =====================================================================
     @RequestMapping(value = "/my/info.do", method = RequestMethod.POST)
     public ModelAndView updateMemberInfo(CommandMap commandMap, HttpSession session) throws Exception {
@@ -92,15 +85,14 @@ public class MyController {
             return mv;
         }
 
-        // 세션 값 강제 적용 (요청 파라미터의 MEMBER_ID 는 무시)
         commandMap.remove("MEMBER_ID");
         commandMap.put("MEMBER_ID", memberId);
 
-        // 생년월일 조립 (YYYY + MM + DD → YYYYMMDD)
         String year  = (String) commandMap.get("BIRTH_YEAR");
         String month = (String) commandMap.get("BIRTH_MONTH");
         String day   = (String) commandMap.get("BIRTH_DAY");
-        if (year != null && month != null && day != null) {
+        if (year != null && month != null && day != null
+                && !year.isEmpty() && !month.isEmpty() && !day.isEmpty()) {
             String birth = year
                          + (month.length() == 1 ? "0" + month : month)
                          + (day.length()   == 1 ? "0" + day   : day);
@@ -133,7 +125,7 @@ public class MyController {
 
         List<Map<String, Object>> bookingList = myService.getBookingList(param);
         mv.addObject("bookingList", bookingList);
-        mv.setViewName("my/bookingList");
+        mv.setViewName("my/myBookingList");
 
         log.debug("[MY/BOOKING_LIST] member_id=" + memberId
                 + " count=" + (bookingList == null ? 0 : bookingList.size()));
@@ -143,8 +135,6 @@ public class MyController {
 
     // =====================================================================
     // 4. 회원 탈퇴 (POST /my/delete.do)
-    //    - 물리 삭제 (요구사항 기준)
-    //    - 탈퇴 후 세션 무효화
     // =====================================================================
     @RequestMapping(value = "/my/delete.do", method = RequestMethod.POST)
     public ModelAndView deleteMember(HttpSession session) throws Exception {
@@ -162,7 +152,6 @@ public class MyController {
         int affected = myService.deleteMember(param);
         log.debug("[MY/DELETE] member_id=" + memberId + " affected=" + affected);
 
-        // 세션 종료
         session.invalidate();
 
         mv.setViewName("redirect:/main.do");
