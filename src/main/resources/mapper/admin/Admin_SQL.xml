@@ -1,308 +1,356 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
-"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
+<!--
+============================================================
+ Project   : 관제 티켓 (Ticketing System)
+ FileName  : Admin_SQL.xml
+ Namespace : admin
+
+ Modified  : 2026.05.25
+
+ Description :
+   - 관리자 화면 SQL (MyBatis)
+   - 실제 테이블: members / concerts / concert_schedules / bookings
+
+ History :
+   2026.05.25 - 탬퍼 감지 SQL 제거 (보안 모니터링은 Splunk 측에서 처리)
+                payments 테이블 JOIN 제거
+   2026.05.25 - 검색 대소문자 무시 처리 (LOWER 함수 적용)
+                · concerts(title/artist), members(email/name),
+                  bookings(email/name/concert) 모두 적용
+   2026.05.25 - 스마트 공연 삭제용 SQL 추가
+                · countBookingsByConcert      : 예매 건수 카운트
+                · deleteConcertHard           : 공연 row 삭제
+                · deleteSchedulesByConcert    : 산하 일정 삭제
+                · deleteSeatsByConcert        : 산하 좌석 삭제
+                · deleteBookingsByConcert     : 산하 예매 삭제
+                · deleteBookingItemsByConcert : 산하 예매 항목 삭제
+                · deletePaymentsByConcert     : 산하 결제 삭제
+============================================================
+-->
 <mapper namespace="admin">
-	
-	<select id="dash_count" parameterType="hashmap" resultType="hashmap"> <!-- adminMain대쉬보드 -->
-		<![CDATA[
-			select 
-			(select count(member_no) from member) m_cnt,
-			(select count(member_no) from goods_qna) g_cnt,
-			(select count(member_no) from qna) q_cnt,
-			(select count(member_no) from as_list) as_cnt,
-			(select count(order_state) from order_list where order_state = 0) o_cnt_a,
-			(select count(order_state) from order_list where order_state = 1) o_cnt_b,
-			(select count(order_state) from order_list where order_state = 2) o_cnt_c,
-			(select count(order_state) from order_list where order_state = 3) o_cnt_d,
-			(select count(order_state) from order_list where order_state = 4) o_cnt_e,
-			(select count(order_state) from order_list where order_state = 5) o_cnt_f
-			from dual 
-		]]>
-	</select>
-	
-	<select id="order_admin_a" parameterType="hashmap" resultType="hashmap"> <!-- 주문현황 보기 -->
-		<![CDATA[
-			select l.order_date, d.order_no, m.member_no, m.member_id, m.member_name, g.goods_name,
-  			      l.order_total_order_price, l.order_total_pay_price, TO_CHAR(l.order_date, 'YYYY-MM-DD HH24:MI:SS') order_date,
-  			      l.order_pay_bank, l.order_express, l.order_state,
-	        
-	        (select count(SD.order_no) from order_detail SD where SD.order_no = D.order_no ) as hap_cnt
-			
-			from member m, order_list l, order_detail d, goods g
-			
-			where m.member_no = l.member_no
-			and l.order_no = d.order_no
-			and d.goods_no = g.goods_no
-			
-			and l.order_state = #{order_state}
-						
-			and D.ORDER_DETAIL_NO in (select min(ORDER_DETAIL_NO) as Dno from order_detail group by order_no)
-		]]>
-	</select>
-	
-	<update id="order_state" parameterType="hashmap" > <!-- 주문상태 변경 -->
-		<![CDATA[
-			UPDATE order_list
 
-			SET	order_state = order_state + 1
-			
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	
-	<update id="order_state_ex" parameterType="hashmap" > <!-- 주문상태.배송 변경 -->
-		<![CDATA[
-			UPDATE order_list
+	<!-- =====================================================================
+		1. 대시보드 - 회원/공연/예매 카운트 한 번에
+	===================================================================== -->
+	<select id="selectDashboard" resultType="hashMap">
+		SELECT
+			(SELECT COUNT(*) FROM members)  AS MEMBER_CNT,
+			(SELECT COUNT(*) FROM concerts) AS CONCERT_CNT,
+			(SELECT COUNT(*) FROM bookings) AS BOOKING_CNT
+		FROM dual
+	</select>
 
-			SET	
-			order_state = order_state + 1,
-			order_express = #{order_express}
 
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	
-	<select id="order_detail" parameterType="hashmap" resultType="hashmap"> <!-- 주문list 상세보기 -->
-		<![CDATA[
-			select m.member_name, m.member_phone, m.member_email,
-	        l.order_name, l.order_zipcode, l.order_addr1, l.order_addr2, l.order_phone,
-	        l.order_no, l.order_state, l.order_pay_option, l.ORDER_PAY_NAME, l.ORDER_DATE, l.ORDER_PAY_BANK,
-	        l.order_total_order_price, l.order_use_point, l.order_fee, l.order_total_pay_price
-			
-			from member m, order_list l
-			
-			where m.member_no = l.member_no
-			and l.order_no = ${order_no}
-		]]>
-	</select>
-	
-	<select id="order_detail_sub" parameterType="hashmap" resultType="hashmap"> <!-- 주문detail 상세보기 -->
-		<![CDATA[
-			select g.goods_no, g.goods_name, g.GOODS_THUMBNAIL, d.order_detail_color, d.order_detail_size, d.order_detail_amount,
-	        d.order_detail_price, d.coupon_discount, d.order_discount_apply
-			
-			from order_detail d, goods g
-			
-			where d.goods_no = g.goods_no
-			and d.order_no = ${order_no}
-		]]>
-	</select>
-	
-	<select id="as_admin_list" parameterType="hashmap" resultType="hashmap"> <!-- 주문detail 상세보기 -->
-		<![CDATA[
-			select l.as_no, l.as_gubun, l.member_no, l.as_title, l.as_content, l.order_no, l.order_detail_no,
-	        l.as_state, l.order_state, TO_CHAR(l.as_sdate, 'YYYY-MM-DD HH24:MI:SS') as_sdate, TO_CHAR(l.as_edate, 'YYYY-MM-DD HH24:MI:SS') as_edate,
-	        m.member_id, m.member_name, m.member_phone, m.member_email, m.member_grade
-				
-	        from as_list l, member m
-	        
-	        where l.member_no = m.member_no
-	        and l.as_state = ${as_state }
-
-	        order by l.as_no asc
-		]]>
-	</select>
-	
-	<update id="as_cancle_a" parameterType="hashmap" > <!-- // as요청취소 - as_list state=3 edate갱싱  -->
-		<![CDATA[
-			UPDATE as_list
-			SET	
-			as_state = 3,
-			as_title = ' ---- 요청내용 확인중 취소처리---- ', 
-			as_edate = TO_DATE(sysdate, 'YYYY-MM-DD HH24:MI:SS')
-			WHERE as_no = ${as_no}
-		]]>
-	</update>
-		
-	<update id="order_list_cancle" parameterType="hashmap" > <!-- as요청취소 - order_list 원상복구  -->
-		<![CDATA[
-			UPDATE order_list
-			SET	
-			order_state = ${order_state}
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	
-	<update id="as_ok_state" parameterType="hashmap" > <!-- 신규 as요청확인(AS_LIST state 확인중으로 변경)  -->
-		<![CDATA[
-			UPDATE as_list
-			SET as_state = ${state_num}
-			WHERE as_no = ${as_no}
-		]]>
-	</update>
-	<update id="as_ok_orderState" parameterType="hashmap" > <!-- 신규 as요청확인(Order_LIST STATE변경)  -->
-		<![CDATA[
-			UPDATE order_list
-			SET order_state = ${gubun_num}
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	
-	<!-- 상품교환 -->
-	<select id="change_form_a" parameterType="hashmap" resultType="hashmap"> <!-- AS_list에서 정보 가져옴 -->
-		<![CDATA[
-			select l.as_no, l.as_gubun, l.member_no, l.as_title, l.as_content, l.order_no, l.order_detail_no,
-	        TO_CHAR(l.as_sdate, 'YYYY-MM-DD HH24:MI:SS') as_sdate, d.order_detail_price, l.order_state,
-	        d.order_discount_apply, d.order_detail_save_point, d.goods_att_no,
-	        d.goods_no, d.order_detail_amount, d.order_detail_color, d.order_detail_size, g.goods_name
-				
-	        from as_list l, order_detail d, goods g
-	        
-	        where l.order_detail_no = d.order_detail_no
-	        and d.goods_no = g.goods_no
-	        and as_no = ${as_no }
-		]]>
-	</select>
-	<select id="change_form_b" parameterType="hashmap" resultType="hashmap"> <!-- 교환요청한 상품속성 가져옴 -->
-		<![CDATA[
-			select goods_att_no, goods_att_size, goods_att_color, goods_att_amount
-				
-	        from goods_attribute
-	        
-	        where goods_no = ${goods_no }
-		]]>
-	</select>
-	<insert id="change_detail_insert" parameterType="hashmap"> <!--  -->
-		<![CDATA[
-			insert into order_detail ( order_detail_no, order_no, goods_no, goods_att_no, order_detail_price,
-			order_detail_color, order_detail_size, order_detail_amount, coupon_no, coupon_discount,
-            order_discount_apply, order_detail_save_point, order_detail_state )
-			VALUES 
-			( ORDER_DETAIL_NO_SEQ.NEXTVAL, ${order_no}, ${goods_no}, ${new_goods_att_no}, ${order_detail_price},
-			  #{order_detail_color}, #{order_detail_size}, ${order_detail_amount}, 0, 0, ${order_discount_apply}, ${order_detail_save_point}, '10')
-		]]>
-	</insert>
-	<update id="change_detail_state" parameterType="hashmap" > <!--   -->
-		<![CDATA[
-			UPDATE order_detail
-			SET order_detail_state = '20'
-			WHERE order_detail_no = ${order_detail_no}
-		]]>
-	</update>
-	<update id="change_goods_att_plus" parameterType="hashmap" > <!--   -->
-		<![CDATA[
-			UPDATE goods_attribute
-			SET goods_att_amount = goods_att_amount + ${order_detail_amount}
-			WHERE goods_att_no = ${old_goods_att_no}
-		]]>
-	</update>
-	<update id="change_goods_att_minus" parameterType="hashmap" > <!--   -->
-		<![CDATA[
-			UPDATE goods_attribute
-			SET goods_att_amount = goods_att_amount - ${order_detail_amount}
-			WHERE goods_att_no = ${new_goods_att_no}
-		]]>
-	</update>
-	<update id="as_final_state" parameterType="hashmap" > <!-- )  -->
-		<![CDATA[
-			UPDATE as_list
-			SET
-			as_state = '3',
-			as_edate = TO_DATE(sysdate, 'YYYY-MM-DD HH24:MI:SS')
-			WHERE as_no = ${as_no}
-		]]>
-	</update>
-	<update id="change_final_orderState" parameterType="hashmap" > <!--   -->
-		<![CDATA[
-			UPDATE order_list
-			SET order_state = '2'
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	<update id="order_list_chagam" parameterType="hashmap" > <!--   -->
-		<![CDATA[
-			UPDATE order_list
-			SET
-			order_total_pay_price = order_total_pay_price - ${order_discount_apply}, 
-			order_save_point = order_save_point - ${order_detail_save_point}
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	<insert id="point_chagam" parameterType="hashmap"> <!--  -->
-		<![CDATA[
-			INSERT INTO POINT (POINT_NO, MEMBER_NO, POINT_VAL, POINT_USE_DATE, POINT_TOTAL)
-			VALUES 
-			( POINT_NO_SEQ.NEXTVAL, ${member_no}, ${order_detail_save_point},
-			 TO_DATE(sysdate, 'YYYY-MM-DD HH24:MI:SS'), ${total})
-		]]>
-	</insert>
-	<select id="point_total" parameterType="hashmap" resultType="hashmap">
-		<![CDATA[
-			select * from (
-			select p.point_total
-		    from order_list l, point p
-		    where l.member_no = p.member_no
-		    and l.order_no = ${order_no}
-		    order by p.point_no desc )
-		    where rownum = 1
-		]]>
-	</select>
-	<update id="cashback_final_orderState" parameterType="hashmap" > <!--   -->
-		<![CDATA[
-			UPDATE order_list
-			SET order_state = ${order_state}
-			WHERE order_no = ${order_no}
-		]]>
-	</update>
-	
-	<select id="selectMemberList" parameterType="hashmap" resultType="hashmap">
-		<![CDATA[
+	<!-- =====================================================================
+		2. 공연 - 목록 (검색/페이징)
+		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
+	===================================================================== -->
+	<select id="selectConcertList" parameterType="hashMap" resultType="hashMap">
+		SELECT *
+		FROM (
 			SELECT
-				AAA.*
-			FROM(
+				ROWNUM AS RNUM,
+				A.*
+			FROM (
 				SELECT
-				COUNT(*) OVER() AS TOTAL_COUNT,
-				AA.*
-				FROM(
-					SELECT 
-						ROWNUM RNUM,
-						MEMBER_NO,
-						MEMBER_ID,
-						MEMBER_NAME,
-						TO_CHAR(MEMBER_BIRTH,'YYYY/MM/DD') MEMBER_BIRTH,
-						MEMBER_EMAIL,
-						MEMBER_PHONE,				
-						MEMBER_ZIPCODE,
-						MEMBER_ADDR1,
-						MEMBER_ADDR2,
-		                TO_CHAR(MEMBER_DATE, 'YYYY/MM/DD') MEMBER_DATE,
-		                MEMBER_GRADE,
-		                MEMBER_TOTAL,
-		                TO_CHAR(MEMBER_LOG, 'YYYY/MM/DD') MEMBER_LOG,
-		                DECODE(MEMBER_DELETE,'0','가입','탈퇴') MEMBER_DELETE,
-						EMAIL_AGREE,
-						SMS_AGREE
-					FROM 
-						MEMBER 
-		]]>
-			<choose>
-				<when test="searchOption == 'all'">
-					WHERE 
-						MEMBER_ID LIKE '%${keyword}%'
-					OR 
-						MEMBER_NAME LIKE '%${keyword}%'
-					OR 
-						MEMBER_GRADE LIKE '%${keyword}%'
-				</when>
-				<when test="searchOption == 'MEMBER_ID'">
-					WHERE 
-						MEMBER_ID LIKE '%${keyword}%'
-				</when>
-				<when test="searchOption == 'MEMBER_NAME'">
-					WHERE 
-						MEMBER_NAME LIKE '%${keyword}%'
-				</when>
-				<when test="searchOption == 'MEMBER_GRADE'">
-					WHERE 
-						MEMBER_GRADE LIKE '%${keyword}%'
-				</when>
-				<otherwise>
-				</otherwise>
-			</choose>
-					)AA
-				)AAA
-				WHERE
-					AAA.RNUM BETWEEN #{START} AND #{END}
+					c.concert_id,
+					c.title,
+					c.artist,
+					c.venue,
+					c.status,
+					c.thumbnail,
+					COUNT(*) OVER() AS TOTAL_COUNT
+				FROM   concerts c
+				<where>
+					<if test="status != null and status != ''">
+						AND c.status = #{status}
+					</if>
+					<if test="keyword != null and keyword != ''">
+						<choose>
+							<when test="searchType == 'title'">
+								AND LOWER(c.title)  LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<when test="searchType == 'artist'">
+								AND LOWER(c.artist) LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<otherwise>
+								AND (
+									LOWER(c.title)  LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(c.artist) LIKE '%' || LOWER(#{keyword}) || '%'
+								)
+							</otherwise>
+						</choose>
+					</if>
+				</where>
+				ORDER BY c.concert_id DESC
+			) A
+			WHERE ROWNUM &lt;= #{END}
+		)
+		WHERE RNUM &gt;= #{START}
 	</select>
+
+
+	<!-- =====================================================================
+		3. 공연 - 단건 조회
+	===================================================================== -->
+	<select id="selectConcert" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			concert_id,
+			title,
+			artist,
+			venue,
+			description,
+			thumbnail,
+			status
+		FROM   concerts
+		WHERE  concert_id = #{concertId}
+	</select>
+
+
+	<!-- =====================================================================
+		4. 공연 - 등록
+		     ▶ concert_id 는 IDENTITY (자동 생성)
+		     ▶ status 미지정 시 DEFAULT 'UPCOMING'
+	===================================================================== -->
+	<insert id="insertConcert" parameterType="hashMap">
+		INSERT INTO concerts (
+			title,
+			artist,
+			venue,
+			description,
+			thumbnail,
+			status
+		) VALUES (
+			#{title},
+			#{artist},
+			#{venue},
+			#{description, jdbcType=CLOB},
+			#{thumbnail},
+			<choose>
+				<when test="status != null and status != ''">#{status}</when>
+				<otherwise>'UPCOMING'</otherwise>
+			</choose>
+		)
+	</insert>
+
+
+	<!-- =====================================================================
+		5. 공연 - 수정
+	===================================================================== -->
+	<update id="updateConcert" parameterType="hashMap">
+		UPDATE concerts
+		SET
+			title       = #{title},
+			artist      = #{artist},
+			venue       = #{venue},
+			description = #{description, jdbcType=CLOB},
+			thumbnail   = #{thumbnail},
+			status      = #{status}
+		WHERE concert_id = #{concertId}
+	</update>
+
+
+	<!-- =====================================================================
+		6-1. 공연 삭제 - 예매 건수 카운트 (스마트 삭제 판정용)
+		      ▶ 결과가 0 이면 Hard Delete, 1 이상이면 Soft Delete
+	===================================================================== -->
+	<select id="countBookingsByConcert" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM   bookings           b
+		JOIN   concert_schedules  s ON b.schedule_id = s.schedule_id
+		WHERE  s.concert_id = #{concertId}
+	</select>
+
+
+	<!-- =====================================================================
+		6-2. 공연 삭제 - Soft : status = 'CLOSED' 만 변경
+		      ▶ 예매 내역이 있는 경우 사용 (FK 무결성 보호)
+	===================================================================== -->
+	<update id="deleteConcert" parameterType="hashMap">
+		UPDATE concerts
+		SET    status = 'CLOSED'
+		WHERE  concert_id = #{concertId}
+	</update>
+
+
+	<!-- =====================================================================
+		6-3. 공연 삭제 - Hard : 공연 row 자체 삭제
+		      ▶ 자식 데이터를 모두 정리한 뒤에만 호출되어야 함
+		      ▶ Service 의 @Transactional 안에서 마지막에 실행
+	===================================================================== -->
+	<delete id="deleteConcertHard" parameterType="hashMap">
+		DELETE FROM concerts
+		WHERE  concert_id = #{concertId}
+	</delete>
+
+
+	<!-- =====================================================================
+		6-4. 공연 산하 데이터 삭제 - 가장 깊은 자식부터 (FK 역순)
+		      booking_items  →  payments  →  bookings
+		      →  seats  →  concert_schedules  →  concerts
+	===================================================================== -->
+
+	<!-- booking_items : booking_id 가 해당 공연의 예매를 참조하는 경우 -->
+	<delete id="deleteBookingItemsByConcert" parameterType="hashMap">
+		DELETE FROM booking_items
+		WHERE  booking_id IN (
+			SELECT b.booking_id
+			FROM   bookings           b
+			JOIN   concert_schedules  s ON b.schedule_id = s.schedule_id
+			WHERE  s.concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- payments : 해당 공연의 예매를 참조 -->
+	<delete id="deletePaymentsByConcert" parameterType="hashMap">
+		DELETE FROM payments
+		WHERE  booking_id IN (
+			SELECT b.booking_id
+			FROM   bookings           b
+			JOIN   concert_schedules  s ON b.schedule_id = s.schedule_id
+			WHERE  s.concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- bookings : 해당 공연의 일정에 대한 예매 -->
+	<delete id="deleteBookingsByConcert" parameterType="hashMap">
+		DELETE FROM bookings
+		WHERE  schedule_id IN (
+			SELECT schedule_id
+			FROM   concert_schedules
+			WHERE  concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- seats : 해당 공연의 일정에 속한 좌석 -->
+	<delete id="deleteSeatsByConcert" parameterType="hashMap">
+		DELETE FROM seats
+		WHERE  schedule_id IN (
+			SELECT schedule_id
+			FROM   concert_schedules
+			WHERE  concert_id = #{concertId}
+		)
+	</delete>
+
+	<!-- concert_schedules : 해당 공연의 일정 -->
+	<delete id="deleteSchedulesByConcert" parameterType="hashMap">
+		DELETE FROM concert_schedules
+		WHERE  concert_id = #{concertId}
+	</delete>
+
+
+	<!-- =====================================================================
+		7. 회원 - 목록 (검색/페이징)
+		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
+	===================================================================== -->
+	<select id="selectMemberList" parameterType="hashMap" resultType="hashMap">
+		SELECT *
+		FROM (
+			SELECT
+				ROWNUM AS RNUM,
+				A.*
+			FROM (
+				SELECT
+					m.member_id,
+					m.email,
+					m.name,
+					m.phone,
+					m.birth_date,
+					m.role,
+					COUNT(*) OVER() AS TOTAL_COUNT
+				FROM   members m
+				<where>
+					<if test="role != null and role != ''">
+						AND m.role = #{role}
+					</if>
+					<if test="keyword != null and keyword != ''">
+						<choose>
+							<when test="searchType == 'email'">
+								AND LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<when test="searchType == 'name'">
+								AND LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<otherwise>
+								AND (
+									LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
+								)
+							</otherwise>
+						</choose>
+					</if>
+				</where>
+				ORDER BY m.member_id DESC
+			) A
+			WHERE ROWNUM &lt;= #{END}
+		)
+		WHERE RNUM &gt;= #{START}
+	</select>
+
+
+	<!-- =====================================================================
+		8. 예매 - 목록 (검색/페이징)
+		     ▶ 회원/공연/일정 JOIN
+		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
+		     ▶ 상태 필터 : status (PENDING/CONFIRMED/CANCELLED)
+	===================================================================== -->
+	<select id="selectBookingList" parameterType="hashMap" resultType="hashMap">
+		SELECT *
+		FROM (
+			SELECT
+				ROWNUM AS RNUM,
+				A.*
+			FROM (
+				SELECT
+					b.booking_id,
+					b.total_price,
+					b.status            AS booking_status,
+					TO_CHAR(b.created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at,
+					m.member_id,
+					m.email,
+					m.name              AS member_name,
+					c.concert_id,
+					c.title             AS concert_title,
+					c.artist,
+					TO_CHAR(s.performance_date, 'YYYY-MM-DD HH24:MI') AS performance_date,
+					COUNT(*) OVER()     AS TOTAL_COUNT
+				FROM        bookings           b
+				INNER JOIN  members            m ON b.member_id   = m.member_id
+				INNER JOIN  concert_schedules  s ON b.schedule_id = s.schedule_id
+				INNER JOIN  concerts           c ON s.concert_id  = c.concert_id
+				<where>
+					<if test="status != null and status != ''">
+						AND b.status = #{status}
+					</if>
+					<if test="keyword != null and keyword != ''">
+						<choose>
+							<when test="searchType == 'email'">
+								AND LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<when test="searchType == 'name'">
+								AND LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<when test="searchType == 'concert'">
+								AND LOWER(c.title) LIKE '%' || LOWER(#{keyword}) || '%'
+							</when>
+							<otherwise>
+								AND (
+									LOWER(m.email) LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(m.name)  LIKE '%' || LOWER(#{keyword}) || '%'
+									OR LOWER(c.title) LIKE '%' || LOWER(#{keyword}) || '%'
+								)
+							</otherwise>
+						</choose>
+					</if>
+				</where>
+				ORDER BY b.booking_id DESC
+			) A
+			WHERE ROWNUM &lt;= #{END}
+		)
+		WHERE RNUM &gt;= #{START}
+	</select>
+
 </mapper>
