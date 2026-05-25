@@ -1,449 +1,237 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8"
-    pageEncoding="UTF-8"%>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>  
-<%@ taglib prefix="tiles" uri="http://tiles.apache.org/tags-tiles" %>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<%--
+    ============================================================
+    Project    : 관제 티켓 (Ticketing System)
+    FileName   : search.jsp
+    Developer  : 주재현 (feature/jjh)
+    Created    : 2026.05.22
+    Modified   : 2026.05.25
+    Description: 공연 검색 결과 페이지
+                 - 대소문자 무관 검색
+                 - 키워드 하이라이트
+    ============================================================
+--%>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="fn"  uri="http://java.sun.com/jsp/jstl/functions" %>
 <!DOCTYPE html>
-<html>
-<meta charset="utf-8">
-<meta name="viewport" content="user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, width=device-width"/>
-<title>상품리스트</title>
+<html lang="ko">
 <head>
-
-<link href="<c:url value="/css/board.css"/>" rel="stylesheet">
- <link href="<c:url value="/css/goods.css"/>" rel="stylesheet">
-<link href="<c:url value="/css/btn.css"/>" rel="stylesheet">
-<!-- jQuery -->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
-<script src="<c:url value='/js/common1.js'/>" charset="utf-8"></script>
-<link rel="stylesheet" type="text/css" href="<c:url value='/css/ui.css'/>" />
-
-<!-- bx슬라이더 -->
-<!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/bxslider/4.2.12/jquery.bxslider.css">
-<script src="https://cdn.jsdelivr.net/bxslider/4.2.12/jquery.bxslider.min.js"></script> -->
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>검색 결과 | STU Concert</title>
 <style>
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+    body {
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+        background: #f5f6fa; color: #1a1a1a; -webkit-font-smoothing: antialiased;
+    }
+    a { text-decoration:none; color:inherit; }
+    button { font-family: inherit; }
 
-#main-container
-{
-   min-height: 400px;
-   margin: 0 0 0 125px;
-   padding: 20px;
-   border-top: 1px solid #fff;  
-   border-right: 1px solid #fff;     
-   border-left: 1px solid #fff; 
-   border-bottom: 1px solid #fff;    
-}
+    .header { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; padding: 18px 0; }
+    .header-inner {
+        max-width: 1200px; margin: 0 auto; padding: 0 24px;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .btn-icon {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 14px; background: rgba(255,255,255,0.18);
+        color: #fff; border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 8px; font-size: 13px; font-weight: 600;
+        cursor: pointer; transition: background .15s;
+    }
+    .btn-icon:hover { background: rgba(255,255,255,0.3); }
+    .header h1 { font-size: 20px; font-weight: 800; cursor: pointer; letter-spacing:-0.5px; margin-left: 8px; }
 
+    .container { max-width: 1200px; margin: 40px auto 60px; padding: 0 24px; }
 
+    .search-hero {
+        background: #fff; border-radius: 20px; padding: 36px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.08); margin-bottom: 28px;
+    }
+    .search-hero-title {
+        font-size: 14px; color: #9ca3af; font-weight: 600;
+        letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .search-hero-keyword {
+        font-size: 28px; font-weight: 800; color: #1a1a1a;
+        margin-bottom: 24px; letter-spacing: -0.5px;
+    }
+    .search-hero-keyword .accent {
+        background: linear-gradient(135deg, #6a11cb, #2575fc);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .search-form { display: flex; gap: 10px; }
+    .search-input {
+        flex: 1; padding: 14px 18px;
+        border: 1.5px solid #e5e7eb; border-radius: 10px;
+        font-size: 14px; outline: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .search-input:focus {
+        border-color: #6a11cb;
+        box-shadow: 0 0 0 3px rgba(106,17,203,0.1);
+    }
+    .btn-search-go {
+        padding: 14px 28px;
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: #fff; border: none; border-radius: 10px;
+        font-size: 14px; font-weight: 700; cursor: pointer;
+    }
 
+    .result-count { font-size: 14px; color: #6b7280; margin-bottom: 16px; padding: 0 4px; }
+    .result-count strong { color: #6a11cb; font-weight: 700; }
 
-/* 검색버튼 시작 */
-@import url(https://fonts.googleapis.com/css?family=Open+Sans);
+    .concert-grid {
+        display: grid; gap: 22px;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+    .concert-card {
+        background: #fff; border-radius: 14px; overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        transition: transform .2s, box-shadow .2s;
+        display: flex; flex-direction: column;
+    }
+    .concert-card:hover { transform: translateY(-6px); box-shadow: 0 14px 32px rgba(0,0,0,0.13); }
+    .card-thumb { width:100%; height:320px;
+        background: linear-gradient(135deg, #e5e7eb, #cbd5e1);
+        background-size: cover; background-position: center; position: relative;
+    }
+    .card-thumb-placeholder { height:100%; display:flex; align-items:center; justify-content:center;
+        color:#94a3b8; font-size:14px;
+    }
+    .status-badge {
+        position:absolute; top:12px; right:12px;
+        padding:5px 12px; border-radius:20px;
+        font-size:11px; font-weight:700; color:#fff; backdrop-filter: blur(8px);
+    }
+    .status-UPCOMING { background: rgba(245,158,11,0.95); }
+    .status-ONGOING  { background: rgba(34,197,94,0.95); }
+    .status-CLOSED   { background: rgba(107,114,128,0.95); }
 
-body{
-  
-  font-family: 'Open Sans', sans-serif;
-}
+    .card-body { padding:16px 18px 18px; flex:1; display:flex; flex-direction:column; }
+    .card-artist {
+        font-size:12px; color:#6a11cb; font-weight:700;
+        letter-spacing:0.3px; margin-bottom:6px; text-transform:uppercase;
+    }
+    .card-title {
+        font-size:15px; font-weight:700; color:#1a1a1a; line-height:1.4;
+        margin-bottom:8px; min-height:42px;
+        display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    .card-venue { font-size:12px; color:#6b7280; }
 
-.search {
-  width: 100%;
-  position: relative;
-  display: flex;
-}
+    .highlight { background: linear-gradient(180deg, transparent 60%, #fde68a 60%); font-weight: 700; }
 
-.searchTerm {
-  width: 100%;
-  border: 3px solid #C86060;
-  border-right: none;
-  padding: 5px;
-  height: 20px;
-  border-radius: 5px 0 0 5px;
-  outline: none;
-  color: #C86060;
-}
+    .empty-state {
+        background: #fff; border-radius: 16px; padding: 80px 20px; text-align: center;
+        color: #9ca3af; box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .empty-state-icon { font-size: 56px; margin-bottom: 16px; }
+    .empty-state h3 { color: #4b5563; margin-bottom: 8px; font-size: 18px; }
 
-.searchTerm:focus{
-  color: #C86060;
-}
-
-.searchButton {
-  width: 60px;
-  height: 36px;
-  border: 1px solid #C86060;
-  background: #C86060;
-  text-align: center;
-  color: #fff;
-  border-radius: 0 5px 5px 0;
-  cursor: pointer;
-  font-size: 20px;
-}
-
-/*Resize the wrap to see the search bar change!*/
-.wrap{
-  width: 20%;
-  position: absolute;
-  top: 400px;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-/* 검색버튼 끝 */
-
-.font2 {
-	font-size: 16px;
-    color: #666;
-    letter-spacing: -0.5px;
-    line-height: 24px;
-    white-space: normal;
-    line-height: 27px;
-}
-
-.font1 {
-	font-size: 14px;
-    color: #666;
-    letter-spacing: -0.5px;
-    line-height: 24px;
-    white-space: normal;
-    line-height: 27px;
-}
-
-/* css 초기화  */
-
-html, body, div, span, applet, object, iframes, h1, h2, h3, h4, h5, h6,
-   p, blockquote, pre, a, abbr, acronym, address, big, quotes, code, del,
-   dfn, em, img, ins, kbd, q, s, samp, small, strike, sub, sup, tt, var, u,
-   i, center, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table,
-   caption, tbody, tfoot, thead, tr, th, td, article, aside, canvas,
-   details, embed, figure, figcaption, footer, header, hgroup, menu, nav,
-   output, ruby, section, summary, time, mark, audio, video {
-   margin: 0;
-   padding: 0;
-   border: 0;
-   
-   do: inherit;
-   vertical-align: baseline;
-}
-article, aside, details, figcaption, figure, footer, header, hgroup,
-   menu, nav, section {
-   display: block;
-}
-blockquote, q {
-   quotes: none;
-}
-blockquote : before, blockquote : after, q : before, q : after {
-   content: '';
-   content: none;
-}
-table {
-   border-collapse: collapse;
-   border-spacing: 0;
-}
-/*css 초기화*/
-.card {
-   float:left;
-   height: 500px;
-   width: 20%;
-   border-radius: 15px;
-   display: inline-block;
-   margin-top: 30px;
-   margin-left: 50px;
-   margin-bottom: 30px;
-   position: relative;
-   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-   overflow: hidden;
-}
-.card-header {
-   -webkit-transition: 0.5s; /*사파리 & 크롬*/
-    -moz-transition: 0.5s;  /*파이어폭스*/
-    -ms-transition: 0.5s;   /*인터넷 익스플로러*/
-    -o-transition: 0.5s;  /*오페라*/
-    transition: 0.5s;
-   width: 100%;
-   height: 270px;
-   border-radius: 15px 15px 0 0;
-   background-image: url("resources/images/no_image.png");
-   background-size: 100% 280px;
-   background-repeat: no-repeat;   
-}
-.card:hover .card-header  {
-   opacity: 0.8;
-   height: 100px;
-}
-.card-header-is_closed{
-    background-color: #EF5A31 ;
-    color: #FFF ;
-    font-weight: bold ;
-    text-align: center ;
-    float: right;
-    margin: 15px 15px 0 0;
-    border-radius: 50%;
-    font-weight: bold;
-    padding: 10px 10px;
-    line-height: 20px;
-}
-.card-header-is_closed2{
-    background-color: #3fb50e ;
-    color: #FFF ;
-    font-weight: bold ;
-    text-align: center ;
-    float: right;
-    margin: 15px 15px 0 0;
-    border-radius: 50%;
-    font-weight: bold;
-    padding: 10px 10px;
-    line-height: 20px;
-}
-h1 {
-    /* font-size: 22px;
-    font-weight: bold; */
-    text-align: center;
-  padding: 50px 0;
-  font-weight: normal;
-  font-size: 2em;
-  letter-spacing: 10px;
-}
-.card-body {
-}
-.card-body-header{
-   line-height: 25px;
-   margin: 10px 20px 0px 20px;
-}
-.card-body-description  {
-    opacity: 0;
-    color: #757B82;
-    line-height: 25px;
-    -webkit-transition: .2s ease-in-out; /*사파리&크롬*/
-    -moz-transition: .2s ease-in-out; /*파이어폭스*/
-    -ms-transition: .2s ease-in-out; /*익스플로러*/
-    -o-transition: .2s ease-in-out; /*오페라*/
-    transition : .2s ease-in-out;
-    overflow: hidden;
-   height: 180px;
-   margin: 5px 20px;
-}
-.card:hover .card-body-description {
-    opacity: 1;
-    -webkit-transition: .5s ease-in-out;
-    -moz-transition: .5s ease-in-out;
-    -ms-transition: .5s ease-in-out;
-    -o-transition: .5s ease-in-out;
-    transition : .5s ease-in-out;
-    overflow: scroll;
-}
-.card-body-hashtag {
-   color: #2478FF;
-   font-style: italic;
-}
-.card-body-footer {
-     position: absolute; 
-     margin-top: 15px;
-     margin-bottom: 6px;
-    bottom: 0; 
-    width: 314px;
-    font-size: 10px;
-    color: #9FA5A8;
-    padding: 0 10px;
-}
-.icon {
-    display: inline-block;
-    vertical-align: middle;
-    margin-right: 2px;
-}
-.icon-view_count {
-    width: 25px;
-    height: 17px;
-   background: url("images/eye.jpg") no-repeat;
-}
-.icon-comments_count {
-   margin-left: 5px;
-   width: 25px;
-    height: 17px;
-   background: url("images/comment.jpg") no-repeat;   
-}
-.reg_date {
-	margin-left: 15px;
-   float: ;
-}
-.imgswap img:last-child{display:none} 
-.imgswap:hover img:first-child{display:none} 
-.imgswap:hover img:last-child{display:inline-block}
-
-
+    @media (max-width: 768px) {
+        .search-hero { padding: 24px; }
+        .search-hero-keyword { font-size: 20px; }
+        .search-form { flex-direction: column; }
+        .concert-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .card-thumb { height: 220px; }
+        .header h1 { display: none; }
+    }
 </style>
-
 </head>
-
 <body>
 
-<div align="center">
-<font class="font2" ><h2>검색목록</h2></font>
+<div class="header">
+    <div class="header-inner">
+        <div class="header-left">
+            <a href="/" class="btn-icon">🏠 홈</a>
+            <a href="/concert/list.do" class="btn-icon">📋 목록</a>
+            <h1 onclick="location.href='/concert/list.do'">🎵 STU Concert</h1>
+        </div>
+    </div>
 </div>
 
-<div id="main-container">
-<table class="board_list" style="width:100%">
-		<colgroup>
-			<col width="100%" />
-		</colgroup>
-		<thead>
-			<tr>
-			</tr>
-		</thead>
-		<tbody>
-		</tbody>
-		</table>
+<div class="container">
 
+    <div class="search-hero">
+        <div class="search-hero-title">SEARCH RESULTS</div>
+        <div class="search-hero-keyword">
+            <c:choose>
+                <c:when test="${not empty keyword}">
+                    "<span class="accent"><c:out value="${keyword}"/></span>" 검색 결과
+                </c:when>
+                <c:otherwise>공연 검색</c:otherwise>
+            </c:choose>
+        </div>
+        <form class="search-form" action="/concert/search.do" method="get">
+            <input class="search-input" type="text" name="keyword"
+                   placeholder="공연명 / 아티스트 / 공연장 (대소문자 구분 없음)"
+                   value="<c:out value='${keyword}'/>"/>
+            <button class="btn-search-go" type="submit">🔍 검색</button>
+        </form>
+    </div>
 
-<div id="PAGE_NAVI" align="center"></div>
-		<input type="hidden" id="PAGE_INDEX" name="PAGE_INDEX" />
+    <div class="result-count">
+        전체 <strong><c:out value="${fn:length(concertList)}"/></strong>건이 검색되었습니다
+    </div>
 
-<input type="hidden" id="keyword" name="keyword" value="${keyword}" />
-<br><br>
+    <c:choose>
+        <c:when test="${empty concertList}">
+            <div class="empty-state">
+                <div class="empty-state-icon">🔎</div>
+                <h3>검색 결과가 없습니다</h3>
+                <p>다른 키워드로 검색해보세요.</p>
+            </div>
+        </c:when>
+        <c:otherwise>
+            <div class="concert-grid">
+                <c:forEach var="concert" items="${concertList}">
+                    <a class="concert-card" href="/concert/detail.do?concertId=${concert.concertId}">
+                        <div class="card-thumb"
+                             <c:if test="${not empty concert.thumbnail}">
+                                style="background-image: url('<c:out value="${concert.thumbnail}"/>');"
+                             </c:if>>
+                            <c:if test="${empty concert.thumbnail}">
+                                <div class="card-thumb-placeholder">🎵 No Image</div>
+                            </c:if>
+                            <c:if test="${not empty concert.status}">
+                                <span class="status-badge status-${concert.status}">
+                                    <c:choose>
+                                        <c:when test="${concert.status == 'UPCOMING'}">예매예정</c:when>
+                                        <c:when test="${concert.status == 'ONGOING'}">진행중</c:when>
+                                        <c:when test="${concert.status == 'CLOSED'}">종료</c:when>
+                                        <c:otherwise><c:out value="${concert.status}"/></c:otherwise>
+                                    </c:choose>
+                                </span>
+                            </c:if>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-artist"><c:out value="${concert.artist}"/></div>
+                            <div class="card-title"><c:out value="${concert.title}"/></div>
+                            <div class="card-venue">📍 <c:out value="${concert.venue}"/></div>
+                        </div>
+                    </a>
+                </c:forEach>
+            </div>
+        </c:otherwise>
+    </c:choose>
+
 </div>
 
-<form id="commonForm" name="commonForm"></form>
-
-<script type="text/javascript">
-
-function numberWithCommas(x) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-
-$(document).ready(function() {
-	
-	fn_selectGoodsList(1);
-	
-	$("a[name='title']").on("click", function(e){ //제목 //name 이 title인거
-		//console.log("잘들어옴");
-		e.preventDefault();
-		fn_openBoardDetail($(this));
-	});
-});
-
-function fn_openBoardDetail(obj) {
-	//console.log("잘들어옴22");
-	var comSubmit = new ComSubmit(); // 객체생성
-	comSubmit.setUrl("<c:url value='/shop/goodsDetail.do' />"); // url설정
-	comSubmit.addParam("IDX", obj.parent().find("#IDX").val()); // IDX; id로 값을넘김
-	comSubmit.submit();
-	
-}
-
-function fn_selectGoodsList(pageNo) {
-	var comAjax = new ComAjax();
-
-	//alert(${orderBy});
-	comAjax.setUrl("<c:url value='/shop/mainSearch.do' />");
-	comAjax.setCallback("fn_selectGoodsListCallback");
-	comAjax.addParam("PAGE_INDEX", pageNo);
-	comAjax.addParam("PAGE_ROW", 16);
-	comAjax.addParam("keyword", $('#keyword').val());
-	comAjax.ajax();
-	//alert('#keyword');
-}
-
-function fn_selectGoodsListCallback(data) {
-	var total = data.TOTAL;
-	var body = $(".board_list");
-	body.empty();
-	
-	if (total == 0) {
-		var str = "<tr>" + "<td colspan='4'>조회된 결과가 없습니다.</td>"
-				+ "</tr>";
-		body.append(str);
-	} else {
-		var params = {
-			divId : "PAGE_NAVI",
-			pageIndex : "PAGE_INDEX",
-			totalCount : total,
-			recordCount : 16,
-			eventName : "fn_selectGoodsList"
-		};
-		gfn_renderPaging(params);
-
-		var str = "";
-		$.each(data.list, function(key, value) {
-													var imgpath = "<img src='/file/"+value.GOODS_THUMBNAIL+"' width='400' height='400'>"
-
-													var imgpath1 = value.GOODS_IMAGE_STD.split(',');
-													var img0 = imgpath1[0];
-													var img1 = imgpath1[1];
-													
-													var Pick = value.GOODS_PICK.split(',');
-													var pick1 = "";
-													var pick2 = "";
-													var pick3 = "";
-													var pick4 = "";
-													var num = "";
-													for (var i=0; i<Pick.length; i++) {
-															Pick[i];
-															if(Pick[0] == null){
-																pick1 = "";
-															}else{
-																pick1 = Pick[0];
-															}
-															if(Pick[1] == null){
-																pick2 = "";
-															}else {
-																pick2 = Pick[1];
-															}
-															if(Pick[2] == null){
-																pick3 = "";
-															}else {
-																pick3 = Pick[2];
-															}
-															if(Pick[3] == null){
-																pick4 = "";
-															}else{
-																pick4 = Pick[3];
-															}
-														}
-													
-													
-															
-													
-													str += "<div class='card'>"
-														+		"<a href='#this' name='title'>"
-														+		"<div class='imgswap'>"
-														+ 		"<img src='/file/"+img0+"' width='400' height='400'>" 
-														+ 		"<img src='/file/"+img1+"' width='400' height='400'>"
-														+     " </div> "
-														+     " <c:if test='${"+num+" ne "+pick1+"}'> "
-														+ 	  " <span style='background-color:#ff80bf; line-height: 27px; border-radius: 10px;'><font color='#ffffff' size='2'> "
-														+		pick1 +"</font></span>"	
-														+	  " </c:if>"
-														+     " <c:if test='${"+num+" ne "+pick2+"}'> "
-														+     " <span style='background-color:#d456dc; line-height: 27px; border-radius: 10px;'><font color='#ffffff' size='2'> "
-														+		pick2 + "</font></span>"
-														+	  " </c:if>"
-														+     " <c:if test='${"+num+" ne "+pick3+" }'> "
-														+     " <span style='background-color:#33b7ff; line-height: 27px; border-radius: 10px;'><font color='#ffffff' size='2'> "  
-														+       pick3 + "</font></span>"
-														+	  " </c:if>"
-														+     " <c:if test='${"+num+" ne "+pick4+" }'> "
-														+     " <span style='background-color:#33b7ff; line-height: 27px; border-radius: 10px;'><font color='#ffffff' size='2'> "  
-														+       pick4 + "</font></span>"
-														+	  " </c:if> <br>"
-														+	  " <font class='font1'>"+value.GOODS_NAME+"</font><br>"
-														+     " <font class='font2'>"+numberWithCommas(value.GOODS_SELL_PRICE)+"원</font> "   
-														+  	  " <input type='hidden' id='IDX' name='IDX' value=" + value.GOODS_NO + ">"
-														+	  " </a>"
-														+	  " </div>";
-
-							
-						});
-		body.append(str);
-		$("a[name='title']").on("click", function(e){ //제목 
-			e.preventDefault();
-			fn_openBoardDetail($(this));
-		});
-	}
-}
-
+<script>
+    // 검색어 하이라이트 (대소문자 구분 없이)
+    (function(){
+        var kw = "<c:out value='${keyword}' default=''/>".trim();
+        if (!kw) return;
+        var safeKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var regex = new RegExp('(' + safeKw + ')', 'gi');
+        document.querySelectorAll('.card-title, .card-artist, .card-venue').forEach(function(el){
+            el.innerHTML = el.innerHTML.replace(regex, '<span class="highlight">$1</span>');
+        });
+    })();
 </script>
 
 </body>
 </html>
-
-
-
