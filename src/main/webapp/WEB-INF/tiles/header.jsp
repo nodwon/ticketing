@@ -122,18 +122,6 @@ a { text-decoration: none; color: inherit; }
             <a href="/notice/openNoticeList.do">공지사항</a>
             <a href="/faq/openFaqList.do">고객센터</a>
         </div>
-        <div>
-            <%if (!isLogin) {%>
-                <a href="/joinForm.do">회원가입</a>
-                <a href="/loginForm.do">로그인</a>
-            <%} else if (isAdmin) {%>
-                <a href="/adminMain.do">관리자 홈</a>
-                <a href="#" onclick="signOut(); return false;">로그아웃</a>
-            <%} else {%>
-                <a href="/myOrderList.do">마이페이지</a>
-                <a href="#" onclick="signOut(); return false;">로그아웃</a>
-            <%}%>
-        </div>
     </div>
 </div>
 
