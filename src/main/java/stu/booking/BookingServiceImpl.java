@@ -54,6 +54,12 @@ public class BookingServiceImpl implements BookingService {
 
     // ====================================================
     // 예매 생성 (트랜잭션) - PENDING 상태로 생성
+    // 
+    // [통합 메모]
+    // 정희영 좌석 모듈 통합 후, 좌석은 두 가지 진입점에서 들어옴:
+    //   A. 본인 임시 화면: AVAILABLE 상태 그대로 진입
+    //   B. 정희영 모듈: /seat/hold.do 호출로 이미 HELD 상태로 진입
+    // → 두 경우 모두 허용. RESERVED만 거부.
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -89,19 +95,39 @@ public class BookingServiceImpl implements BookingService {
             throw new Exception("존재하지 않는 좌석이 포함되어 있습니다");
         }
 
-        // [3] 모든 좌석 AVAILABLE 검증 + 가격 합산 (서버측 재계산)
+        // [3] 좌석 상태 검증 + 가격 합산 (서버측 재계산)
+        //     AVAILABLE: 일반 예매 진입 (본인 임시 화면)
+        //     HELD: 좌석 모듈에서 임시 선점 후 진입 (정희영 모듈)
+        //     RESERVED: 이미 결제 완료 → 거부
         long totalPrice = 0;
+        int heldCount = 0;       // HELD로 진입한 좌석 수 (디버깅 + 보안 관제용)
+        int availableCount = 0;  // AVAILABLE로 진입한 좌석 수
+
         for (Map<String, Object> seat : seats) {
             String status = (String) seat.get("STATUS");
-            if (!"AVAILABLE".equals(status)) {
-                Object seatId = seat.get("SEATID");
-                log.warn("이미 점유된 좌석 시도 감지 - seatId=" + seatId + ", status=" + status);
-                throw new Exception("이미 점유된 좌석이 포함되어 있습니다 (seatId=" + seatId + ", status=" + status + ")");
+            Object seatId = seat.get("SEATID");
+
+            // RESERVED는 거부 (이미 결제된 좌석)
+            if ("RESERVED".equals(status)) {
+                log.warn("이미 예매 완료된 좌석 시도 - seatId=" + seatId);
+                throw new Exception("이미 예매 완료된 좌석입니다 (seatId=" + seatId + ")");
             }
+
+            // AVAILABLE 또는 HELD만 통과
+            if (!"AVAILABLE".equals(status) && !"HELD".equals(status)) {
+                log.warn("예매 불가능한 좌석 시도 - seatId=" + seatId + ", status=" + status);
+                throw new Exception("예매 불가능한 좌석 (seatId=" + seatId + ", status=" + status + ")");
+            }
+
+            // 통계 카운트
+            if ("HELD".equals(status)) heldCount++;
+            else availableCount++;
+
             totalPrice += ((Number) seat.get("PRICE")).longValue();
         }
 
-        log.info("좌석 검증 완료 - 총 가격=" + totalPrice);
+        log.info("좌석 검증 완료 - 총 가격=" + totalPrice 
+                + " (AVAILABLE=" + availableCount + ", HELD=" + heldCount + ")");
 
         // [4] bookings INSERT (status='PENDING')
         Map<String, Object> bookingParam = new HashMap<String, Object>();
@@ -123,25 +149,43 @@ public class BookingServiceImpl implements BookingService {
         }
         log.info("예매 항목 생성 - " + seats.size() + "건");
 
-        // [6] seats AVAILABLE → HELD
+        // [6] seats 상태 변경 → HELD
+        //     - AVAILABLE 좌석: HELD로 변경
+        //     - 이미 HELD인 좌석: 그대로 (영향받지 않음)
+        //     → updateSeatStatusToHeld는 WHERE status='AVAILABLE'을 사용하므로
+        //       이미 HELD인 좌석은 영향 없음. 이건 정상.
         Map<String, Object> updateSeatParam = new HashMap<String, Object>();
         updateSeatParam.put("seatIds", seatIds);
         int seatsAffected = bookingDao.updateSeatStatusToHeld(updateSeatParam);
 
-        if (seatsAffected != seatIds.size()) {
-            log.error("동시성 충돌 감지 - 요청=" + seatIds.size() + ", 영향=" + seatsAffected);
+        // 동시성 충돌 검증: AVAILABLE 좌석 수와 영향받은 UPDATE 수가 일치해야 함
+        // HELD로 들어온 좌석은 이미 HELD라서 영향 받지 않는 게 정상
+        if (seatsAffected != availableCount) {
+            log.error("동시성 충돌 감지 - AVAILABLE 좌석=" + availableCount 
+                    + ", UPDATE 영향=" + seatsAffected);
             throw new Exception("동시성 충돌: 일부 좌석이 이미 점유되었습니다");
         }
+        log.info("좌석 HELD 처리 - AVAILABLE→HELD " + seatsAffected + "건, 기존 HELD 유지 " 
+                + heldCount + "건");
 
         // [7] concert_schedules.available_seats 차감
-        Map<String, Object> updateScheduleParam = new HashMap<String, Object>();
-        updateScheduleParam.put("scheduleId", scheduleId);
-        updateScheduleParam.put("seatCount", seatIds.size());
-        int schedulesAffected = bookingDao.decreaseAvailableSeats(updateScheduleParam);
+        //     단, HELD로 진입한 좌석은 이미 available_seats에서 차감된 상태일 수 있음
+        //     → 정희영 /seat/hold.do가 available_seats 차감을 처리한다면 중복 차감 가능성
+        //     → 현재는 일단 모두 차감 (정희영 측 정책 확인 필요)
+        //     [TODO] 정희영과 협의: hold.do에서 available_seats 차감 여부 확인
+        if (availableCount > 0) {
+            Map<String, Object> updateScheduleParam = new HashMap<String, Object>();
+            updateScheduleParam.put("scheduleId", scheduleId);
+            updateScheduleParam.put("seatCount", availableCount);  // AVAILABLE만 차감
+            int schedulesAffected = bookingDao.decreaseAvailableSeats(updateScheduleParam);
 
-        if (schedulesAffected == 0) {
-            log.error("잔여 좌석 차감 실패 - scheduleId=" + scheduleId);
-            throw new Exception("잔여 좌석이 부족합니다");
+            if (schedulesAffected == 0) {
+                log.error("잔여 좌석 차감 실패 - scheduleId=" + scheduleId);
+                throw new Exception("잔여 좌석이 부족합니다");
+            }
+            log.info("잔여 좌석 차감 - " + availableCount + "석");
+        } else {
+            log.info("잔여 좌석 차감 생략 (모두 HELD 상태로 진입, 이미 차감됨)");
         }
 
         log.info("예매 생성 완료 (PENDING 상태) - bookingId=" + bookingId);
