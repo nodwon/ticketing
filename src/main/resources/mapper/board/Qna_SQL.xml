@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
 <mapper namespace="qna">
-
 	<select id="selectQnaList" parameterType="hashmap" resultType="hashmap">
 		<include refid="common1.pagingPre1"/> 
 			SELECT
@@ -39,7 +37,7 @@
         	SYSDATE 
     	)
 	</insert>
-
+	
 	<insert id="insertFile" parameterType="hashmap">
 		INSERT INTO ATTACHMENTS
 		(
@@ -67,20 +65,35 @@
 	<select id="selectLastInsertId" resultType="string">
 		SELECT MAX(QNA_ID) FROM QNA_POSTS
 	</select>
-
 	
+	<!-- 🌟 다운로드용 단일 파일 정보 조회 -->
+	<select id="selectFileInfo" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			ATTACHMENT_ID AS FILE_ID,
+			POST_ID,
+			ORIGINAL_NAME,
+			SAVED_NAME,
+			EXTENSION,
+			FILE_SIZE
+		FROM
+			ATTACHMENTS
+		WHERE
+			ATTACHMENT_ID = #{FILE_ID, jdbcType=NUMERIC}
+	</select>
+	
+	<!-- 🌟 게시글 상세조회 시 첨부파일 목록 -->
 	<select id="selectFileList" parameterType="hashmap" resultType="hashmap">
-    	SELECT
-        	ATTACHMENT_ID AS FILE_ID,
-        	POST_ID,
-        	ORIGINAL_NAME AS ORIGINAL_FILE_NAME,
-        	ORIGINAL_NAME AS UPLOAD_ORIGIN_NAME,
-        	SAVED_NAME    AS UPLOAD_SAVE_NAME,
-        	FILE_SIZE     AS FILE_SIZE
-    	FROM
-    	    ATTACHMENTS
-    	WHERE
-    	    POST_ID = #{QNA_ID, jdbcType=NUMERIC}	
+		SELECT
+			ATTACHMENT_ID AS FILE_ID,
+			POST_ID,
+			ORIGINAL_NAME AS ORIGINAL_FILE_NAME,
+			ORIGINAL_NAME AS UPLOAD_ORIGIN_NAME,
+			SAVED_NAME    AS UPLOAD_SAVE_NAME,
+			FILE_SIZE     AS FILE_SIZE
+		FROM
+			ATTACHMENTS
+		WHERE
+			POST_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</select>
 	
 	<select id="selectQnaDetail" parameterType="hashmap" resultType="hashmap">
@@ -89,41 +102,22 @@
 			QNA_ID        AS QNA_NO,
 			MEMBER_ID     AS MEMBER_ID,
 			QNA_NAME      AS QNA_NAME,
-			TITLE         AS QNA_TITLE,   /* 기존 JSP 화면 일치형 */
-			CONTENT       AS QNA_CONTENT, /* 기존 JSP 화면 일치형 */
+			TITLE         AS QNA_TITLE,
+			CONTENT       AS QNA_CONTENT,
 			TO_CHAR(CREATED_AT, 'YYYY.MM.DD HH24:MI:SS') AS QNA_DATE,
-			
-			/* 💡 실제 추가된 답변 컬럼(QNA_AN)은 정상 조회하도록 세팅 */
-			QNA_AN        AS QNA_AN,       
-			
-			/* 테이블에 없는 나머지 명세서용 컬럼은 가상 컬럼으로 안전 방어 */
+			QNA_AN        AS QNA_AN,
 			''            AS QNA_CATEGORY, 
 			'0'           AS IS_SECRET,    
 			'0'           AS QNA_DELETE
 		FROM 
 			QNA_POSTS
 		WHERE 
-			QNA_ID = #{QNA_ID}
+			QNA_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</select>
-
+	
 	<update id="updateQna" parameterType="hashmap">
 		UPDATE QNA_POSTS
-		   SET QNA_AN = #{ANSWER, jdbcType=VARCHAR} /* 관리자가 입력한 답변 매핑 */
+		   SET QNA_AN = #{ANSWER, jdbcType=VARCHAR}
 		 WHERE QNA_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</update>
-	
-	<select id="selectFileInfo" parameterType="hashmap" resultType="hashmap">
-    	SELECT
-        	ATTACHMENT_ID AS FILE_ID,
-        	POST_ID,
-        	ORIGINAL_NAME,
-        	SAVED_NAME,
-        	EXTENSION,
-        	FILE_SIZE
-    	FROM
-        	ATTACHMENTS
-    	WHERE
-        	ATTACHMENT_ID = #{FILE_ID, jdbcType=NUMERIC}
-	</select>
-
 </mapper>
