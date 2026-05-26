@@ -5,9 +5,8 @@
  * FileName   : GoodsDao.java
  * Developer  : 주재현 (feature/jjh)
  * Created    : 2026.05.22
- * Modified   : 2026.05.25
+ * Modified   : 2026.05.26
  * Description: 공연(Concert) DAO
- *              - AbstractDao(stu.common.dao) 상속
  *              - Mapper namespace = "concert"
  * ============================================================
  */
@@ -39,13 +38,8 @@ public class GoodsDao extends AbstractDao {
         return selectList("concert.searchConcerts", keyword);
     }
 
-    /** 후기 목록 (posts.post_type='REVIEW') */
-    public List<Map<String, Object>> selectReviewPosts() {
-        return selectList("concert.selectReviewPosts", null);
-    }
-
-    /** Q&A 목록 */
-    public List<Map<String, Object>> selectQnaPosts() {
-        return selectList("concert.selectQnaPosts", null);
+    /** 공연 스케줄 목록 */
+    public List<Map<String, Object>> selectScheduleListByConcertId(Long concertId) {
+        return selectList("concert.selectScheduleListByConcertId", concertId);
     }
 }
