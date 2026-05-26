@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
 <mapper namespace="qna">
-
 	<select id="selectQnaList" parameterType="hashmap" resultType="hashmap">
 		<include refid="common1.pagingPre1"/> 
 			SELECT
@@ -17,34 +15,32 @@
 	</select>
 	
 	<insert id="insertQna" parameterType="hashmap">
-		<selectKey keyProperty="QNA_ID" resultType="string" order="BEFORE">
-			SELECT TICKET_DEV.ISEQ$$_75850.NEXTVAL FROM DUAL
-		</selectKey>
-	
-		INSERT INTO QNA_POSTS
-		( 
-			QNA_ID, /* selectKey를 통해 미리 뽑아온 번호를 주입 */
-			MEMBER_ID,
-			QNA_NAME,
-			TITLE,      
-			CONTENT, 
-			CREATED_AT
-		)
-		VALUES
-		( 
-			#{QNA_ID},
-			#{MEMBER_ID, jdbcType=NUMERIC},
-			#{QNA_NAME, jdbcType=VARCHAR},
-			#{TITLE, jdbcType=VARCHAR},
-			#{CONTENT, jdbcType=VARCHAR},
-			SYSDATE 
-		)
+    	<selectKey keyProperty="QNA_ID" resultType="long" order="BEFORE">
+        	SELECT QNA_NO_SEQ.NEXTVAL FROM DUAL
+    	</selectKey>
+    	INSERT INTO QNA_POSTS
+    	( 
+        	QNA_ID,
+        	MEMBER_ID,
+        	QNA_NAME,
+        	TITLE,      
+        	CONTENT, 
+        	CREATED_AT
+    	)
+    	VALUES
+    	( 
+        	#{QNA_ID, jdbcType=NUMERIC},
+        	#{MEMBER_ID, jdbcType=NUMERIC},
+        	#{QNA_NAME, jdbcType=VARCHAR},
+        	#{TITLE, jdbcType=VARCHAR},
+        	#{CONTENT, jdbcType=VARCHAR},
+        	SYSDATE 
+    	)
 	</insert>
 	
 	<insert id="insertFile" parameterType="hashmap">
 		INSERT INTO ATTACHMENTS
 		(
-			ATTACHMENT_ID,
 			POST_ID,
 			ORIGINAL_NAME,
 			SAVED_NAME,
@@ -54,28 +50,50 @@
 		)
 		VALUES
 		(
-			TICKET_DEV.ISEQ$$_75842.NEXTVAL, /* 첨부파일 시퀀스 */
-			#{POST_ID, jdbcType=NUMERIC},     // QNA 게시글 번호
-			#{ORIGINAL_NAME, jdbcType=VARCHAR},/* CommonController가 찾는 컬럼 규격 동기화 */
-			#{SAVED_NAME, jdbcType=VARCHAR},   /* CommonController가 찾는 컬럼 규격 동기화 */
-			#{EXTENSION, jdbcType=VARCHAR},
-			#{FILE_SIZE, jdbcType=NUMERIC},
+			#{POST_ID, jdbcType=NUMERIC},
+			#{UPLOAD_ORIGIN_NAME, jdbcType=VARCHAR}, 
+			#{UPLOAD_SAVE_NAME, jdbcType=VARCHAR},   
+			NVL(
+				#{EXTENSION, jdbcType=VARCHAR}, 
+				NVL(SUBSTR(#{UPLOAD_ORIGIN_NAME}, INSTR(#{UPLOAD_ORIGIN_NAME}, '.', -1) + 1), 'UNKNOWN')
+			),
+			NVL(#{FILE_SIZE, jdbcType=NUMERIC}, 0),
 			SYSDATE
 		)
 	</insert>
 	
-	<select id="selectFileList" parameterType="hashmap" resultType="hashmap">
+	<select id="selectLastInsertId" resultType="string">
+		SELECT MAX(QNA_ID) FROM QNA_POSTS
+	</select>
+	
+	<!-- 🌟 다운로드용 단일 파일 정보 조회 -->
+	<select id="selectFileInfo" parameterType="hashmap" resultType="hashmap">
 		SELECT
-			ATTACHMENT_ID AS FILE_ID, /* jsp 화면단 ${row.FILE_ID} 일치용 */
+			ATTACHMENT_ID AS FILE_ID,
 			POST_ID,
-			ORIGINAL_NAME AS ORIGINAL_FILE_NAME, /* jsp 화면단 ${row.ORIGINAL_FILE_NAME} 일치용 */
-			ORIGINAL_NAME AS UPLOAD_ORIGIN_NAME, /* CommonController 매핑용 백업 */
-			SAVED_NAME    AS UPLOAD_SAVE_NAME,   /* CommonController 매핑용 백업 */
-			FILE_SIZE     AS FILE_SIZE          /* jsp 화면단 ${row.FILE_SIZE} 일치용 */
+			ORIGINAL_NAME,
+			SAVED_NAME,
+			EXTENSION,
+			FILE_SIZE
 		FROM
 			ATTACHMENTS
 		WHERE
-			POST_ID = #{QNA_ID}
+			ATTACHMENT_ID = #{FILE_ID, jdbcType=NUMERIC}
+	</select>
+	
+	<!-- 🌟 게시글 상세조회 시 첨부파일 목록 -->
+	<select id="selectFileList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			ATTACHMENT_ID AS FILE_ID,
+			POST_ID,
+			ORIGINAL_NAME AS ORIGINAL_FILE_NAME,
+			ORIGINAL_NAME AS UPLOAD_ORIGIN_NAME,
+			SAVED_NAME    AS UPLOAD_SAVE_NAME,
+			FILE_SIZE     AS FILE_SIZE
+		FROM
+			ATTACHMENTS
+		WHERE
+			POST_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</select>
 	
 	<select id="selectQnaDetail" parameterType="hashmap" resultType="hashmap">
@@ -84,27 +102,22 @@
 			QNA_ID        AS QNA_NO,
 			MEMBER_ID     AS MEMBER_ID,
 			QNA_NAME      AS QNA_NAME,
-			TITLE         AS QNA_TITLE,   /* 기존 JSP 화면 일치형 */
-			CONTENT       AS QNA_CONTENT, /* 기존 JSP 화면 일치형 */
+			TITLE         AS QNA_TITLE,
+			CONTENT       AS QNA_CONTENT,
 			TO_CHAR(CREATED_AT, 'YYYY.MM.DD HH24:MI:SS') AS QNA_DATE,
-			
-			/* 💡 실제 추가된 답변 컬럼(QNA_AN)은 정상 조회하도록 세팅 */
-			QNA_AN        AS QNA_AN,       
-			
-			/* 테이블에 없는 나머지 명세서용 컬럼은 가상 컬럼으로 안전 방어 */
+			QNA_AN        AS QNA_AN,
 			''            AS QNA_CATEGORY, 
 			'0'           AS IS_SECRET,    
 			'0'           AS QNA_DELETE
 		FROM 
 			QNA_POSTS
 		WHERE 
-			QNA_ID = #{QNA_ID}
+			QNA_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</select>
-
+	
 	<update id="updateQna" parameterType="hashmap">
 		UPDATE QNA_POSTS
-		   SET QNA_AN = #{ANSWER, jdbcType=VARCHAR} /* 관리자가 입력한 답변 매핑 */
+		   SET QNA_AN = #{ANSWER, jdbcType=VARCHAR}
 		 WHERE QNA_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</update>
-
 </mapper>
