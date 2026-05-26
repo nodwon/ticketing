@@ -8,7 +8,7 @@
          [조회 SELECT] - 화면 표시용
          ============================================================ -->
 
-    <!-- 1) 공연 일정 정보 조회 (좌석 선택 화면용) -->
+    <!-- 1) 공연 일정 정보 조회 -->
     <select id="selectScheduleInfo" parameterType="hashmap" resultType="hashmap">
         SELECT 
             cs.schedule_id        AS scheduleId,
@@ -39,7 +39,7 @@
         ORDER BY seat_row, seat_col
     </select>
 
-    <!-- 3) 예매 상세 조회 -->
+    <!-- 3) 예매 상세 조회 (cancelled_at, cancel_reason 제거됨) -->
     <select id="selectBookingDetail" parameterType="hashmap" resultType="hashmap">
         SELECT 
             b.booking_id        AS bookingId,
@@ -50,12 +50,10 @@
             c.title             AS title,
             c.artist            AS artist,
             c.venue             AS venue,
-            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI')    AS performanceDate,
+            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI')  AS performanceDate,
             b.total_price       AS totalPrice,
             b.status            AS status,
-            TO_CHAR(b.created_at,   'YYYY-MM-DD HH24:MI:SS')      AS createdAt,
-            TO_CHAR(b.cancelled_at, 'YYYY-MM-DD HH24:MI:SS')      AS cancelledAt,
-            b.cancel_reason     AS cancelReason
+            TO_CHAR(b.created_at, 'YYYY-MM-DD HH24:MI:SS')      AS createdAt
         FROM bookings b
         JOIN members m            ON b.member_id = m.member_id
         JOIN concert_schedules cs ON b.schedule_id = cs.schedule_id
@@ -100,18 +98,9 @@
 
     <!-- ============================================================
          [예매 생성 - PENDING 흐름]
-         호출 순서: BookingServiceImpl.createBooking()
-         
-         예매 생성 시점:
-           - bookings.status = 'PENDING' (결제 대기)
-           - seats.status    = 'AVAILABLE' → 'HELD' (임시 선점)
-         
-         결제 확정 시점 (king이 호출):
-           - bookings.status = 'PENDING' → 'CONFIRMED'
-           - seats.status    = 'HELD' → 'RESERVED'
          ============================================================ -->
 
-    <!-- 6) 좌석 상태 확인 (동시성 제어: FOR UPDATE로 행 잠금) -->
+    <!-- 6) 좌석 상태 확인 (FOR UPDATE) -->
     <select id="selectSeatsForUpdate" parameterType="hashmap" resultType="hashmap">
         SELECT 
             seat_id    AS seatId,
@@ -125,9 +114,7 @@
         FOR UPDATE
     </select>
 
-    <!-- 7) 예매 헤더 INSERT (status='PENDING'으로 생성)
-            booking_id는 GENERATED AS IDENTITY로 자동 채번
-            keyProperty="bookingId"로 생성된 ID를 commandMap에 자동 주입 -->
+    <!-- 7) 예매 헤더 INSERT (status='PENDING') -->
     <insert id="insertBooking" parameterType="hashmap" 
             useGeneratedKeys="true" keyProperty="bookingId" keyColumn="BOOKING_ID">
         INSERT INTO bookings (
@@ -137,7 +124,7 @@
         )
     </insert>
 
-    <!-- 8) 예매 항목 INSERT (좌석 하나당 1행) -->
+    <!-- 8) 예매 항목 INSERT -->
     <insert id="insertBookingItem" parameterType="hashmap">
         INSERT INTO booking_items (
             booking_id, seat_id, unit_price
@@ -146,8 +133,7 @@
         )
     </insert>
 
-    <!-- 9) 좌석 상태 변경 (AVAILABLE → HELD) - 예매 생성 시
-            이중 안전장치: WHERE status='AVAILABLE' 조건으로 동시성 방어 -->
+    <!-- 9) 좌석 AVAILABLE → HELD -->
     <update id="updateSeatStatusToHeld" parameterType="hashmap">
         UPDATE seats
         SET status = 'HELD'
@@ -169,11 +155,9 @@
 
     <!-- ============================================================
          [예매 확정 - PENDING → CONFIRMED]
-         호출 순서: BookingServiceImpl.confirmBooking()
-         호출 주체: 결제 모듈(king)의 결제 완료 후
          ============================================================ -->
 
-    <!-- 11) bookings 상태 변경 (PENDING → CONFIRMED) -->
+    <!-- 11) bookings: PENDING → CONFIRMED -->
     <update id="confirmBookingStatus" parameterType="hashmap">
         UPDATE bookings
         SET status = 'CONFIRMED'
@@ -181,8 +165,7 @@
           AND status = 'PENDING'
     </update>
 
-    <!-- 12) 좌석 상태 변경 (HELD → RESERVED) - 결제 확정 시
-            특정 예매에 묶인 좌석들만 변경 -->
+    <!-- 12) 좌석 HELD → RESERVED -->
     <update id="updateSeatStatusHeldToReserved" parameterType="hashmap">
         UPDATE seats
         SET status = 'RESERVED'
@@ -194,27 +177,18 @@
 
 
     <!-- ============================================================
-         [예매 취소 - 모든 상태에서 호출 가능]
-         호출 순서: BookingServiceImpl.cancelBooking()
-         호출 주체: 사용자 취소, 결제 실패, 타임아웃 등
-         
-         취소 가능 케이스:
-           - PENDING: 결제 전 취소 (좌석 HELD → AVAILABLE)
-           - CONFIRMED: 예매 확정 후 취소 (좌석 RESERVED → AVAILABLE)
+         [예매 취소 - cancelled_at, cancel_reason 제거됨]
          ============================================================ -->
 
-    <!-- 13) 예매 취소 (PENDING 또는 CONFIRMED 상태에서만 가능) -->
+    <!-- 13) 예매 취소 (status만 변경, 시간/사유 기록 없음) -->
     <update id="cancelBooking" parameterType="hashmap">
         UPDATE bookings
-        SET status = 'CANCELLED',
-            cancelled_at = SYSTIMESTAMP,
-            cancel_reason = #{cancelReason}
+        SET status = 'CANCELLED'
         WHERE booking_id = #{bookingId}
           AND status IN ('PENDING', 'CONFIRMED')
     </update>
 
-    <!-- 14) 좌석 상태 복구 (HELD 또는 RESERVED → AVAILABLE)
-            취소된 예매에 묶인 좌석들을 모두 복구 -->
+    <!-- 14) 좌석 HELD/RESERVED → AVAILABLE -->
     <update id="restoreSeatStatus" parameterType="hashmap">
         UPDATE seats
         SET status = 'AVAILABLE'
@@ -224,7 +198,7 @@
         AND status IN ('HELD', 'RESERVED')
     </update>
 
-    <!-- 15) 잔여 좌석수 복구 (취소 시) -->
+    <!-- 15) 잔여 좌석수 복구 -->
     <update id="increaseAvailableSeats" parameterType="hashmap">
         UPDATE concert_schedules
         SET available_seats = available_seats + (

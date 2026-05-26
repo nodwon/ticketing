@@ -81,8 +81,6 @@ public class JoinController {
 	        mv.addObject("message", "이미 가입된 이메일입니다.");
 	        return mv;
 	    }
-		
-		joinService.insertMember(commandMap.getMap());
 
         mv.addObject("MEMBER_NAME", commandMap.get("MEMBER_NAME")); 
         mv.addObject("MEMBER_ID", commandMap.get("MEMBER_ID"));

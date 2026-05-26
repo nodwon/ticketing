@@ -55,14 +55,11 @@ public class BookingServiceImpl implements BookingService {
     // ====================================================
     // 예매 생성 (트랜잭션) - PENDING 상태로 생성
     // 
-    // 흐름:
-    //   1. 파라미터 검증
-    //   2. 좌석 락 + 상태 확인 (FOR UPDATE)
-    //   3. 모든 좌석 AVAILABLE 검증 + 가격 서버측 재계산
-    //   4. bookings INSERT (status='PENDING')
-    //   5. booking_items INSERT × N
-    //   6. seats UPDATE (AVAILABLE → HELD)
-    //   7. concert_schedules.available_seats 차감
+    // [통합 메모]
+    // 정희영 좌석 모듈 통합 후, 좌석은 두 가지 진입점에서 들어옴:
+    //   A. 본인 임시 화면: AVAILABLE 상태 그대로 진입
+    //   B. 정희영 모듈: /seat/hold.do 호출로 이미 HELD 상태로 진입
+    // → 두 경우 모두 허용. RESERVED만 거부.
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -98,21 +95,41 @@ public class BookingServiceImpl implements BookingService {
             throw new Exception("존재하지 않는 좌석이 포함되어 있습니다");
         }
 
-        // [3] 모든 좌석 AVAILABLE 검증 + 가격 합산 (서버측 재계산)
+        // [3] 좌석 상태 검증 + 가격 합산 (서버측 재계산)
+        //     AVAILABLE: 일반 예매 진입 (본인 임시 화면)
+        //     HELD: 좌석 모듈에서 임시 선점 후 진입 (정희영 모듈)
+        //     RESERVED: 이미 결제 완료 → 거부
         long totalPrice = 0;
+        int heldCount = 0;       // HELD로 진입한 좌석 수 (디버깅 + 보안 관제용)
+        int availableCount = 0;  // AVAILABLE로 진입한 좌석 수
+
         for (Map<String, Object> seat : seats) {
             String status = (String) seat.get("STATUS");
-            if (!"AVAILABLE".equals(status)) {
-                Object seatId = seat.get("SEATID");
-                log.warn("이미 점유된 좌석 시도 감지 - seatId=" + seatId + ", status=" + status);
-                throw new Exception("이미 점유된 좌석이 포함되어 있습니다 (seatId=" + seatId + ", status=" + status + ")");
+            Object seatId = seat.get("SEATID");
+
+            // RESERVED는 거부 (이미 결제된 좌석)
+            if ("RESERVED".equals(status)) {
+                log.warn("이미 예매 완료된 좌석 시도 - seatId=" + seatId);
+                throw new Exception("이미 예매 완료된 좌석입니다 (seatId=" + seatId + ")");
             }
+
+            // AVAILABLE 또는 HELD만 통과
+            if (!"AVAILABLE".equals(status) && !"HELD".equals(status)) {
+                log.warn("예매 불가능한 좌석 시도 - seatId=" + seatId + ", status=" + status);
+                throw new Exception("예매 불가능한 좌석 (seatId=" + seatId + ", status=" + status + ")");
+            }
+
+            // 통계 카운트
+            if ("HELD".equals(status)) heldCount++;
+            else availableCount++;
+
             totalPrice += ((Number) seat.get("PRICE")).longValue();
         }
 
-        log.info("좌석 검증 완료 - 총 가격=" + totalPrice);
+        log.info("좌석 검증 완료 - 총 가격=" + totalPrice 
+                + " (AVAILABLE=" + availableCount + ", HELD=" + heldCount + ")");
 
-        // [4] bookings 테이블에 헤더 INSERT (status='PENDING')
+        // [4] bookings INSERT (status='PENDING')
         Map<String, Object> bookingParam = new HashMap<String, Object>();
         bookingParam.put("memberId", memberId);
         bookingParam.put("scheduleId", scheduleId);
@@ -122,7 +139,7 @@ public class BookingServiceImpl implements BookingService {
         Long bookingId = ((Number) bookingParam.get("bookingId")).longValue();
         log.info("예매 헤더 생성 (PENDING) - bookingId=" + bookingId);
 
-        // [5] booking_items INSERT (좌석 수만큼)
+        // [5] booking_items INSERT
         for (Map<String, Object> seat : seats) {
             Map<String, Object> itemParam = new HashMap<String, Object>();
             itemParam.put("bookingId", bookingId);
@@ -132,26 +149,43 @@ public class BookingServiceImpl implements BookingService {
         }
         log.info("예매 항목 생성 - " + seats.size() + "건");
 
-        // [6] seats 상태 변경 (AVAILABLE → HELD)
+        // [6] seats 상태 변경 → HELD
+        //     - AVAILABLE 좌석: HELD로 변경
+        //     - 이미 HELD인 좌석: 그대로 (영향받지 않음)
+        //     → updateSeatStatusToHeld는 WHERE status='AVAILABLE'을 사용하므로
+        //       이미 HELD인 좌석은 영향 없음. 이건 정상.
         Map<String, Object> updateSeatParam = new HashMap<String, Object>();
         updateSeatParam.put("seatIds", seatIds);
         int seatsAffected = bookingDao.updateSeatStatusToHeld(updateSeatParam);
 
-        // 이중 안전장치: 영향 행 수가 요청과 다르면 동시성 충돌
-        if (seatsAffected != seatIds.size()) {
-            log.error("동시성 충돌 감지 - 요청=" + seatIds.size() + ", 영향=" + seatsAffected);
+        // 동시성 충돌 검증: AVAILABLE 좌석 수와 영향받은 UPDATE 수가 일치해야 함
+        // HELD로 들어온 좌석은 이미 HELD라서 영향 받지 않는 게 정상
+        if (seatsAffected != availableCount) {
+            log.error("동시성 충돌 감지 - AVAILABLE 좌석=" + availableCount 
+                    + ", UPDATE 영향=" + seatsAffected);
             throw new Exception("동시성 충돌: 일부 좌석이 이미 점유되었습니다");
         }
+        log.info("좌석 HELD 처리 - AVAILABLE→HELD " + seatsAffected + "건, 기존 HELD 유지 " 
+                + heldCount + "건");
 
         // [7] concert_schedules.available_seats 차감
-        Map<String, Object> updateScheduleParam = new HashMap<String, Object>();
-        updateScheduleParam.put("scheduleId", scheduleId);
-        updateScheduleParam.put("seatCount", seatIds.size());
-        int schedulesAffected = bookingDao.decreaseAvailableSeats(updateScheduleParam);
+        //     단, HELD로 진입한 좌석은 이미 available_seats에서 차감된 상태일 수 있음
+        //     → 정희영 /seat/hold.do가 available_seats 차감을 처리한다면 중복 차감 가능성
+        //     → 현재는 일단 모두 차감 (정희영 측 정책 확인 필요)
+        //     [TODO] 정희영과 협의: hold.do에서 available_seats 차감 여부 확인
+        if (availableCount > 0) {
+            Map<String, Object> updateScheduleParam = new HashMap<String, Object>();
+            updateScheduleParam.put("scheduleId", scheduleId);
+            updateScheduleParam.put("seatCount", availableCount);  // AVAILABLE만 차감
+            int schedulesAffected = bookingDao.decreaseAvailableSeats(updateScheduleParam);
 
-        if (schedulesAffected == 0) {
-            log.error("잔여 좌석 차감 실패 - scheduleId=" + scheduleId);
-            throw new Exception("잔여 좌석이 부족합니다");
+            if (schedulesAffected == 0) {
+                log.error("잔여 좌석 차감 실패 - scheduleId=" + scheduleId);
+                throw new Exception("잔여 좌석이 부족합니다");
+            }
+            log.info("잔여 좌석 차감 - " + availableCount + "석");
+        } else {
+            log.info("잔여 좌석 차감 생략 (모두 HELD 상태로 진입, 이미 차감됨)");
         }
 
         log.info("예매 생성 완료 (PENDING 상태) - bookingId=" + bookingId);
@@ -161,11 +195,6 @@ public class BookingServiceImpl implements BookingService {
 
     // ====================================================
     // 예매 확정 (트랜잭션) - PENDING → CONFIRMED
-    // 결제 모듈(king)이 결제 완료 후 호출
-    // 
-    // 흐름:
-    //   1. bookings UPDATE (PENDING → CONFIRMED)
-    //   2. seats UPDATE (HELD → RESERVED)
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -198,16 +227,7 @@ public class BookingServiceImpl implements BookingService {
 
     // ====================================================
     // 예매 취소 (트랜잭션) - PENDING 또는 CONFIRMED → CANCELLED
-    // 
-    // 호출 주체:
-    //   - 사용자 직접 취소
-    //   - 결제 모듈의 결제 실패/타임아웃
-    //   - 별도 스케줄러의 자동 취소
-    // 
-    // 흐름:
-    //   1. 잔여 좌석수 복구 (좌석 정보 참조 위해 먼저 실행)
-    //   2. seats UPDATE (HELD/RESERVED → AVAILABLE)
-    //   3. bookings UPDATE (status → CANCELLED)
+    // cancelled_at, cancel_reason 제거됨 (명세서 표준 적용)
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -215,36 +235,31 @@ public class BookingServiceImpl implements BookingService {
 
         Map<String, Object> params = commandMap.getMap();
         Long bookingId = parseLong(params.get("bookingId"));
-        String cancelReason = (String) params.get("cancelReason");
 
         if (bookingId == null) {
             throw new Exception("필수 파라미터 누락: bookingId");
         }
-        if (cancelReason == null || cancelReason.isEmpty()) {
-            cancelReason = "사용자 요청";
-        }
 
-        log.info("예매 취소 시도 - bookingId=" + bookingId + ", reason=" + cancelReason);
+        log.info("예매 취소 시도 - bookingId=" + bookingId);
 
-        // [1] 잔여 좌석 복구 (예매/좌석 정보 참조 위해 먼저)
+        // [1] 잔여 좌석 복구
         Map<String, Object> increaseParam = new HashMap<String, Object>();
         increaseParam.put("bookingId", bookingId);
         bookingDao.increaseAvailableSeats(increaseParam);
 
-        // [2] 좌석 상태 복구 (HELD/RESERVED → AVAILABLE)
+        // [2] 좌석 HELD/RESERVED → AVAILABLE
         Map<String, Object> restoreParam = new HashMap<String, Object>();
         restoreParam.put("bookingId", bookingId);
         int restored = bookingDao.restoreSeatStatus(restoreParam);
         log.info("좌석 복구 완료 - " + restored + "석");
 
-        // [3] 예매 상태 변경 (PENDING 또는 CONFIRMED → CANCELLED)
+        // [3] 예매 status → CANCELLED
         Map<String, Object> cancelParam = new HashMap<String, Object>();
         cancelParam.put("bookingId", bookingId);
-        cancelParam.put("cancelReason", cancelReason);
         int cancelled = bookingDao.cancelBooking(cancelParam);
 
         if (cancelled == 0) {
-            log.warn("취소 가능한 예매 없음 (이미 취소되었거나 존재하지 않음) - bookingId=" + bookingId);
+            log.warn("취소 가능한 예매 없음 - bookingId=" + bookingId);
             throw new Exception("취소할 수 없는 예매입니다 (이미 취소되었거나 존재하지 않음)");
         }
 
@@ -256,7 +271,6 @@ public class BookingServiceImpl implements BookingService {
     // 유틸리티
     // ====================================================
 
-    /** 파라미터를 Long으로 안전하게 변환 */
     private Long parseLong(Object value) {
         if (value == null) return null;
         if (value instanceof Number) return ((Number) value).longValue();
@@ -267,7 +281,6 @@ public class BookingServiceImpl implements BookingService {
         }
     }
 
-    /** "1,2,3,4" 형태의 문자열을 List<Long>으로 변환 */
     private List<Long> parseSeatIds(String seatIdsStr) {
         List<Long> result = new ArrayList<Long>();
         if (seatIdsStr == null || seatIdsStr.isEmpty()) return result;
@@ -277,7 +290,7 @@ public class BookingServiceImpl implements BookingService {
             try {
                 result.add(Long.parseLong(part.trim()));
             } catch (NumberFormatException e) {
-                // 잘못된 값 무시
+                // 무시
             }
         }
         return result;

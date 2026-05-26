@@ -38,7 +38,6 @@ button {
 }
 </style>
 <div class="container">
-<%@include file="/WEB-INF/tiles/mySide.jsp" %>
 	<div id="pwdCheck">
 		<input type="hidden" name="alert" value="${alert}"/>
 		<form action="memberModify.do" id="pwdcheckfrm" onsubmit="return passcheck();" method="post">
