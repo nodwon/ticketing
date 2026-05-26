@@ -18,7 +18,7 @@ import org.springframework.web.multipart.MultipartHttpServletRequest;
 @Component("fileUtils")
 public class FileUtils {
 
-	private static final String filePath = "D:\\sts4File\\";
+	private static final String filePath = "C:\\sts4File\\";
 
 	public List<Map<String, Object>> parseInsertFileInfo(Map<String, Object> map, HttpServletRequest request)
 			throws Exception {
@@ -89,7 +89,7 @@ public class FileUtils {
 	  Map<String,Object> upload1(Map<String,Object> map,MultipartHttpServletRequest
 	  request) throws Exception {
 	  
-	  String uploadPath = "D:\\sts4File\\"; String fileOriginName = ""; String
+	  String uploadPath = "C:\\sts4File\\"; String fileOriginName = ""; String
 	  fileMultiName = ""; for(int i=0; i<GOODS_IMG.length; i++) { Object[] GOODS_IMG = null;
 	fileOriginName =
 	  ((MultipartFile) GOODS_IMG[i]).getOriginalFilename(); SimpleDateFormat formatter = new

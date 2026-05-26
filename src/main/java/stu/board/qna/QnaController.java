@@ -2,9 +2,11 @@ package stu.board.qna;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.apache.log4j.Logger;
@@ -107,6 +109,7 @@ public class QnaController {
 		}
 		
 		qnaService.insertQna(commandMap.getMap(), request);
+		
 		
 		return mv;
 	}
@@ -237,5 +240,85 @@ public class QnaController {
 		jsonResult.put("message", "Q&A 답변 등록 성공");
 		
 		return jsonResult;
+	}
+	
+	// 🌟 [신규] 첨부파일 다운로드 (보안관제: IDOR 취약점 의도적 유지)
+	@RequestMapping(value="/qna/downloadFile.do", method = RequestMethod.GET)
+	public void downloadFile(
+	        @RequestParam("fileId") String fileId,
+	        HttpServletRequest request,
+	        HttpServletResponse response) throws Exception {
+	    
+	    log.info("[FILE DOWNLOAD] 요청 fileId=" + fileId 
+	        + ", ip=" + request.getRemoteAddr() 
+	        + ", ua=" + request.getHeader("User-Agent"));
+	    
+	    // 1. DB에서 파일 정보 조회
+	    Map<String, Object> param = new HashMap<String, Object>();
+	    param.put("FILE_ID", fileId);
+	    Map<String, Object> fileInfo = qnaService.selectFileInfo(param);
+	    
+	    if (fileInfo == null) {
+	        log.warn("[FILE DOWNLOAD FAIL] DB에 파일 정보 없음. fileId=" + fileId);
+	        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+	        return;
+	    }
+	    
+	    String originalName = String.valueOf(fileInfo.get("ORIGINAL_NAME"));
+	    String savedName = String.valueOf(fileInfo.get("SAVED_NAME"));
+	    
+	    // 2. 실제 파일 위치
+	    String uploadPath = "C:\\sts4File\\";
+	    java.io.File file = new java.io.File(uploadPath + savedName);
+	    
+	    log.info("[FILE DOWNLOAD] 디스크 경로=" + file.getAbsolutePath());
+	    
+	    if (!file.exists() || !file.isFile()) {
+	        log.warn("[FILE DOWNLOAD FAIL] 디스크에 파일 없음. path=" + file.getAbsolutePath());
+	        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found on disk");
+	        return;
+	    }
+	    
+	    // 3. 한글 파일명 인코딩 (브라우저 호환)
+	    String userAgent = request.getHeader("User-Agent");
+	    String encodedFileName;
+	    if (userAgent != null && (userAgent.indexOf("MSIE") > -1 || userAgent.indexOf("Trident") > -1)) {
+	        // IE 계열
+	        encodedFileName = java.net.URLEncoder.encode(originalName, "UTF-8").replaceAll("\\+", "%20");
+	    } else {
+	        // Chrome/Firefox/Edge 등
+	        encodedFileName = new String(originalName.getBytes("UTF-8"), "ISO-8859-1");
+	    }
+	    
+	    // 4. 응답 헤더 설정
+	    response.setContentType("application/octet-stream");
+	    response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFileName + "\"");
+	    response.setHeader("Content-Transfer-Encoding", "binary");
+	    response.setContentLength((int) file.length());
+	    
+	    // 5. 파일 스트림 전송
+	    java.io.FileInputStream fis = null;
+	    java.io.OutputStream out = null;
+	    try {
+	        fis = new java.io.FileInputStream(file);
+	        out = response.getOutputStream();
+	        byte[] buffer = new byte[4096];
+	        int bytesRead;
+	        long totalBytes = 0;
+	        while ((bytesRead = fis.read(buffer)) != -1) {
+	            out.write(buffer, 0, bytesRead);
+	            totalBytes += bytesRead;
+	        }
+	        out.flush();
+	        log.info("[FILE DOWNLOAD OK] file=" + originalName 
+	            + ", size=" + totalBytes + "bytes" 
+	            + ", fileId=" + fileId);
+	    } catch (Exception e) {
+	        log.error("[FILE DOWNLOAD ERROR] " + e.getMessage(), e);
+	        throw e;
+	    } finally {
+	        if (fis != null) try { fis.close(); } catch (Exception e) {}
+	        if (out != null) try { out.close(); } catch (Exception e) {}
+	    }
 	}
 }

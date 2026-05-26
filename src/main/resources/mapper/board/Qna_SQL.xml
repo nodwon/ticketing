@@ -17,23 +17,71 @@
 	</select>
 	
 	<insert id="insertQna" parameterType="hashmap">
-		INSERT INTO QNA_POSTS
-		( 
-			MEMBER_ID,
-			QNA_NAME,
-			TITLE,      
-			CONTENT, 
-			CREATED_AT
+    	<selectKey keyProperty="QNA_ID" resultType="long" order="BEFORE">
+        	SELECT QNA_NO_SEQ.NEXTVAL FROM DUAL
+    	</selectKey>
+    	INSERT INTO QNA_POSTS
+    	( 
+        	QNA_ID,
+        	MEMBER_ID,
+        	QNA_NAME,
+        	TITLE,      
+        	CONTENT, 
+        	CREATED_AT
+    	)
+    	VALUES
+    	( 
+        	#{QNA_ID, jdbcType=NUMERIC},
+        	#{MEMBER_ID, jdbcType=NUMERIC},
+        	#{QNA_NAME, jdbcType=VARCHAR},
+        	#{TITLE, jdbcType=VARCHAR},
+        	#{CONTENT, jdbcType=VARCHAR},
+        	SYSDATE 
+    	)
+	</insert>
+
+	<insert id="insertFile" parameterType="hashmap">
+		INSERT INTO ATTACHMENTS
+		(
+			POST_ID,
+			ORIGINAL_NAME,
+			SAVED_NAME,
+			EXTENSION,
+			FILE_SIZE,
+			UPLOADED_AT
 		)
 		VALUES
-		( 
-			#{MEMBER_ID, jdbcType=NUMERIC},
-			#{QNA_NAME, jdbcType=VARCHAR},
-			#{TITLE, jdbcType=VARCHAR},
-			#{CONTENT, jdbcType=VARCHAR},
-			SYSDATE 
+		(
+			#{POST_ID, jdbcType=NUMERIC},
+			#{UPLOAD_ORIGIN_NAME, jdbcType=VARCHAR}, 
+			#{UPLOAD_SAVE_NAME, jdbcType=VARCHAR},   
+			NVL(
+				#{EXTENSION, jdbcType=VARCHAR}, 
+				NVL(SUBSTR(#{UPLOAD_ORIGIN_NAME}, INSTR(#{UPLOAD_ORIGIN_NAME}, '.', -1) + 1), 'UNKNOWN')
+			),
+			NVL(#{FILE_SIZE, jdbcType=NUMERIC}, 0),
+			SYSDATE
 		)
 	</insert>
+	
+	<select id="selectLastInsertId" resultType="string">
+		SELECT MAX(QNA_ID) FROM QNA_POSTS
+	</select>
+
+	
+	<select id="selectFileList" parameterType="hashmap" resultType="hashmap">
+    	SELECT
+        	ATTACHMENT_ID AS FILE_ID,
+        	POST_ID,
+        	ORIGINAL_NAME AS ORIGINAL_FILE_NAME,
+        	ORIGINAL_NAME AS UPLOAD_ORIGIN_NAME,
+        	SAVED_NAME    AS UPLOAD_SAVE_NAME,
+        	FILE_SIZE     AS FILE_SIZE
+    	FROM
+    	    ATTACHMENTS
+    	WHERE
+    	    POST_ID = #{QNA_ID, jdbcType=NUMERIC}	
+	</select>
 	
 	<select id="selectQnaDetail" parameterType="hashmap" resultType="hashmap">
 		SELECT
@@ -63,5 +111,19 @@
 		   SET QNA_AN = #{ANSWER, jdbcType=VARCHAR} /* 관리자가 입력한 답변 매핑 */
 		 WHERE QNA_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</update>
+	
+	<select id="selectFileInfo" parameterType="hashmap" resultType="hashmap">
+    	SELECT
+        	ATTACHMENT_ID AS FILE_ID,
+        	POST_ID,
+        	ORIGINAL_NAME,
+        	SAVED_NAME,
+        	EXTENSION,
+        	FILE_SIZE
+    	FROM
+        	ATTACHMENTS
+    	WHERE
+        	ATTACHMENT_ID = #{FILE_ID, jdbcType=NUMERIC}
+	</select>
 
 </mapper>

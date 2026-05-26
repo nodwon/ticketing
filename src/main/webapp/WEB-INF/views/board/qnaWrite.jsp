@@ -1,4 +1,4 @@
- <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -11,7 +11,6 @@
 <%@ taglib prefix="ui" uri= "http://tiles.apache.org/tags-tiles"%>
 <link rel="stylesheet" type="text/css" href="<c:url value='/css/uii.css'/>" />
 
-<!-- jQuery -->
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
 <script src="<c:url value='/js/commonn.js'/>" charset="utf-8"></script>
 </head>
@@ -21,12 +20,12 @@
    <h2 align="center">문의하기</h2>
    <br/><br/>
    
-   <form id="frm" name="frm" enctype="multipart/form-data">
+   <form id="frm" name="frm" enctype="multipart/form-data" method="post">
    <input type="hidden" id="member_no" name="MEMBER_NO" value="${SESSION_NO}">
       <table class="board_view">
          <colgroup>
             <col width="15%">
-            <col width="*%"/>
+            <col width="*"/>
          </colgroup>
          <tbody><tr>
          <td style="padding:0px; border:none;">
@@ -54,7 +53,6 @@
          </td>
       </tr>
 
-      <!-- 글쓴이 이메일 시작 -->
       <tr>
          <td style="padding:0px; border-bottom:none;">
             <table style="width:100%; height:30px; border:0; cellpadding:0; cellspacing:0;">
@@ -72,17 +70,24 @@
          </table>
       </td>
    </tr>
-      <!-- 글쓴이 이메일 끝 -->
-
-      <!--내용입력 -->
       <tr>
          <td colspan="2" class="view_text">
             <textarea rows="20" cols="130" title="내용" id="qna_content" name="QNA_CONTENT"></textarea>
          </td>
       </tr>
-      <!-- 내용입력 : 끝 -->
+      <tr>
+         <td style="padding:0px; border-bottom:none;">
+            <table style="width:100%; height:38px; border:0; cellpadding:0; cellspacing:0;">
+            <tbody><tr>
+               <td width="100" bgcolor="f6f6f6" align="center" style="font-weight:bold;">첨부파일</td>
+               <td align="left" class="gray" style="padding-left:10px; text-align:left;">
+                  <input type="file" name="file_0" id="file_0" style="width:90%; border:1px solid #ccc; padding:4px; background-color:#fff;" />
+               </td>
+            </tr>
+            </tbody></table>
+         </td>
+      </tr>
 
-      <!-- 비밀번호-->
       <tr>
          <td style="padding:0px; border-bottom:none;">
             <table style="width:100%; height:30px; border:0; cellpadding:0; cellspacing:0;">
@@ -90,15 +95,11 @@
                <td width="100" bgcolor="f6f6f6" align="center">비밀번호</td>
                <td align="left" class="gray" style="padding-left:10px;text-align:left;">
                   <input autocomplete="off" type="password" name="QNA_PASSWD" id="qna_passwd" style="width:150px;" maxlength="20" value="">&nbsp;&nbsp;
-                  <!-- <input type="checkbox" name="isSecret" value="T" style="margin-right:5px;">비밀글(관리자만 볼수 있습니다.) -->
-               </td>
+                  </td>
             </tr>
             </tbody></table>
          </td>
       </tr>
-      <!--// 비밀번호  -->
-
-
       </tbody>
       </table>
       <div id="" class="">
@@ -141,13 +142,13 @@
          comSubmit.setUrl("<c:url value='/qna/insertQna.do' />");
          comSubmit.submit();
       }
-  	function check_Qnasecret(){
-		if($("#qna_secret").is(":checked")){
-			$("#qna_secret").val(1);
-		}else{
-			$("#qna_secret").val(0);
-		}
-	}
+   function check_Qnasecret(){
+      if($("#qna_secret").is(":checked")){
+         $("#qna_secret").val(1);
+      }else{
+         $("#qna_secret").val(0);
+      }
+   }
 //       function chkEmpty(){
          
 //          if($('input[name=QNA_NAME]').val() == undefined || $('input[name=QNA_NAME]').val() == "") {alert("이름을 입력해주세요!");}
