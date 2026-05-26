@@ -9,151 +9,182 @@
     Namespace  : concert
     Developer  : 주재현 (feature/jjh)
     Created    : 2026.05.22
-    Modified   : 2026.05.25
-    Description: 공연 목록/상세/검색 매퍼
-                 - CLOB → String 자동 변환 (resultMap + jdbcType)
-                 - 대소문자 무관 검색 (UPPER)
+    Modified   : 2026.05.26
+    Description: 공연 매퍼
+                 - 목록: 스케줄 집계 (예매기간, 공연기간) 포함
+                 - 정렬: booking_open_at ASC (예매오픈일 빠른 순)
+                 - 필터: status 단일값
     ============================================================
 -->
 <mapper namespace="concert">
 
-    <!-- ============================================================ -->
-    <!-- ★ CLOB 처리 핵심: resultMap 으로 String 매핑                 -->
-    <!--   이걸 안 쓰면 description 이 oracle.sql.CLOB@xxxx 로 표시됨 -->
-    <!-- ============================================================ -->
-    <resultMap id="concertMap" type="java.util.HashMap">
-        <id     property="concertId"  column="CONCERT_ID"  jdbcType="NUMERIC"/>
-        <result property="title"      column="TITLE"       jdbcType="VARCHAR"/>
-        <result property="artist"     column="ARTIST"      jdbcType="VARCHAR"/>
-        <result property="venue"      column="VENUE"       jdbcType="VARCHAR"/>
+    <!-- 목록용 resultMap (스케줄 집계 컬럼 포함) -->
+    <resultMap id="concertListMap" type="java.util.HashMap">
+        <id     property="concertId"        column="CONCERT_ID"        jdbcType="NUMERIC"/>
+        <result property="title"            column="TITLE"             jdbcType="VARCHAR"/>
+        <result property="artist"           column="ARTIST"            jdbcType="VARCHAR"/>
+        <result property="venue"            column="VENUE"             jdbcType="VARCHAR"/>
+        <result property="thumbnail"        column="THUMBNAIL"         jdbcType="VARCHAR"/>
+        <result property="status"           column="STATUS"            jdbcType="VARCHAR"/>
+        <result property="bookingStartAt"   column="BOOKING_START_AT"  jdbcType="VARCHAR"/>
+        <result property="bookingEndAt"     column="BOOKING_END_AT"    jdbcType="VARCHAR"/>
+        <result property="performStartAt"   column="PERFORM_START_AT"  jdbcType="VARCHAR"/>
+        <result property="performEndAt"     column="PERFORM_END_AT"    jdbcType="VARCHAR"/>
+        <result property="scheduleCount"    column="SCHEDULE_COUNT"    jdbcType="NUMERIC"/>
+    </resultMap>
+
+    <!-- 상세용 resultMap (CLOB 포함) -->
+    <resultMap id="concertDetailMap" type="java.util.HashMap">
+        <id     property="concertId"   column="CONCERT_ID"  jdbcType="NUMERIC"/>
+        <result property="title"       column="TITLE"       jdbcType="VARCHAR"/>
+        <result property="artist"      column="ARTIST"      jdbcType="VARCHAR"/>
+        <result property="venue"       column="VENUE"       jdbcType="VARCHAR"/>
         <result property="description" column="DESCRIPTION" jdbcType="CLOB" javaType="java.lang.String"/>
-        <result property="thumbnail"  column="THUMBNAIL"   jdbcType="VARCHAR"/>
-        <result property="status"     column="STATUS"      jdbcType="VARCHAR"/>
+        <result property="thumbnail"   column="THUMBNAIL"   jdbcType="VARCHAR"/>
+        <result property="status"      column="STATUS"      jdbcType="VARCHAR"/>
     </resultMap>
 
-    <resultMap id="postMap" type="java.util.HashMap">
-        <id     property="postId"     column="POST_ID"     jdbcType="NUMERIC"/>
-        <result property="memberId"   column="MEMBER_ID"   jdbcType="NUMERIC"/>
-        <result property="memberName" column="MEMBER_NAME" jdbcType="VARCHAR"/>
-        <result property="postType"   column="POST_TYPE"   jdbcType="VARCHAR"/>
-        <result property="title"      column="TITLE"       jdbcType="VARCHAR"/>
-        <result property="content"    column="CONTENT"     jdbcType="CLOB" javaType="java.lang.String"/>
-        <result property="createdAt"  column="CREATED_AT"  jdbcType="VARCHAR"/>
-    </resultMap>
-
-    <resultMap id="qnaMap" type="java.util.HashMap">
-        <id     property="qnaId"      column="QNA_ID"      jdbcType="NUMERIC"/>
-        <result property="memberId"   column="MEMBER_ID"   jdbcType="NUMERIC"/>
-        <result property="memberName" column="MEMBER_NAME" jdbcType="VARCHAR"/>
-        <result property="title"      column="TITLE"       jdbcType="VARCHAR"/>
-        <result property="content"    column="CONTENT"     jdbcType="CLOB" javaType="java.lang.String"/>
-        <result property="createdAt"  column="CREATED_AT"  jdbcType="VARCHAR"/>
+    <!-- 스케줄용 resultMap -->
+    <resultMap id="scheduleMap" type="java.util.HashMap">
+        <id     property="scheduleId"        column="SCHEDULE_ID"        jdbcType="NUMERIC"/>
+        <result property="concertId"         column="CONCERT_ID"         jdbcType="NUMERIC"/>
+        <result property="performanceDate"   column="PERFORMANCE_DATE"   jdbcType="VARCHAR"/>
+        <result property="bookingOpenAt"     column="BOOKING_OPEN_AT"    jdbcType="VARCHAR"/>
+        <result property="totalSeats"        column="TOTAL_SEATS"        jdbcType="NUMERIC"/>
+        <result property="availableSeats"    column="AVAILABLE_SEATS"    jdbcType="NUMERIC"/>
+        <result property="weekday"           column="WEEKDAY"            jdbcType="VARCHAR"/>
+        <result property="performanceTime"   column="PERFORMANCE_TIME"   jdbcType="VARCHAR"/>
+        <result property="bookingOpenable"   column="BOOKING_OPENABLE"   jdbcType="NUMERIC"/>
+        <result property="performanceEnded"  column="PERFORMANCE_ENDED"  jdbcType="NUMERIC"/>
     </resultMap>
 
 
     <!-- ============================================================ -->
-    <!-- 공연 목록 조회 (검색/정렬)                                   -->
-    <!-- 대소문자 무관: UPPER(컬럼) LIKE UPPER('%키워드%')             -->
-    <!-- orderBy: newest(기본) / title / artist                       -->
+    <!-- 공연 목록 (스케줄 집계 + 필터)                                -->
+    <!--                                                              -->
+    <!-- 집계 컬럼:                                                    -->
+    <!--   booking_start_at : MIN(booking_open_at)                    -->
+    <!--   booking_end_at   : MAX(booking_open_at)                    -->
+    <!--   perform_start_at : MIN(performance_date)                   -->
+    <!--   perform_end_at   : MAX(performance_date)                   -->
+    <!--                                                              -->
+    <!-- 필터: status 단일값 (ONGOING / UPCOMING / CLOSED / 없음=전체) -->
+    <!-- 정렬:                                                         -->
+    <!--   1차 - status 우선순위                                       -->
+    <!--   2차 - 예매오픈일 빠른 순 (booking_start_at ASC)             -->
     <!-- ============================================================ -->
-    <select id="selectConcertList" parameterType="map" resultMap="concertMap">
+    <select id="selectConcertList" parameterType="map" resultMap="concertListMap">
         SELECT
-              concert_id
-            , title
-            , artist
-            , venue
-            , description
-            , thumbnail
-            , status
-        FROM concerts
+              c.concert_id
+            , c.title
+            , c.artist
+            , c.venue
+            , c.thumbnail
+            , c.status
+            , TO_CHAR(MIN(s.booking_open_at),  'YYYY-MM-DD HH24:MI') AS booking_start_at
+            , TO_CHAR(MAX(s.booking_open_at),  'YYYY-MM-DD HH24:MI') AS booking_end_at
+            , TO_CHAR(MIN(s.performance_date), 'YYYY-MM-DD HH24:MI') AS perform_start_at
+            , TO_CHAR(MAX(s.performance_date), 'YYYY-MM-DD HH24:MI') AS perform_end_at
+            , COUNT(s.schedule_id) AS schedule_count
+        FROM concerts c
+        LEFT JOIN concert_schedules s ON c.concert_id = s.concert_id
         <where>
             <if test="keyword != null and keyword != ''">
-                AND (UPPER(title)  LIKE '%' || UPPER(#{keyword}) || '%'
-                  OR UPPER(artist) LIKE '%' || UPPER(#{keyword}) || '%'
-                  OR UPPER(venue)  LIKE '%' || UPPER(#{keyword}) || '%')
+                AND (UPPER(c.title)  LIKE '%' || UPPER(#{keyword}) || '%'
+                  OR UPPER(c.artist) LIKE '%' || UPPER(#{keyword}) || '%'
+                  OR UPPER(c.venue)  LIKE '%' || UPPER(#{keyword}) || '%')
             </if>
             <if test="status != null and status != ''">
-                AND status = #{status}
+                AND c.status = #{status}
             </if>
         </where>
-        <choose>
-            <when test='orderBy == "title"'>  ORDER BY title  ASC, concert_id DESC</when>
-            <when test='orderBy == "artist"'> ORDER BY artist ASC, concert_id DESC</when>
-            <otherwise>                       ORDER BY concert_id DESC</otherwise>
-        </choose>
+        GROUP BY
+            c.concert_id, c.title, c.artist, c.venue, c.thumbnail, c.status
+        ORDER BY
+            CASE c.status
+                WHEN 'ONGOING'  THEN 1
+                WHEN 'UPCOMING' THEN 2
+                WHEN 'CLOSED'   THEN 3
+                ELSE 9
+            END ASC,
+            MIN(s.booking_open_at) ASC NULLS LAST,
+            c.concert_id DESC
     </select>
 
     <!-- ============================================================ -->
     <!-- 공연 상세                                                    -->
     <!-- ============================================================ -->
-    <select id="selectConcertDetail" parameterType="long" resultMap="concertMap">
-        SELECT
-              concert_id
-            , title
-            , artist
-            , venue
-            , description
-            , thumbnail
-            , status
+    <select id="selectConcertDetail" parameterType="long" resultMap="concertDetailMap">
+        SELECT concert_id, title, artist, venue, description, thumbnail, status
         FROM concerts
         WHERE concert_id = #{concertId}
     </select>
 
     <!-- ============================================================ -->
-    <!-- 통합 검색 (제목/아티스트/공연장 - 대소문자 무관)             -->
+    <!-- 통합 검색 (검색 결과도 동일 구조)                            -->
     <!-- ============================================================ -->
-    <select id="searchConcerts" parameterType="string" resultMap="concertMap">
+    <select id="searchConcerts" parameterType="string" resultMap="concertListMap">
         SELECT
-              concert_id
-            , title
-            , artist
-            , venue
-            , description
-            , thumbnail
-            , status
-        FROM concerts
+              c.concert_id
+            , c.title
+            , c.artist
+            , c.venue
+            , c.thumbnail
+            , c.status
+            , TO_CHAR(MIN(s.booking_open_at),  'YYYY-MM-DD HH24:MI') AS booking_start_at
+            , TO_CHAR(MAX(s.booking_open_at),  'YYYY-MM-DD HH24:MI') AS booking_end_at
+            , TO_CHAR(MIN(s.performance_date), 'YYYY-MM-DD HH24:MI') AS perform_start_at
+            , TO_CHAR(MAX(s.performance_date), 'YYYY-MM-DD HH24:MI') AS perform_end_at
+            , COUNT(s.schedule_id) AS schedule_count
+        FROM concerts c
+        LEFT JOIN concert_schedules s ON c.concert_id = s.concert_id
         <where>
             <if test="_parameter != null and _parameter != ''">
-                  UPPER(title)  LIKE '%' || UPPER(#{keyword}) || '%'
-               OR UPPER(artist) LIKE '%' || UPPER(#{keyword}) || '%'
-               OR UPPER(venue)  LIKE '%' || UPPER(#{keyword}) || '%'
+                  UPPER(c.title)  LIKE '%' || UPPER(#{keyword}) || '%'
+               OR UPPER(c.artist) LIKE '%' || UPPER(#{keyword}) || '%'
+               OR UPPER(c.venue)  LIKE '%' || UPPER(#{keyword}) || '%'
             </if>
         </where>
-        ORDER BY concert_id DESC
+        GROUP BY
+            c.concert_id, c.title, c.artist, c.venue, c.thumbnail, c.status
+        ORDER BY
+            CASE c.status
+                WHEN 'ONGOING'  THEN 1
+                WHEN 'UPCOMING' THEN 2
+                WHEN 'CLOSED'   THEN 3
+                ELSE 9
+            END ASC,
+            MIN(s.booking_open_at) ASC NULLS LAST,
+            c.concert_id DESC
     </select>
 
     <!-- ============================================================ -->
-    <!-- 후기 목록 (posts.post_type='REVIEW')                         -->
+    <!-- 공연 스케줄 목록 (상세 페이지용)                              -->
     <!-- ============================================================ -->
-    <select id="selectReviewPosts" resultMap="postMap">
+    <select id="selectScheduleListByConcertId" parameterType="long" resultMap="scheduleMap">
         SELECT
-              p.post_id
-            , p.member_id
-            , m.name AS member_name
-            , p.post_type
-            , p.title
-            , p.content
-            , TO_CHAR(p.created_at, 'YYYY-MM-DD HH24:MI') AS created_at
-        FROM posts p
-        LEFT JOIN members m ON p.member_id = m.member_id
-        WHERE p.post_type = 'REVIEW'
-        ORDER BY p.post_id DESC
-    </select>
-
-    <!-- ============================================================ -->
-    <!-- Q&A 목록                                                     -->
-    <!-- ============================================================ -->
-    <select id="selectQnaPosts" resultMap="qnaMap">
-        SELECT
-              q.qna_id
-            , q.member_id
-            , m.name AS member_name
-            , q.title
-            , q.content
-            , TO_CHAR(q.created_at, 'YYYY-MM-DD HH24:MI') AS created_at
-        FROM qna_posts q
-        LEFT JOIN members m ON q.member_id = m.member_id
-        ORDER BY q.qna_id DESC
+              schedule_id
+            , concert_id
+            , TO_CHAR(performance_date, 'YYYY-MM-DD HH24:MI') AS performance_date
+            , TO_CHAR(NVL(booking_open_at, TIMESTAMP '1900-01-01 00:00:00'),
+                      'YYYY-MM-DD HH24:MI') AS booking_open_at
+            , total_seats
+            , available_seats
+            , TO_CHAR(performance_date, 'DY', 'NLS_DATE_LANGUAGE=KOREAN') AS weekday
+            , TO_CHAR(performance_date, 'HH24:MI') AS performance_time
+            , CASE
+                WHEN booking_open_at IS NULL THEN 1
+                WHEN booking_open_at &lt;= SYSTIMESTAMP THEN 1
+                ELSE 0
+              END AS booking_openable
+            , CASE
+                WHEN performance_date &lt; SYSTIMESTAMP THEN 1
+                ELSE 0
+              END AS performance_ended
+        FROM concert_schedules
+        WHERE concert_id = #{concertId}
+          AND performance_date IS NOT NULL
+        ORDER BY performance_date ASC
     </select>
 
 </mapper>

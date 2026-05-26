@@ -81,8 +81,9 @@
 <body>
 <div class="wrap">
 
-	<h1>🎫 관제 티켓 관리자</h1>
-	<p class="subtitle">티켓팅 시스템 관리 페이지</p>
+	<a href="/main.do" style="text-decoration: none; color: inherit;">
+	    <h1>🎫 관제 티켓 관리자</h1>
+	</a>	<p class="subtitle">티켓팅 시스템 관리 페이지</p>
 
 	<div class="nav">
 		<a href="/admin/main.do" class="active">대시보드</a>

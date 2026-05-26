@@ -4,11 +4,11 @@
     FileName   : concertList.jsp
     Developer  : 주재현 (feature/jjh)
     Created    : 2026.05.22
-    Modified   : 2026.05.25
+    Modified   : 2026.05.26
     Description: 공연 목록 페이지
-                 - 좌측 상단 홈("/") 이동 버튼
-                 - 대소문자 무관 검색
-                 - 정렬: 최신순/공연명순/아티스트순
+                 - 필터 탭: 전체 / 진행중 / 예매예정 / 종료
+                 - 카드 정보: 아티스트, 공연명, 공연장, 예매기간, 공연기간
+                 - 정렬: 예매오픈일 ASC (서버에서 처리)
     ============================================================
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
@@ -30,7 +30,7 @@
     a { text-decoration:none; color:inherit; }
     button { font-family: inherit; }
 
-    /* ===== Top Bar (홈 버튼) ===== */
+    /* ===== Top Bar ===== */
     .topbar {
         background: rgba(255,255,255,0.08); backdrop-filter: blur(10px);
         padding: 14px 0; position: relative; z-index: 10;
@@ -53,18 +53,12 @@
         background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
         color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
-    .header {
-        max-width: 1200px; margin: 0 auto;
-        padding: 36px 24px 80px;
-    }
+    .header { max-width: 1200px; margin: 0 auto; padding: 36px 24px 80px; }
     .brand {
         font-size: 13px; font-weight: 600; letter-spacing: 2px;
         opacity: 0.85; margin-bottom: 12px;
     }
-    .header h1 {
-        font-size: 36px; font-weight: 800;
-        margin-bottom: 10px; letter-spacing: -1px;
-    }
+    .header h1 { font-size: 36px; font-weight: 800; margin-bottom: 10px; letter-spacing: -1px; }
     .header p { font-size: 15px; opacity: 0.9; }
 
     /* ===== Container ===== */
@@ -73,24 +67,20 @@
         padding: 0 24px; position: relative;
     }
 
-    /* ===== Search Box ===== */
+    /* ===== Search ===== */
     .search-box {
-        background: #fff; border-radius: 16px; padding: 28px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.08); margin-bottom: 24px;
+        background: #fff; border-radius: 16px; padding: 24px 28px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.08); margin-bottom: 20px;
     }
-    .search-form {
-        display: grid;
-        grid-template-columns: 1fr 180px 110px 90px;
-        gap: 12px;
-    }
-    .search-form input, .search-form select {
+    .search-form { display: grid; grid-template-columns: 1fr 110px 90px; gap: 12px; }
+    .search-form input {
         padding: 14px 16px;
         border: 1.5px solid #e5e7eb; border-radius: 10px;
         font-size: 14px; outline: none;
         transition: border-color .15s, box-shadow .15s;
         background: #fff; color: #1a1a1a;
     }
-    .search-form input:focus, .search-form select:focus {
+    .search-form input:focus {
         border-color: #6a11cb;
         box-shadow: 0 0 0 3px rgba(106,17,203,0.1);
     }
@@ -104,9 +94,37 @@
     .btn-reset {
         background: #f3f4f6; color: #555; border: none;
         border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer;
-        transition: background .15s;
     }
     .btn-reset:hover { background: #e5e7eb; }
+
+    /* ===== Filter Tabs ===== */
+    .filter-bar {
+        background: #fff; border-radius: 16px; padding: 8px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+        display: flex; gap: 4px; margin-bottom: 24px;
+    }
+    .filter-tab {
+        flex: 1; padding: 14px 18px;
+        border-radius: 10px;
+        font-size: 14px; font-weight: 600; color: #6b7280;
+        cursor: pointer; transition: all .15s;
+        text-align: center;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .filter-tab:hover { color: #1a1a1a; background: #f9fafb; }
+    .filter-tab.active {
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        color: #fff; font-weight: 700;
+        box-shadow: 0 4px 12px rgba(106,17,203,0.3);
+    }
+    .filter-tab-icon { font-size: 16px; }
+    .filter-tab-count {
+        font-size: 11px; padding: 2px 8px; border-radius: 10px;
+        background: rgba(255,255,255,0.25); font-weight: 700;
+    }
+    .filter-tab:not(.active) .filter-tab-count {
+        background: #f3f4f6; color: #9ca3af;
+    }
 
     /* ===== Toolbar ===== */
     .toolbar {
@@ -115,25 +133,14 @@
     }
     .result-count { font-size: 14px; color: #6b7280; }
     .result-count strong { color: #6a11cb; font-weight: 700; }
-    .sort-tabs {
-        display: flex; gap: 4px; background: #fff; padding: 4px;
-        border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    .sort-tab {
-        padding: 8px 16px; border-radius: 8px;
-        font-size: 13px; font-weight: 500; color: #6b7280;
-        cursor: pointer; transition: all .15s;
-    }
-    .sort-tab:hover { color: #1a1a1a; background: #f3f4f6; }
-    .sort-tab.active {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-        color: #fff; font-weight: 700;
+    .sort-info {
+        font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 4px;
     }
 
     /* ===== Concert Grid ===== */
     .concert-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 22px;
     }
     .concert-card {
@@ -166,24 +173,52 @@
     .status-ONGOING  { background: rgba(34,197,94,0.95); }
     .status-CLOSED   { background: rgba(107,114,128,0.95); }
 
-    .card-body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; }
+    .card-body { padding: 18px 20px 20px; flex: 1; display: flex; flex-direction: column; }
     .card-artist {
         font-size: 12px; color: #6a11cb;
         font-weight: 700; letter-spacing: 0.3px;
         margin-bottom: 6px; text-transform: uppercase;
     }
     .card-title {
-        font-size: 15px; font-weight: 700; color: #1a1a1a;
-        line-height: 1.4; margin-bottom: 8px;
+        font-size: 16px; font-weight: 700; color: #1a1a1a;
+        line-height: 1.4; margin-bottom: 10px;
         display: -webkit-box; -webkit-line-clamp: 2;
         -webkit-box-orient: vertical; overflow: hidden;
-        min-height: 42px;
+        min-height: 44px;
     }
     .card-venue {
-        font-size: 12px; color: #6b7280;
+        font-size: 13px; color: #4b5563; font-weight: 500;
+        margin-bottom: 14px;
+        display: flex; align-items: center; gap: 4px;
         display: -webkit-box; -webkit-line-clamp: 1;
         -webkit-box-orient: vertical; overflow: hidden;
     }
+
+    /* Period rows */
+    .card-periods {
+        border-top: 1px solid #f3f4f6;
+        padding-top: 12px;
+        display: flex; flex-direction: column; gap: 8px;
+        margin-top: auto;
+    }
+    .period-row {
+        display: flex; align-items: flex-start; gap: 8px;
+        font-size: 12px;
+    }
+    .period-label {
+        flex-shrink: 0;
+        padding: 2px 8px; border-radius: 6px;
+        font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
+        background: #f3f4f6; color: #6b7280;
+        margin-top: 1px;
+    }
+    .period-label.booking  { background: #ede9fe; color: #6a11cb; }
+    .period-label.perform  { background: #dbeafe; color: #2563eb; }
+    .period-value {
+        flex: 1; color: #1a1a1a; font-weight: 500;
+        line-height: 1.4;
+    }
+    .period-value.muted { color: #9ca3af; font-weight: 400; }
 
     .empty-state {
         background: #fff; border-radius: 16px; padding: 80px 20px;
@@ -197,14 +232,30 @@
         .header { padding: 28px 24px 60px; }
         .header h1 { font-size: 24px; }
         .search-form { grid-template-columns: 1fr; }
-        .toolbar { flex-direction: column; gap: 12px; align-items: flex-start; }
-        .sort-tabs { width: 100%; overflow-x: auto; }
+        .filter-bar { flex-wrap: wrap; }
+        .filter-tab { flex: 1 1 calc(50% - 4px); padding: 12px 8px; font-size: 13px; }
+        .toolbar { flex-direction: column; gap: 8px; align-items: flex-start; }
         .concert-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
         .card-thumb { height: 220px; }
+        .card-body { padding: 14px; }
     }
 </style>
 </head>
 <body>
+
+<%-- 카운트 (필터 탭에 표시) --%>
+<c:set var="totalCount"    value="0"/>
+<c:set var="ongoingCount"  value="0"/>
+<c:set var="upcomingCount" value="0"/>
+<c:set var="closedCount"   value="0"/>
+<c:forEach var="cc" items="${concertList}">
+    <c:set var="totalCount" value="${totalCount + 1}"/>
+    <c:choose>
+        <c:when test="${cc.status == 'ONGOING'}"> <c:set var="ongoingCount"  value="${ongoingCount + 1}"/></c:when>
+        <c:when test="${cc.status == 'UPCOMING'}"><c:set var="upcomingCount" value="${upcomingCount + 1}"/></c:when>
+        <c:when test="${cc.status == 'CLOSED'}">  <c:set var="closedCount"   value="${closedCount + 1}"/></c:when>
+    </c:choose>
+</c:forEach>
 
 <!-- ===== Top Bar with Home Button ===== -->
 <div class="header-wrap">
@@ -227,30 +278,45 @@
         <form class="search-form" action="/concert/list.do" method="get">
             <input type="text" name="keyword" placeholder="공연명 / 아티스트 / 공연장 (대소문자 구분 없음)"
                    value="<c:out value='${keyword}'/>"/>
-            <select name="status">
-                <option value="">전체 상태</option>
-                <option value="UPCOMING" <c:if test="${status == 'UPCOMING'}">selected</c:if>>예매예정</option>
-                <option value="ONGOING"  <c:if test="${status == 'ONGOING'}">selected</c:if>>진행중</option>
-                <option value="CLOSED"   <c:if test="${status == 'CLOSED'}">selected</c:if>>종료</option>
-            </select>
-            <input type="hidden" name="orderBy" value="<c:out value='${orderBy}'/>"/>
+            <input type="hidden" name="status" value="<c:out value='${status}'/>"/>
             <button type="submit" class="btn-search">🔍 검색</button>
             <button type="button" class="btn-reset" onclick="location.href='/concert/list.do'">초기화</button>
         </form>
     </div>
 
+    <!-- ===== Filter Tabs ===== -->
+    <div class="filter-bar">
+        <div class="filter-tab <c:if test='${empty status}'>active</c:if>" onclick="setStatus('')">
+            <span class="filter-tab-icon">🎫</span>
+            <span>전체</span>
+        </div>
+        <div class="filter-tab <c:if test='${status == "ONGOING"}'>active</c:if>" onclick="setStatus('ONGOING')">
+            <span class="filter-tab-icon">🔥</span>
+            <span>진행중</span>
+        </div>
+        <div class="filter-tab <c:if test='${status == "UPCOMING"}'>active</c:if>" onclick="setStatus('UPCOMING')">
+            <span class="filter-tab-icon">⏳</span>
+            <span>예매예정</span>
+        </div>
+        <div class="filter-tab <c:if test='${status == "CLOSED"}'>active</c:if>" onclick="setStatus('CLOSED')">
+            <span class="filter-tab-icon">✓</span>
+            <span>종료</span>
+        </div>
+    </div>
+
     <!-- ===== Toolbar ===== -->
     <div class="toolbar">
         <div class="result-count">
-            전체 <strong><c:out value="${fn:length(concertList)}"/></strong>건의 공연
+            <c:choose>
+                <c:when test="${status == 'ONGOING'}">진행중인 공연</c:when>
+                <c:when test="${status == 'UPCOMING'}">예매예정 공연</c:when>
+                <c:when test="${status == 'CLOSED'}">종료된 공연</c:when>
+                <c:otherwise>전체 공연</c:otherwise>
+            </c:choose>
+            <strong><c:out value="${totalCount}"/></strong>건
         </div>
-        <div class="sort-tabs">
-            <div class="sort-tab <c:if test="${orderBy == 'newest' or empty orderBy}">active</c:if>"
-                 onclick="sortBy('newest')">최신순</div>
-            <div class="sort-tab <c:if test="${orderBy == 'title'}">active</c:if>"
-                 onclick="sortBy('title')">공연명순</div>
-            <div class="sort-tab <c:if test="${orderBy == 'artist'}">active</c:if>"
-                 onclick="sortBy('artist')">아티스트순</div>
+        <div class="sort-info">
+            <span>📅</span><span>예매오픈일 빠른 순</span>
         </div>
     </div>
 
@@ -259,14 +325,16 @@
         <c:when test="${empty concertList}">
             <div class="empty-state">
                 <div class="empty-state-icon">🎭</div>
-                <h3>등록된 공연이 없습니다</h3>
-                <p>검색 조건을 변경하거나 잠시 후 다시 시도해주세요.</p>
+                <h3>해당하는 공연이 없습니다</h3>
+                <p>검색 조건이나 필터를 변경해보세요.</p>
             </div>
         </c:when>
         <c:otherwise>
             <div class="concert-grid">
                 <c:forEach var="concert" items="${concertList}">
                     <a class="concert-card" href="/concert/detail.do?concertId=${concert.concertId}">
+
+                        <%-- 썸네일 + 상태 뱃지 --%>
                         <div class="card-thumb"
                              <c:if test="${not empty concert.thumbnail}">
                                 style="background-image: url('<c:out value="${concert.thumbnail}"/>');"
@@ -277,18 +345,63 @@
                             <c:if test="${not empty concert.status}">
                                 <span class="status-badge status-${concert.status}">
                                     <c:choose>
-                                        <c:when test="${concert.status == 'UPCOMING'}">예매예정</c:when>
                                         <c:when test="${concert.status == 'ONGOING'}">진행중</c:when>
+                                        <c:when test="${concert.status == 'UPCOMING'}">예매예정</c:when>
                                         <c:when test="${concert.status == 'CLOSED'}">종료</c:when>
                                         <c:otherwise><c:out value="${concert.status}"/></c:otherwise>
                                     </c:choose>
                                 </span>
                             </c:if>
                         </div>
+
+                        <%-- 본문 --%>
                         <div class="card-body">
                             <div class="card-artist"><c:out value="${concert.artist}"/></div>
                             <div class="card-title"><c:out value="${concert.title}"/></div>
                             <div class="card-venue">📍 <c:out value="${concert.venue}"/></div>
+
+                            <%-- 예매기간 + 공연기간 --%>
+                            <div class="card-periods">
+                                <%-- 예매기간 --%>
+                                <div class="period-row">
+                                    <span class="period-label booking">예매</span>
+                                    <span class="period-value <c:if test='${empty concert.bookingStartAt}'>muted</c:if>">
+                                        <c:choose>
+                                            <c:when test="${empty concert.bookingStartAt}">
+                                                미정
+                                            </c:when>
+                                            <c:when test="${fn:substring(concert.bookingStartAt, 0, 10) == fn:substring(concert.bookingEndAt, 0, 10)}">
+                                                <c:out value="${fn:substring(concert.bookingStartAt, 0, 10)}"/>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <c:out value="${fn:substring(concert.bookingStartAt, 0, 10)}"/>
+                                                ~
+                                                <c:out value="${fn:substring(concert.bookingEndAt, 0, 10)}"/>
+                                            </c:otherwise>
+                                        </c:choose>
+                                    </span>
+                                </div>
+
+                                <%-- 공연기간 --%>
+                                <div class="period-row">
+                                    <span class="period-label perform">공연</span>
+                                    <span class="period-value <c:if test='${empty concert.performStartAt}'>muted</c:if>">
+                                        <c:choose>
+                                            <c:when test="${empty concert.performStartAt}">
+                                                미정
+                                            </c:when>
+                                            <c:when test="${fn:substring(concert.performStartAt, 0, 10) == fn:substring(concert.performEndAt, 0, 10)}">
+                                                <c:out value="${fn:substring(concert.performStartAt, 0, 10)}"/>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <c:out value="${fn:substring(concert.performStartAt, 0, 10)}"/>
+                                                ~
+                                                <c:out value="${fn:substring(concert.performEndAt, 0, 10)}"/>
+                                            </c:otherwise>
+                                        </c:choose>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </a>
                 </c:forEach>
@@ -299,9 +412,14 @@
 </div>
 
 <script>
-    function sortBy(orderBy) {
+    // 필터 탭 클릭 → status 파라미터로 페이지 이동 (keyword는 유지)
+    function setStatus(statusVal) {
         var params = new URLSearchParams(window.location.search);
-        params.set('orderBy', orderBy);
+        if (statusVal) {
+            params.set('status', statusVal);
+        } else {
+            params.delete('status');
+        }
         window.location.href = '/concert/list.do?' + params.toString();
     }
 </script>
