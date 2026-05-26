@@ -5,12 +5,11 @@
  * FileName   : ConcertController.java
  * Developer  : 주재현 (feature/jjh)
  * Created    : 2026.05.22
- * Modified   : 2026.05.25
+ * Modified   : 2026.05.26
  * Description: 공연(Concert) 컨트롤러
  *              - /concert/list.do    : 공연 목록
- *              - /concert/detail.do  : 공연 상세
+ *              - /concert/detail.do  : 공연 상세 + 스케줄 목록
  *              - /concert/search.do  : 공연 검색
- *              - 모든 진입점에 [CTRL] 태그 로깅 (Splunk 수집 대상)
  * ============================================================
  */
 package stu.concert;
@@ -39,7 +38,7 @@ public class ConcertController {
     private GoodsService goodsService;
 
     // ================================================================
-    // 1) 공연 목록 (검색/정렬)
+    // 1) 공연 목록
     // ================================================================
     @RequestMapping("/list.do")
     public String concertList(
@@ -49,9 +48,9 @@ public class ConcertController {
             HttpServletRequest request,
             Model model) throws Exception {
 
-    	logger.info("[CTRL] /concert/list.do ip={}, keyword={}, status={}, orderBy={}", 
+        logger.info("[CTRL] /concert/list.do ip={}, keyword={}, status={}, orderBy={}",
                 new Object[]{request.getRemoteAddr(), keyword, status, orderBy});
-        
+
         Map<String, Object> paramMap = new HashMap<>();
         paramMap.put("keyword", keyword);
         paramMap.put("status",  status);
@@ -67,7 +66,7 @@ public class ConcertController {
     }
 
     // ================================================================
-    // 2) 공연 상세
+    // 2) 공연 상세 + 스케줄 목록
     // ================================================================
     @RequestMapping("/detail.do")
     public String concertDetail(
@@ -85,7 +84,12 @@ public class ConcertController {
             return "concert/concertDetail";
         }
 
+        // 공연 스케줄 목록 함께 조회
+        List<Map<String, Object>> scheduleList = goodsService.selectScheduleListByConcertId(concertId);
+        logger.info("[CTRL] schedule count = {}", scheduleList == null ? 0 : scheduleList.size());
+
         model.addAttribute("concert", concert);
+        model.addAttribute("scheduleList", scheduleList);
         return "concert/concertDetail";
     }
 

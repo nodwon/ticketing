@@ -6,15 +6,18 @@
     Created    : 2026.05.22
     Modified   : 2026.05.26
     Description: 공연 상세 페이지
-                 - 예매하기 버튼: 세션(SESSION_ID) 존재 시 /seat/select.do
-                                 미존재 시 로그인 유도 팝업 → /loginForm.do
-                 - CLOB(description) 정상 표시
-                 - 보안 취약: 클라이언트 분기 only -> 서버 사이드 검증 없음
+                 - 좌(썸네일) + 우(정보) + 하단(스케줄 선택)
+                 - 사용자가 스케줄을 선택해야 예매 가능
+                 - 예매 흐름:
+                     로그인 X → 로그인 유도 모달 → /loginForm.do?returnUrl=...
+                     로그인 O + 스케줄 선택 → /seat/select.do?scheduleId=...
+                     로그인 O + 스케줄 미선택 → 토스트 메시지
     ============================================================
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fn"  uri="http://java.sun.com/jsp/jstl/functions" %>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -53,34 +56,28 @@
     }
     .btn-icon:hover { background: rgba(255,255,255,0.3); }
     .header h1 {
-        font-size: 20px; font-weight: 800; cursor: pointer; letter-spacing:-0.5px;
-        margin-left: 8px;
+        font-size: 20px; font-weight: 800; cursor: pointer; letter-spacing:-0.5px; margin-left: 8px;
     }
-    .session-info {
-        font-size: 13px; color: rgba(255,255,255,0.92);
-        display: flex; align-items: center; gap: 6px;
-    }
+    .session-info { font-size: 13px; color: rgba(255,255,255,0.92); display: flex; align-items: center; gap: 6px; }
     .session-info b { font-weight: 700; }
 
     /* ===== Container ===== */
     .container { max-width: 1200px; margin: 40px auto 60px; padding: 0 24px; }
 
-    /* ===== Detail Card ===== */
+    /* ===== Detail Card (상단) ===== */
     .detail-card {
         background: #fff; border-radius: 20px; overflow: hidden;
         box-shadow: 0 8px 30px rgba(0,0,0,0.08);
         display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+        margin-bottom: 28px;
     }
     .detail-thumb {
-        height: 620px;
+        height: 580px;
         background: linear-gradient(135deg, #e5e7eb, #cbd5e1);
         background-size: cover; background-position: center;
         position: relative;
     }
-    .thumb-placeholder {
-        height: 100%; display: flex; align-items: center;
-        justify-content: center; color: #94a3b8; font-size: 22px;
-    }
+    .thumb-placeholder { height: 100%; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 22px; }
     .status-badge-lg {
         position: absolute; top: 20px; right: 20px;
         padding: 8px 18px; border-radius: 24px;
@@ -91,58 +88,177 @@
     .status-ONGOING  { background: rgba(34,197,94,0.95); }
     .status-CLOSED   { background: rgba(107,114,128,0.95); }
 
-    .detail-info { padding: 48px; display: flex; flex-direction: column; }
+    .detail-info { padding: 44px; display: flex; flex-direction: column; }
     .detail-artist {
         color: #6a11cb; font-size: 13px; font-weight: 700;
         letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;
     }
     .detail-title {
-        font-size: 30px; font-weight: 800; color: #1a1a1a;
-        margin-bottom: 28px; line-height: 1.25; letter-spacing: -1px;
+        font-size: 28px; font-weight: 800; color: #1a1a1a;
+        margin-bottom: 24px; line-height: 1.25; letter-spacing: -1px;
     }
-    .info-table {
-        border-top: 1.5px solid #e5e7eb;
-        border-bottom: 1.5px solid #e5e7eb;
-        padding: 22px 0; margin-bottom: 28px;
-    }
-    .info-row { display: flex; padding: 8px 0; font-size: 14px; }
+    .info-table { border-top: 1.5px solid #e5e7eb; border-bottom: 1.5px solid #e5e7eb; padding: 20px 0; margin-bottom: 24px; }
+    .info-row { display: flex; padding: 7px 0; font-size: 14px; }
     .info-label { width: 110px; color: #9ca3af; font-weight: 500; }
     .info-value { flex: 1; color: #1a1a1a; font-weight: 600; }
-
     .detail-desc-title {
         font-size: 15px; font-weight: 800; color: #1a1a1a;
-        margin-bottom: 14px; padding-bottom: 10px;
+        margin-bottom: 12px; padding-bottom: 8px;
         border-bottom: 2.5px solid #6a11cb; display: inline-block;
     }
     .detail-desc {
-        font-size: 14px; color: #4b5563; line-height: 1.85;
-        white-space: pre-wrap; flex: 1; margin-bottom: 28px;
+        font-size: 14px; color: #4b5563; line-height: 1.8;
+        white-space: pre-wrap; flex: 1;
     }
 
-    .action-buttons { display: flex; gap: 10px; margin-top: auto; }
+    /* ===== Schedule Section (하단) ===== */
+    .schedule-section {
+        background: #fff; border-radius: 20px; padding: 36px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    }
+    .schedule-section-head {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 24px; padding-bottom: 16px;
+        border-bottom: 1.5px solid #f3f4f6;
+    }
+    .schedule-title {
+        font-size: 20px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.5px;
+    }
+    .schedule-title-sub {
+        font-size: 12px; color: #6a11cb; font-weight: 700;
+        letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;
+    }
+    .schedule-count {
+        font-size: 13px; color: #6b7280;
+    }
+    .schedule-count strong { color: #6a11cb; font-weight: 700; }
+
+    .schedule-list {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px; margin-bottom: 28px;
+    }
+    .schedule-card {
+        border: 2px solid #e5e7eb; border-radius: 14px;
+        padding: 20px; cursor: pointer;
+        transition: all .15s; position: relative;
+        background: #fff;
+    }
+    .schedule-card:hover {
+        border-color: #c4b5fd; background: #faf5ff;
+    }
+    .schedule-card.selected {
+        border-color: #6a11cb;
+        background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+        box-shadow: 0 6px 16px rgba(106,17,203,0.15);
+    }
+    .schedule-card.disabled {
+        opacity: 0.55; cursor: not-allowed;
+        background: #f9fafb;
+    }
+    .schedule-card.disabled:hover { border-color: #e5e7eb; background: #f9fafb; }
+
+    .schedule-card-radio {
+        position: absolute; top: 18px; right: 18px;
+        width: 22px; height: 22px;
+        border: 2px solid #d1d5db; border-radius: 50%;
+        transition: all .15s;
+    }
+    .schedule-card.selected .schedule-card-radio {
+        border-color: #6a11cb; background: #6a11cb;
+        box-shadow: inset 0 0 0 4px #fff;
+    }
+
+    .schedule-date-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+    .schedule-date {
+        font-size: 18px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.3px;
+    }
+    .schedule-weekday {
+        font-size: 14px; font-weight: 700; color: #6a11cb;
+    }
+    .schedule-weekday.weekend { color: #ef4444; }
+
+    .schedule-time {
+        font-size: 14px; color: #4b5563; font-weight: 600; margin-bottom: 14px;
+    }
+
+    .schedule-meta { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+    .schedule-meta-row {
+        display: flex; justify-content: space-between; align-items: center;
+        color: #6b7280;
+    }
+    .schedule-meta-row b {
+        color: #1a1a1a; font-weight: 700;
+    }
+    .seat-progress-bar {
+        width: 100%; height: 6px; background: #f3f4f6;
+        border-radius: 3px; overflow: hidden; margin-top: 6px;
+    }
+    .seat-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #6a11cb, #2575fc);
+        border-radius: 3px;
+        transition: width .3s;
+    }
+    .seat-progress-fill.warn { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+    .seat-progress-fill.full { background: #9ca3af; }
+
+    .badge-soldout {
+        position: absolute; top: 14px; left: 14px;
+        padding: 4px 10px; border-radius: 6px;
+        font-size: 11px; font-weight: 800; color: #fff;
+        background: #ef4444; letter-spacing: 0.5px;
+    }
+    .badge-waiting {
+        position: absolute; top: 14px; left: 14px;
+        padding: 4px 10px; border-radius: 6px;
+        font-size: 11px; font-weight: 800; color: #fff;
+        background: #f59e0b; letter-spacing: 0.5px;
+    }
+
+    /* ===== Booking Bar ===== */
+    .booking-bar {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        border-radius: 14px;
+    }
+    .booking-selected-info {
+        font-size: 14px; color: #4b5563;
+    }
+    .booking-selected-info strong { color: #6a11cb; font-weight: 700; }
+    .booking-selected-info .placeholder { color: #9ca3af; }
+
+    .booking-actions { display: flex; gap: 10px; }
     .btn-primary {
-        flex: 1; padding: 18px;
+        padding: 16px 36px;
         background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
         color: #fff; border: none; border-radius: 12px;
         font-size: 15px; font-weight: 700; cursor: pointer;
-        transition: transform .15s, box-shadow .15s;
+        transition: transform .15s, box-shadow .15s, opacity .15s;
     }
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 10px 24px rgba(106,17,203,0.4);
     }
     .btn-primary:disabled {
-        background: #d1d5db; cursor: not-allowed;
-        transform: none; box-shadow: none;
+        background: #d1d5db; cursor: not-allowed; opacity: 0.7;
     }
     .btn-secondary {
-        padding: 18px 24px; background: #fff; color: #4b5563;
+        padding: 16px 24px; background: #fff; color: #4b5563;
         border: 1.5px solid #e5e7eb; border-radius: 12px;
         font-size: 15px; font-weight: 600; cursor: pointer;
         transition: border-color .15s, color .15s;
     }
     .btn-secondary:hover { border-color: #6a11cb; color: #6a11cb; }
 
+    /* Empty state for schedule */
+    .schedule-empty {
+        text-align: center; padding: 60px 20px;
+        color: #9ca3af;
+    }
+    .schedule-empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* ===== Error ===== */
     .error-box {
         background: #fff; border-radius: 20px; padding: 100px 20px;
         text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.06);
@@ -157,23 +273,18 @@
         display: inline-block;
     }
 
-    /* ============================================================ */
-    /* ===== Login Modal (커스텀 팝업) ===== */
-    /* ============================================================ */
+    /* ===== Login Modal ===== */
     .modal-backdrop {
         display: none;
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(4px);
+        background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
         z-index: 1000;
-        align-items: center; justify-content: center;
-        padding: 20px;
+        align-items: center; justify-content: center; padding: 20px;
         animation: fadeIn .2s ease;
     }
     .modal-backdrop.show { display: flex; }
-    @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+    @keyframes fadeIn  { from{opacity:0;} to{opacity:1;} }
     @keyframes slideUp { from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;} }
-
     .modal-card {
         background: #fff; border-radius: 20px;
         max-width: 420px; width: 100%;
@@ -183,54 +294,49 @@
     }
     .modal-icon-wrap {
         background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-        padding: 32px 20px 20px;
-        text-align: center;
+        padding: 32px 20px 20px; text-align: center;
     }
     .modal-icon {
-        width: 64px; height: 64px;
-        background: rgba(255,255,255,0.25);
+        width: 64px; height: 64px; background: rgba(255,255,255,0.25);
         border-radius: 50%;
         display: inline-flex; align-items: center; justify-content: center;
-        font-size: 32px; margin: 0 auto;
+        font-size: 32px;
     }
-    .modal-body {
-        padding: 28px 28px 12px; text-align: center;
-    }
-    .modal-title {
-        font-size: 19px; font-weight: 800; color: #1a1a1a;
-        margin-bottom: 10px; letter-spacing: -0.3px;
-    }
-    .modal-desc {
-        font-size: 14px; color: #6b7280; line-height: 1.6;
-    }
-    .modal-actions {
-        display: flex; gap: 8px; padding: 20px 28px 28px;
-    }
+    .modal-body { padding: 28px 28px 12px; text-align: center; }
+    .modal-title { font-size: 19px; font-weight: 800; color: #1a1a1a; margin-bottom: 10px; }
+    .modal-desc  { font-size: 14px; color: #6b7280; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 8px; padding: 20px 28px 28px; }
     .modal-btn {
-        flex: 1; padding: 14px;
-        border-radius: 10px; font-size: 14px; font-weight: 700;
-        cursor: pointer; border: none;
+        flex: 1; padding: 14px; border-radius: 10px;
+        font-size: 14px; font-weight: 700; cursor: pointer; border: none;
         transition: transform .12s, box-shadow .12s, border-color .15s;
     }
-    .modal-btn-cancel {
-        background: #fff; color: #6b7280;
-        border: 1.5px solid #e5e7eb;
-    }
+    .modal-btn-cancel { background: #fff; color: #6b7280; border: 1.5px solid #e5e7eb; }
     .modal-btn-cancel:hover { border-color: #9ca3af; color: #4b5563; }
-    .modal-btn-ok {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-        color: #fff;
+    .modal-btn-ok { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; }
+    .modal-btn-ok:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(106,17,203,0.4); }
+
+    /* ===== Toast ===== */
+    .toast {
+        position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px);
+        padding: 14px 26px; background: #1f2937; color: #fff;
+        border-radius: 12px; font-size: 14px; font-weight: 600;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+        z-index: 2000; opacity: 0;
+        transition: transform .25s, opacity .25s;
     }
-    .modal-btn-ok:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(106,17,203,0.4);
-    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
     @media (max-width: 900px) {
         .detail-card { grid-template-columns: 1fr; }
-        .detail-thumb { height: 380px; }
-        .detail-info  { padding: 28px 22px; }
+        .detail-thumb { height: 360px; }
+        .detail-info  { padding: 26px 22px; }
         .detail-title { font-size: 22px; }
+        .schedule-section { padding: 22px; }
+        .schedule-list { grid-template-columns: 1fr; }
+        .booking-bar { flex-direction: column; gap: 16px; align-items: stretch; }
+        .booking-actions { flex-direction: column-reverse; }
+        .btn-primary, .btn-secondary { width: 100%; padding: 14px; }
         .header h1 { display: none; }
         .session-info { display: none; }
     }
@@ -249,9 +355,7 @@
         <div class="header-right">
             <c:choose>
                 <c:when test="${not empty sessionScope.SESSION_ID}">
-                    <span class="session-info">
-                        👤 <b><c:out value="${sessionScope.SESSION_NAME}"/></b>님
-                    </span>
+                    <span class="session-info">👤 <b><c:out value="${sessionScope.SESSION_NAME}"/></b>님</span>
                     <a href="javascript:doLogout();" class="btn-icon">로그아웃</a>
                 </c:when>
                 <c:otherwise>
@@ -280,6 +384,7 @@
     </c:when>
     <c:otherwise>
 
+        <!-- ===== Detail Card ===== -->
         <div class="detail-card">
             <div class="detail-thumb"
                  <c:if test="${not empty concert.thumbnail}">
@@ -332,26 +437,105 @@
 
                 <div class="detail-desc-title">공연 소개</div>
                 <div class="detail-desc"><c:out value="${concert.description}"/></div>
+            </div>
+        </div>
 
-                <!-- ============================================================ -->
-                <!-- 예매하기 버튼: 세션 분기                                      -->
-                <!--  - 로그인 O → /seat/select.do?concertId=...                  -->
-                <!--  - 로그인 X → 로그인 유도 팝업 표시                          -->
-                <!-- ============================================================ -->
-                <div class="action-buttons">
-                    <c:choose>
-                        <c:when test="${concert.status == 'ONGOING' or concert.status == 'UPCOMING'}">
-                            <button class="btn-primary" onclick="handleBooking()">
-                                🎟️ 예매하기
-                            </button>
-                        </c:when>
-                        <c:otherwise>
-                            <button class="btn-primary" disabled>예매 종료</button>
-                        </c:otherwise>
-                    </c:choose>
-                    <button class="btn-secondary" onclick="location.href='/concert/list.do'">목록</button>
+        <!-- ===== Schedule Section ===== -->
+        <div class="schedule-section">
+            <div class="schedule-section-head">
+                <div>
+                    <div class="schedule-title-sub">SELECT YOUR DATE</div>
+                    <div class="schedule-title">📅 관람 일자 선택</div>
+                </div>
+                <div class="schedule-count">
+                    총 <strong><c:out value="${fn:length(scheduleList)}"/></strong>개 회차
                 </div>
             </div>
+
+            <c:choose>
+                <c:when test="${empty scheduleList}">
+                    <div class="schedule-empty">
+                        <div class="schedule-empty-icon">📭</div>
+                        <h3>등록된 공연 일정이 없습니다</h3>
+                        <p>잠시 후 다시 확인해주세요.</p>
+                    </div>
+                </c:when>
+                <c:otherwise>
+                    <div class="schedule-list" id="scheduleList">
+                        <c:forEach var="s" items="${scheduleList}">
+                            <c:set var="isSoldout" value="${s.availableSeats == 0}"/>
+                            <c:set var="isWaiting" value="${s.bookingOpenable == 0}"/>
+                            <c:set var="isDisabled" value="${isSoldout or isWaiting}"/>
+                            <c:set var="seatRate" value="${(s.totalSeats - s.availableSeats) * 100 / s.totalSeats}"/>
+
+                            <div class="schedule-card <c:if test='${isDisabled}'>disabled</c:if>"
+                                 data-schedule-id="${s.scheduleId}"
+                                 data-disabled="${isDisabled}"
+                                 data-date="${s.performanceDate}"
+                                 onclick="selectSchedule(this)">
+
+                                <c:if test="${isSoldout}"><div class="badge-soldout">매진</div></c:if>
+                                <c:if test="${isWaiting and not isSoldout}"><div class="badge-waiting">예매대기</div></c:if>
+
+                                <div class="schedule-card-radio"></div>
+
+                                <div class="schedule-date-line">
+                                    <div class="schedule-date">
+                                        <c:out value="${fn:substring(s.performanceDate, 5, 10)}"/>
+                                    </div>
+                                    <div class="schedule-weekday <c:if test='${s.weekday == "토" or s.weekday == "일"}'>weekend</c:if>">
+                                        (<c:out value="${s.weekday}"/>)
+                                    </div>
+                                </div>
+                                <div class="schedule-time">⏰ <c:out value="${s.performanceTime}"/></div>
+
+                                <div class="schedule-meta">
+                                    <div class="schedule-meta-row">
+                                        <span>잔여좌석</span>
+                                        <span>
+                                            <b>
+                                                <fmt:formatNumber value="${s.availableSeats}" pattern="#,###"/>
+                                            </b>
+                                            /
+                                            <fmt:formatNumber value="${s.totalSeats}" pattern="#,###"/>
+                                        </span>
+                                    </div>
+                                    <div class="seat-progress-bar">
+                                        <c:choose>
+                                            <c:when test="${isSoldout}">
+                                                <div class="seat-progress-fill full" style="width:100%;"></div>
+                                            </c:when>
+                                            <c:when test="${seatRate >= 80}">
+                                                <div class="seat-progress-fill warn" style="width:${seatRate}%;"></div>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <div class="seat-progress-fill" style="width:${seatRate}%;"></div>
+                                            </c:otherwise>
+                                        </c:choose>
+                                    </div>
+                                    <div class="schedule-meta-row" style="margin-top:6px;">
+                                        <span>예매오픈</span>
+                                        <span><c:out value="${s.bookingOpenAt}"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </c:forEach>
+                    </div>
+
+                    <!-- ===== Booking Bar ===== -->
+                    <div class="booking-bar">
+                        <div class="booking-selected-info" id="selectedInfo">
+                            <span class="placeholder">📌 원하시는 관람 일자를 선택해주세요</span>
+                        </div>
+                        <div class="booking-actions">
+                            <button class="btn-secondary" onclick="location.href='/concert/list.do'">목록</button>
+                            <button class="btn-primary" id="btnBooking" disabled onclick="handleBooking()">
+                                🎟️ 예매하기
+                            </button>
+                        </div>
+                    </div>
+                </c:otherwise>
+            </c:choose>
         </div>
 
     </c:otherwise>
@@ -362,9 +546,7 @@
 <!-- ===== Login Required Modal ===== -->
 <div class="modal-backdrop" id="loginModal">
     <div class="modal-card">
-        <div class="modal-icon-wrap">
-            <div class="modal-icon">🔐</div>
-        </div>
+        <div class="modal-icon-wrap"><div class="modal-icon">🔐</div></div>
         <div class="modal-body">
             <div class="modal-title">로그인이 필요합니다</div>
             <div class="modal-desc">
@@ -379,57 +561,99 @@
     </div>
 </div>
 
+<!-- ===== Toast ===== -->
+<div class="toast" id="toast"></div>
+
 <script>
     // ============================================================
-    // 세션 상태: JSP 에서 서버 사이드로 boolean 주입
-    // (클라이언트에서 sessionScope.SESSION_ID 직접 접근 불가)
+    // 상태 변수
     // ============================================================
     var isLoggedIn = <c:choose>
                         <c:when test="${not empty sessionScope.SESSION_ID}">true</c:when>
                         <c:otherwise>false</c:otherwise>
                      </c:choose>;
     var concertId  = '<c:out value="${concert.concertId}"/>';
+    var selectedScheduleId = null;
+    var selectedDate       = null;
 
     // ============================================================
-    // 예매 버튼 클릭 핸들러
+    // 스케줄 선택
+    // ============================================================
+    function selectSchedule(cardEl) {
+        // 비활성(매진/대기) 카드는 선택 불가
+        if (cardEl.getAttribute('data-disabled') === 'true') {
+            showToast('이 회차는 선택할 수 없습니다 (매진 또는 예매대기)');
+            return;
+        }
+
+        // 기존 선택 해제
+        document.querySelectorAll('.schedule-card').forEach(function(c){
+            c.classList.remove('selected');
+        });
+
+        // 새로 선택
+        cardEl.classList.add('selected');
+        selectedScheduleId = cardEl.getAttribute('data-schedule-id');
+        selectedDate       = cardEl.getAttribute('data-date');
+
+        // 안내 텍스트 갱신
+        document.getElementById('selectedInfo').innerHTML =
+            '✅ 선택된 회차: <strong>' + selectedDate + '</strong>';
+
+        // 예매 버튼 활성화
+        document.getElementById('btnBooking').disabled = false;
+    }
+
+    // ============================================================
+    // 예매 버튼 클릭
     // ============================================================
     function handleBooking() {
-        if (isLoggedIn) {
-            // 로그인 상태: 예매 페이지로 이동
-            location.href = '/seat/select.do?concertId=' + concertId;
-        } else {
-            // 비로그인 상태: 로그인 유도 팝업
-            openLoginModal();
+        // 1) 스케줄 선택 확인
+        if (!selectedScheduleId) {
+            showToast('관람 일자를 먼저 선택해주세요');
+            return;
         }
+        // 2) 로그인 확인
+        if (!isLoggedIn) {
+            openLoginModal();
+            return;
+        }
+        // 3) 좌석선택 페이지로 이동
+        location.href = '/seat/select.do?scheduleId=' + selectedScheduleId;
     }
 
-    function openLoginModal() {
-        document.getElementById('loginModal').classList.add('show');
-    }
-
-    function closeLoginModal() {
-        document.getElementById('loginModal').classList.remove('show');
-    }
-
+    // ============================================================
+    // 로그인 모달
+    // ============================================================
+    function openLoginModal()  { document.getElementById('loginModal').classList.add('show'); }
+    function closeLoginModal() { document.getElementById('loginModal').classList.remove('show'); }
     function goToLogin() {
-        // 로그인 후 다시 이 페이지로 돌아오도록 returnUrl 전달
-        // (LoginController 측에서 returnUrl 처리 시 활용 가능)
+        // 로그인 후 이 페이지로 복귀하도록 returnUrl 전달
+        // returnUrl 검증·리다이렉트는 auth 모듈(LoginController) 담당
         var returnUrl = encodeURIComponent('/concert/detail.do?concertId=' + concertId);
         location.href = '/loginForm.do?returnUrl=' + returnUrl;
     }
-
-    // 백드롭 클릭 시 닫기
     document.getElementById('loginModal').addEventListener('click', function(e){
         if (e.target === this) closeLoginModal();
     });
-
-    // ESC 키로 닫기
     document.addEventListener('keydown', function(e){
         if (e.key === 'Escape') closeLoginModal();
     });
 
     // ============================================================
-    // 로그아웃 (LoginController.logout 규약에 맞춤: POST + JSON)
+    // 토스트
+    // ============================================================
+    var toastTimer = null;
+    function showToast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+    }
+
+    // ============================================================
+    // 로그아웃 (LoginController 규약)
     // ============================================================
     function doLogout() {
         if (!confirm('로그아웃 하시겠습니까?')) return;
@@ -439,13 +663,8 @@
             body: JSON.stringify({})
         })
         .then(function(res){ return res.json(); })
-        .then(function(data){
-            location.href = data.URL || '/';
-        })
-        .catch(function(){
-            // 실패 시에도 메인으로 강제 이동
-            location.href = '/';
-        });
+        .then(function(data){ location.href = data.URL || '/'; })
+        .catch(function(){ location.href = '/'; });
     }
 </script>
 
