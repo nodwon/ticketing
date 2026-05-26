@@ -27,22 +27,29 @@ Description :
         - birth_date: YYYYMMDD 문자열을 DATE로 변환
     -->
     <insert id="insertMember" parameterType="hashMap">
-        INSERT INTO members (
-            email,
-            password_hash,
-            name,
-            phone,
-            birth_date,
-            role
-        ) VALUES (
-            #{MEMBER_EMAIL},
-            #{MEMBER_PW},
-            #{MEMBER_NAME},
-            #{MEMBER_PHONE},
-            TO_DATE(#{MEMBER_BIRTH}, 'YYYYMMDD'),
-            'USER'
-        )
-    </insert>
+    INSERT INTO members (
+        email,
+        password_hash,
+        name,
+        phone,
+        birth_date,
+        role
+    ) VALUES (
+        #{MEMBER_EMAIL},
+        #{MEMBER_PASSWD},
+        #{MEMBER_NAME},
+        #{MEMBER_PHONE},
+        <choose>
+            <when test="MEMBER_BIRTH != null and MEMBER_BIRTH != '' and MEMBER_BIRTH != 'nullnullnull'">
+                TO_DATE(#{MEMBER_BIRTH}, 'YYYYMMDD')
+            </when>
+            <otherwise>
+                NULL
+            </otherwise>
+        </choose>,
+        'USER'
+    )
+</insert>
 
     <!--
         포인트 적립 (DB에 포인트 테이블 없음)
