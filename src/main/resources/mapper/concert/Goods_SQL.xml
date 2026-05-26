@@ -10,17 +10,14 @@
     Developer  : 주재현 (feature/jjh)
     Created    : 2026.05.22
     Modified   : 2026.05.26
-    Description: 공연 목록/상세/검색/스케줄 매퍼
-                 - CLOB → String 자동 변환 (resultMap + jdbcType)
+    Description: 공연 매퍼
+                 - CLOB → String 자동 변환
                  - 대소문자 무관 검색 (UPPER)
-                 - concert_schedules 조인 조회
+                 - 스케줄: bookingOpenable / performanceEnded 플래그 제공
     ============================================================
 -->
 <mapper namespace="concert">
 
-    <!-- ============================================================ -->
-    <!-- CLOB 처리용 resultMap                                        -->
-    <!-- ============================================================ -->
     <resultMap id="concertMap" type="java.util.HashMap">
         <id     property="concertId"   column="CONCERT_ID"  jdbcType="NUMERIC"/>
         <result property="title"       column="TITLE"       jdbcType="VARCHAR"/>
@@ -31,32 +28,26 @@
         <result property="status"      column="STATUS"      jdbcType="VARCHAR"/>
     </resultMap>
 
-    <!-- 스케줄 resultMap (TIMESTAMP → String 변환) -->
+    <!-- 스케줄 resultMap - 플래그 컬럼 포함 -->
     <resultMap id="scheduleMap" type="java.util.HashMap">
-        <id     property="scheduleId"      column="SCHEDULE_ID"      jdbcType="NUMERIC"/>
-        <result property="concertId"       column="CONCERT_ID"       jdbcType="NUMERIC"/>
-        <result property="performanceDate" column="PERFORMANCE_DATE" jdbcType="VARCHAR"/>
-        <result property="bookingOpenAt"   column="BOOKING_OPEN_AT"  jdbcType="VARCHAR"/>
-        <result property="totalSeats"      column="TOTAL_SEATS"      jdbcType="NUMERIC"/>
-        <result property="availableSeats"  column="AVAILABLE_SEATS"  jdbcType="NUMERIC"/>
-        <result property="weekday"         column="WEEKDAY"          jdbcType="VARCHAR"/>
-        <result property="performanceTime" column="PERFORMANCE_TIME" jdbcType="VARCHAR"/>
-        <result property="bookingOpenable" column="BOOKING_OPENABLE" jdbcType="NUMERIC"/>
+        <id     property="scheduleId"        column="SCHEDULE_ID"        jdbcType="NUMERIC"/>
+        <result property="concertId"         column="CONCERT_ID"         jdbcType="NUMERIC"/>
+        <result property="performanceDate"   column="PERFORMANCE_DATE"   jdbcType="VARCHAR"/>
+        <result property="bookingOpenAt"     column="BOOKING_OPEN_AT"    jdbcType="VARCHAR"/>
+        <result property="totalSeats"        column="TOTAL_SEATS"        jdbcType="NUMERIC"/>
+        <result property="availableSeats"    column="AVAILABLE_SEATS"    jdbcType="NUMERIC"/>
+        <result property="weekday"           column="WEEKDAY"            jdbcType="VARCHAR"/>
+        <result property="performanceTime"   column="PERFORMANCE_TIME"   jdbcType="VARCHAR"/>
+        <result property="bookingOpenable"   column="BOOKING_OPENABLE"   jdbcType="NUMERIC"/>
+        <result property="performanceEnded"  column="PERFORMANCE_ENDED"  jdbcType="NUMERIC"/>
     </resultMap>
 
 
     <!-- ============================================================ -->
-    <!-- 공연 목록 조회 (검색/정렬, 대소문자 무관)                    -->
+    <!-- 공연 목록                                                    -->
     <!-- ============================================================ -->
     <select id="selectConcertList" parameterType="map" resultMap="concertMap">
-        SELECT
-              concert_id
-            , title
-            , artist
-            , venue
-            , description
-            , thumbnail
-            , status
+        SELECT concert_id, title, artist, venue, description, thumbnail, status
         FROM concerts
         <where>
             <if test="keyword != null and keyword != ''">
@@ -79,8 +70,7 @@
     <!-- 공연 상세                                                    -->
     <!-- ============================================================ -->
     <select id="selectConcertDetail" parameterType="long" resultMap="concertMap">
-        SELECT
-              concert_id, title, artist, venue, description, thumbnail, status
+        SELECT concert_id, title, artist, venue, description, thumbnail, status
         FROM concerts
         WHERE concert_id = #{concertId}
     </select>
@@ -89,8 +79,7 @@
     <!-- 통합 검색                                                    -->
     <!-- ============================================================ -->
     <select id="searchConcerts" parameterType="string" resultMap="concertMap">
-        SELECT
-              concert_id, title, artist, venue, description, thumbnail, status
+        SELECT concert_id, title, artist, venue, description, thumbnail, status
         FROM concerts
         <where>
             <if test="_parameter != null and _parameter != ''">
@@ -103,11 +92,15 @@
     </select>
 
     <!-- ============================================================ -->
-    <!-- 공연 스케줄 목록 (concert_schedules)                         -->
-    <!--  - performance_date 를 'YYYY-MM-DD HH24:MI' 로 포맷          -->
-    <!--  - 요일(WEEKDAY), 시간(PERFORMANCE_TIME) 별도 컬럼           -->
-    <!--  - 예매오픈 여부(BOOKING_OPENABLE): 1=가능, 0=대기           -->
-    <!--  - 미래 일정만 조회 (performance_date >= SYSDATE)            -->
+    <!-- 공연 스케줄 목록                                              -->
+    <!--                                                              -->
+    <!-- 플래그 컬럼:                                                  -->
+    <!--   booking_openable  : 예매 오픈 가능?     (1=가능 0=대기)     -->
+    <!--   performance_ended : 공연 일자 지났음?   (1=종료 0=미래)     -->
+    <!--                                                              -->
+    <!-- 정렬:                                                         -->
+    <!--   1) 미래 일정 먼저 (performance_ended ASC)                  -->
+    <!--   2) 공연일자 빠른 순 (performance_date ASC)                 -->
     <!-- ============================================================ -->
     <select id="selectScheduleListByConcertId" parameterType="long" resultMap="scheduleMap">
         SELECT
@@ -119,10 +112,13 @@
             , available_seats
             , TO_CHAR(performance_date, 'DY', 'NLS_DATE_LANGUAGE=KOREAN') AS weekday
             , TO_CHAR(performance_date, 'HH24:MI') AS performance_time
-            , CASE WHEN booking_open_at &lt;= SYSTIMESTAMP THEN 1 ELSE 0 END AS booking_openable
+            , CASE WHEN booking_open_at  &lt;= SYSTIMESTAMP THEN 1 ELSE 0 END AS booking_openable
+            , CASE WHEN performance_date &lt;  SYSTIMESTAMP THEN 1 ELSE 0 END AS performance_ended
         FROM concert_schedules
         WHERE concert_id = #{concertId}
-        ORDER BY performance_date ASC
+        ORDER BY
+              CASE WHEN performance_date &lt; SYSTIMESTAMP THEN 1 ELSE 0 END ASC
+            , performance_date ASC
     </select>
 
 </mapper>

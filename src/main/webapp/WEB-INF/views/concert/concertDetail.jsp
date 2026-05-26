@@ -6,8 +6,8 @@
     Created    : 2026.05.22
     Modified   : 2026.05.26
     Description: 공연 상세 페이지
-                 - 좌(썸네일) + 우(정보) + 하단(스케줄 선택)
-                 - 사용자가 스케줄을 선택해야 예매 가능
+                 - 매진/예매대기/공연종료: 개별 비활성화
+                 - 스케줄 선택 + 예매 분기
                  - 예매 흐름:
                      로그인 X → 로그인 유도 모달 → /loginForm.do?returnUrl=...
                      로그인 O + 스케줄 선택 → /seat/select.do?scheduleId=...
@@ -55,16 +55,14 @@
         cursor: pointer; transition: background .15s;
     }
     .btn-icon:hover { background: rgba(255,255,255,0.3); }
-    .header h1 {
-        font-size: 20px; font-weight: 800; cursor: pointer; letter-spacing:-0.5px; margin-left: 8px;
-    }
+    .header h1 { font-size: 20px; font-weight: 800; cursor: pointer; letter-spacing:-0.5px; margin-left: 8px; }
     .session-info { font-size: 13px; color: rgba(255,255,255,0.92); display: flex; align-items: center; gap: 6px; }
     .session-info b { font-weight: 700; }
 
     /* ===== Container ===== */
     .container { max-width: 1200px; margin: 40px auto 60px; padding: 0 24px; }
 
-    /* ===== Detail Card (상단) ===== */
+    /* ===== Detail Card ===== */
     .detail-card {
         background: #fff; border-radius: 20px; overflow: hidden;
         box-shadow: 0 8px 30px rgba(0,0,0,0.08);
@@ -111,7 +109,7 @@
         white-space: pre-wrap; flex: 1;
     }
 
-    /* ===== Schedule Section (하단) ===== */
+    /* ===== Schedule Section ===== */
     .schedule-section {
         background: #fff; border-radius: 20px; padding: 36px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.08);
@@ -121,17 +119,35 @@
         margin-bottom: 24px; padding-bottom: 16px;
         border-bottom: 1.5px solid #f3f4f6;
     }
-    .schedule-title {
-        font-size: 20px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.5px;
-    }
+    .schedule-title { font-size: 20px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.5px; }
     .schedule-title-sub {
         font-size: 12px; color: #6a11cb; font-weight: 700;
         letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;
     }
-    .schedule-count {
+    .schedule-count { font-size: 13px; color: #6b7280; }
+    .schedule-count strong { color: #6a11cb; font-weight: 700; }
+
+    /* ===== Closed Concert Banner ===== */
+    .closed-banner {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        border: 2px dashed #9ca3af; border-radius: 14px;
+        padding: 20px 24px; margin-bottom: 20px;
+        display: flex; align-items: center; gap: 16px;
+    }
+    .closed-banner-icon {
+        width: 48px; height: 48px;
+        background: #6b7280; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 22px; color: #fff;
+        flex-shrink: 0;
+    }
+    .closed-banner-text { flex: 1; }
+    .closed-banner-title {
+        font-size: 15px; font-weight: 800; color: #374151; margin-bottom: 4px;
+    }
+    .closed-banner-desc {
         font-size: 13px; color: #6b7280;
     }
-    .schedule-count strong { color: #6a11cb; font-weight: 700; }
 
     .schedule-list {
         display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -143,17 +159,14 @@
         transition: all .15s; position: relative;
         background: #fff;
     }
-    .schedule-card:hover {
-        border-color: #c4b5fd; background: #faf5ff;
-    }
+    .schedule-card:hover { border-color: #c4b5fd; background: #faf5ff; }
     .schedule-card.selected {
         border-color: #6a11cb;
         background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
         box-shadow: 0 6px 16px rgba(106,17,203,0.15);
     }
     .schedule-card.disabled {
-        opacity: 0.55; cursor: not-allowed;
-        background: #f9fafb;
+        opacity: 0.55; cursor: not-allowed; background: #f9fafb;
     }
     .schedule-card.disabled:hover { border-color: #e5e7eb; background: #f9fafb; }
 
@@ -169,26 +182,17 @@
     }
 
     .schedule-date-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-    .schedule-date {
-        font-size: 18px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.3px;
-    }
-    .schedule-weekday {
-        font-size: 14px; font-weight: 700; color: #6a11cb;
-    }
+    .schedule-date { font-size: 18px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.3px; }
+    .schedule-weekday { font-size: 14px; font-weight: 700; color: #6a11cb; }
     .schedule-weekday.weekend { color: #ef4444; }
-
-    .schedule-time {
-        font-size: 14px; color: #4b5563; font-weight: 600; margin-bottom: 14px;
-    }
+    .schedule-time { font-size: 14px; color: #4b5563; font-weight: 600; margin-bottom: 14px; }
 
     .schedule-meta { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
     .schedule-meta-row {
         display: flex; justify-content: space-between; align-items: center;
         color: #6b7280;
     }
-    .schedule-meta-row b {
-        color: #1a1a1a; font-weight: 700;
-    }
+    .schedule-meta-row b { color: #1a1a1a; font-weight: 700; }
     .seat-progress-bar {
         width: 100%; height: 6px; background: #f3f4f6;
         border-radius: 3px; overflow: hidden; margin-top: 6px;
@@ -202,18 +206,17 @@
     .seat-progress-fill.warn { background: linear-gradient(90deg, #f59e0b, #ef4444); }
     .seat-progress-fill.full { background: #9ca3af; }
 
-    .badge-soldout {
+    /* Badge variants */
+    .badge {
         position: absolute; top: 14px; left: 14px;
         padding: 4px 10px; border-radius: 6px;
         font-size: 11px; font-weight: 800; color: #fff;
-        background: #ef4444; letter-spacing: 0.5px;
+        letter-spacing: 0.5px;
     }
-    .badge-waiting {
-        position: absolute; top: 14px; left: 14px;
-        padding: 4px 10px; border-radius: 6px;
-        font-size: 11px; font-weight: 800; color: #fff;
-        background: #f59e0b; letter-spacing: 0.5px;
-    }
+    .badge-soldout { background: #ef4444; }
+    .badge-waiting { background: #f59e0b; }
+    .badge-ended   { background: #6b7280; }
+    .badge-closed  { background: #374151; }
 
     /* ===== Booking Bar ===== */
     .booking-bar {
@@ -222,11 +225,10 @@
         background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
         border-radius: 14px;
     }
-    .booking-selected-info {
-        font-size: 14px; color: #4b5563;
-    }
+    .booking-selected-info { font-size: 14px; color: #4b5563; }
     .booking-selected-info strong { color: #6a11cb; font-weight: 700; }
     .booking-selected-info .placeholder { color: #9ca3af; }
+    .booking-selected-info .ended { color: #6b7280; }
 
     .booking-actions { display: flex; gap: 10px; }
     .btn-primary {
@@ -240,9 +242,7 @@
         transform: translateY(-2px);
         box-shadow: 0 10px 24px rgba(106,17,203,0.4);
     }
-    .btn-primary:disabled {
-        background: #d1d5db; cursor: not-allowed; opacity: 0.7;
-    }
+    .btn-primary:disabled { background: #d1d5db; cursor: not-allowed; opacity: 0.7; }
     .btn-secondary {
         padding: 16px 24px; background: #fff; color: #4b5563;
         border: 1.5px solid #e5e7eb; border-radius: 12px;
@@ -251,11 +251,7 @@
     }
     .btn-secondary:hover { border-color: #6a11cb; color: #6a11cb; }
 
-    /* Empty state for schedule */
-    .schedule-empty {
-        text-align: center; padding: 60px 20px;
-        color: #9ca3af;
-    }
+    .schedule-empty { text-align: center; padding: 60px 20px; color: #9ca3af; }
     .schedule-empty-icon { font-size: 48px; margin-bottom: 12px; }
 
     /* ===== Error ===== */
@@ -384,6 +380,9 @@
     </c:when>
     <c:otherwise>
 
+        <%-- 공연 종료 여부 판정 (모든 스케줄 비활성 트리거) --%>
+        <c:set var="concertClosed" value="${concert.status == 'CLOSED'}"/>
+
         <!-- ===== Detail Card ===== -->
         <div class="detail-card">
             <div class="detail-thumb"
@@ -452,6 +451,20 @@
                 </div>
             </div>
 
+            <%-- ★ 공연이 CLOSED 상태면 안내 배너 표시 --%>
+            <c:if test="${concertClosed}">
+                <div class="closed-banner">
+                    <div class="closed-banner-icon">🚫</div>
+                    <div class="closed-banner-text">
+                        <div class="closed-banner-title">예매가 종료된 공연입니다</div>
+                        <div class="closed-banner-desc">
+                            본 공연은 모든 회차가 종료되어 예매가 불가능합니다.
+                            다른 공연을 둘러보시려면 목록으로 돌아가주세요.
+                        </div>
+                    </div>
+                </div>
+            </c:if>
+
             <c:choose>
                 <c:when test="${empty scheduleList}">
                     <div class="schedule-empty">
@@ -463,10 +476,18 @@
                 <c:otherwise>
                     <div class="schedule-list" id="scheduleList">
                         <c:forEach var="s" items="${scheduleList}">
-                            <c:set var="isSoldout" value="${s.availableSeats == 0}"/>
-                            <c:set var="isWaiting" value="${s.bookingOpenable == 0}"/>
-                            <c:set var="isDisabled" value="${isSoldout or isWaiting}"/>
-                            <c:set var="seatRate" value="${(s.totalSeats - s.availableSeats) * 100 / s.totalSeats}"/>
+                            <%-- ============================================ --%>
+                            <%-- 스케줄 비활성 조건 (4가지 OR)                  --%>
+                            <%--   1. 공연 자체가 CLOSED                       --%>
+                            <%--   2. 매진 (availableSeats == 0)                --%>
+                            <%--   3. 예매오픈 전 (bookingOpenable == 0)        --%>
+                            <%--   4. 공연일자 지남 (performanceEnded == 1)    --%>
+                            <%-- ============================================ --%>
+                            <c:set var="isSoldout"  value="${s.availableSeats == 0}"/>
+                            <c:set var="isWaiting"  value="${s.bookingOpenable == 0}"/>
+                            <c:set var="isEnded"    value="${s.performanceEnded == 1}"/>
+                            <c:set var="isDisabled" value="${concertClosed or isSoldout or isWaiting or isEnded}"/>
+                            <c:set var="seatRate"   value="${(s.totalSeats - s.availableSeats) * 100 / s.totalSeats}"/>
 
                             <div class="schedule-card <c:if test='${isDisabled}'>disabled</c:if>"
                                  data-schedule-id="${s.scheduleId}"
@@ -474,8 +495,21 @@
                                  data-date="${s.performanceDate}"
                                  onclick="selectSchedule(this)">
 
-                                <c:if test="${isSoldout}"><div class="badge-soldout">매진</div></c:if>
-                                <c:if test="${isWaiting and not isSoldout}"><div class="badge-waiting">예매대기</div></c:if>
+                                <%-- 비활성 사유 뱃지 (우선순위 순) --%>
+                                <c:choose>
+                                    <c:when test="${concertClosed}">
+                                        <div class="badge badge-closed">예매종료</div>
+                                    </c:when>
+                                    <c:when test="${isEnded}">
+                                        <div class="badge badge-ended">공연종료</div>
+                                    </c:when>
+                                    <c:when test="${isSoldout}">
+                                        <div class="badge badge-soldout">매진</div>
+                                    </c:when>
+                                    <c:when test="${isWaiting}">
+                                        <div class="badge badge-waiting">예매대기</div>
+                                    </c:when>
+                                </c:choose>
 
                                 <div class="schedule-card-radio"></div>
 
@@ -493,11 +527,8 @@
                                     <div class="schedule-meta-row">
                                         <span>잔여좌석</span>
                                         <span>
-                                            <b>
-                                                <fmt:formatNumber value="${s.availableSeats}" pattern="#,###"/>
-                                            </b>
-                                            /
-                                            <fmt:formatNumber value="${s.totalSeats}" pattern="#,###"/>
+                                            <b><fmt:formatNumber value="${s.availableSeats}" pattern="#,###"/></b>
+                                            / <fmt:formatNumber value="${s.totalSeats}" pattern="#,###"/>
                                         </span>
                                     </div>
                                     <div class="seat-progress-bar">
@@ -525,12 +556,26 @@
                     <!-- ===== Booking Bar ===== -->
                     <div class="booking-bar">
                         <div class="booking-selected-info" id="selectedInfo">
-                            <span class="placeholder">📌 원하시는 관람 일자를 선택해주세요</span>
+                            <c:choose>
+                                <c:when test="${concertClosed}">
+                                    <span class="ended">⛔ 종료된 공연은 예매할 수 없습니다</span>
+                                </c:when>
+                                <c:otherwise>
+                                    <span class="placeholder">📌 원하시는 관람 일자를 선택해주세요</span>
+                                </c:otherwise>
+                            </c:choose>
                         </div>
                         <div class="booking-actions">
                             <button class="btn-secondary" onclick="location.href='/concert/list.do'">목록</button>
-                            <button class="btn-primary" id="btnBooking" disabled onclick="handleBooking()">
-                                🎟️ 예매하기
+                            <button class="btn-primary"
+                                    id="btnBooking"
+                                    <c:if test="${concertClosed}">disabled</c:if>
+                                    disabled
+                                    onclick="handleBooking()">
+                                <c:choose>
+                                    <c:when test="${concertClosed}">예매 종료</c:when>
+                                    <c:otherwise>🎟️ 예매하기</c:otherwise>
+                                </c:choose>
                             </button>
                         </div>
                     </div>
@@ -572,6 +617,10 @@
                         <c:when test="${not empty sessionScope.SESSION_ID}">true</c:when>
                         <c:otherwise>false</c:otherwise>
                      </c:choose>;
+    var isConcertClosed = <c:choose>
+                            <c:when test="${concertClosed}">true</c:when>
+                            <c:otherwise>false</c:otherwise>
+                          </c:choose>;
     var concertId  = '<c:out value="${concert.concertId}"/>';
     var selectedScheduleId = null;
     var selectedDate       = null;
@@ -580,27 +629,28 @@
     // 스케줄 선택
     // ============================================================
     function selectSchedule(cardEl) {
-        // 비활성(매진/대기) 카드는 선택 불가
+        // 공연 자체가 종료된 경우 - 안내 메시지만 표시
+        if (isConcertClosed) {
+            showToast('종료된 공연은 예매할 수 없습니다');
+            return;
+        }
+        // 비활성(매진/대기/공연종료) 카드는 선택 불가
         if (cardEl.getAttribute('data-disabled') === 'true') {
-            showToast('이 회차는 선택할 수 없습니다 (매진 또는 예매대기)');
+            showToast('이 회차는 선택할 수 없습니다');
             return;
         }
 
-        // 기존 선택 해제
         document.querySelectorAll('.schedule-card').forEach(function(c){
             c.classList.remove('selected');
         });
 
-        // 새로 선택
         cardEl.classList.add('selected');
         selectedScheduleId = cardEl.getAttribute('data-schedule-id');
         selectedDate       = cardEl.getAttribute('data-date');
 
-        // 안내 텍스트 갱신
         document.getElementById('selectedInfo').innerHTML =
             '✅ 선택된 회차: <strong>' + selectedDate + '</strong>';
 
-        // 예매 버튼 활성화
         document.getElementById('btnBooking').disabled = false;
     }
 
@@ -608,17 +658,18 @@
     // 예매 버튼 클릭
     // ============================================================
     function handleBooking() {
-        // 1) 스케줄 선택 확인
+        if (isConcertClosed) {
+            showToast('종료된 공연은 예매할 수 없습니다');
+            return;
+        }
         if (!selectedScheduleId) {
             showToast('관람 일자를 먼저 선택해주세요');
             return;
         }
-        // 2) 로그인 확인
         if (!isLoggedIn) {
             openLoginModal();
             return;
         }
-        // 3) 좌석선택 페이지로 이동
         location.href = '/seat/select.do?scheduleId=' + selectedScheduleId;
     }
 
@@ -628,8 +679,6 @@
     function openLoginModal()  { document.getElementById('loginModal').classList.add('show'); }
     function closeLoginModal() { document.getElementById('loginModal').classList.remove('show'); }
     function goToLogin() {
-        // 로그인 후 이 페이지로 복귀하도록 returnUrl 전달
-        // returnUrl 검증·리다이렉트는 auth 모듈(LoginController) 담당
         var returnUrl = encodeURIComponent('/concert/detail.do?concertId=' + concertId);
         location.href = '/loginForm.do?returnUrl=' + returnUrl;
     }
@@ -653,7 +702,7 @@
     }
 
     // ============================================================
-    // 로그아웃 (LoginController 규약)
+    // 로그아웃
     // ============================================================
     function doLogout() {
         if (!confirm('로그아웃 하시겠습니까?')) return;
