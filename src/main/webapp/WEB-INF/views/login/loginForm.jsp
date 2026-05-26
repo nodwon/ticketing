@@ -73,7 +73,7 @@ h1 {
 		<form action="/loginAction.do" method="POST" id="frm">
 			<input type="hidden" name="returnUrl" value="${returnUrl}">
 			<input type="text" class="form-control" name="MEMBER_ID"
-				id="MEMBER_ID" placeholder="아이디">
+    			id="MEMBER_ID" placeholder="이메일">
 			<input type="password" class="form-control" name="MEMBER_PASSWD"
 				id="MEMBER_PASSWD" placeholder="비밀번호">
 			<a href="/findPw.do">비밀번호
@@ -123,7 +123,7 @@ $(document).ready(function() {
 
 	function fn_login() {
 		if($("#MEMBER_ID").val()==""){
-			alert("아이디를 입력해주세요");
+			alert("이메일을 입력해주세요");
 			$("#MEMBER_ID").focus();
 		} else if($("#MEMBER_PASSWD").val()==""){
 			alert("비밀번호를 입력해주세요");

@@ -132,7 +132,7 @@ public class LoginController {
 		HttpSession session = request.getSession();
 
 		session.setAttribute("SESSION_ID", map.get("ID"));
-		session.setAttribute("SESSION_NO", map.get("ID"));
+		session.setAttribute("SESSION_NO", map.get("MEMBER_NO"));
 		session.setAttribute("SESSION_NAME", map.get("Name"));
 
 		session.getMaxInactiveInterval();
