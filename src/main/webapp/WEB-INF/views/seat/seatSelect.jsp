@@ -22,6 +22,7 @@
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -186,8 +187,14 @@
     // 페이지 진입 시 scheduleId 받기 (Controller에서 넘긴 값)
     var scheduleId = '${scheduleId}';
     
-    // 테스트용 memberId (실제 운영 시 세션에서 가져와야 함)
-    var memberId = '1';
+    // 세션에서 로그인 회원 ID 가져옴 (하드코딩 제거)
+    // 서버 측 BookingController 가 다시 한번 SESSION_NO 로 덮어쓰므로
+    // 클라이언트 변조는 차단됨. 여기서는 좌석 hold/release 호출에만 사용.
+    var memberId = '<c:out value="${sessionScope.SESSION_NO}"/>';
+    if (!memberId) {
+        alert('로그인이 필요합니다.');
+        location.href = '/loginForm.do';
+    }
     
     // ★ 추가: 전체 좌석 데이터 + 현재 구역
     var allSeats = [];

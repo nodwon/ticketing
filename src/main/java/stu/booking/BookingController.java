@@ -5,6 +5,7 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
@@ -88,22 +89,30 @@ public class BookingController {
 
     // ====================================================
     // 4. 내 예매 목록
+    //    [보안] memberId 는 세션의 SESSION_NO 만 사용.
+    //    URL 파라미터로 받던 방식은 IDOR(타인 예매 열람) 위험.
     // ====================================================
     @RequestMapping(value = "/bookingMyList.do", method = RequestMethod.GET)
-    public ModelAndView bookingMyList(CommandMap commandMap, HttpServletRequest request) throws Exception {
+    public ModelAndView bookingMyList(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
 
-        ModelAndView mv = new ModelAndView("booking/myList");
+        ModelAndView mv = new ModelAndView();
 
-        String memberId = request.getParameter("memberId");
-        if (memberId == null || memberId.isEmpty()) {
-            memberId = "1";
+        Object sessionMemberNo = session.getAttribute("SESSION_NO");
+        if (sessionMemberNo == null) {
+            log.warn("미로그인 상태에서 내 예매 목록 조회 시도 - 차단");
+            mv.setView(new RedirectView("/loginForm.do"));
+            return mv;
         }
-        commandMap.put("memberId", memberId);
+
+        commandMap.remove("memberId");
+        commandMap.put("memberId", String.valueOf(sessionMemberNo));
 
         List<Map<String, Object>> myBookings = bookingService.selectMyBookings(commandMap);
         mv.addObject("myBookings", myBookings);
+        mv.setViewName("booking/myList");
 
-        log.debug("bookingMyList - memberId=" + memberId + ", count=" + myBookings.size());
+        log.debug("bookingMyList - memberId=" + sessionMemberNo
+                + ", count=" + (myBookings == null ? 0 : myBookings.size()));
 
         return mv;
     }
@@ -118,14 +127,27 @@ public class BookingController {
     //      생성 직후 /payment/form.do?bookingId=N 으로 redirect
     // ====================================================
     @RequestMapping(value = "/bookingCreate.do", method = RequestMethod.POST)
-    public ModelAndView bookingCreate(CommandMap commandMap, HttpServletRequest request) throws Exception {
+    public ModelAndView bookingCreate(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
 
         log.info("===== 예매 생성 요청 시작 (PENDING) =====");
+
+        // [보안] 클라이언트가 보낸 memberId 는 신뢰하지 않는다.
+        //        세션의 SESSION_NO (로그인한 본인) 으로 강제 주입.
+        Object sessionMemberNo = session.getAttribute("SESSION_NO");
+        if (sessionMemberNo == null) {
+            log.warn("미로그인 상태에서 예매 생성 시도 - 차단");
+            ModelAndView mv = new ModelAndView();
+            mv.setView(new RedirectView("/loginForm.do"));
+            return mv;
+        }
+        commandMap.remove("memberId");
+        commandMap.put("memberId", String.valueOf(sessionMemberNo));
 
         try {
             Long bookingId = bookingService.createBooking(commandMap);
 
             log.info("예매 생성 성공 (PENDING) - bookingId=" + bookingId
+                    + ", memberId=" + sessionMemberNo
                     + " → 결제 폼으로 이동");
 
             // 결제 모듈로 위임 (PaymentController.form())
@@ -207,29 +229,73 @@ public class BookingController {
     // 8. 예매 취소 처리 (POST) - PENDING 또는 CONFIRMED → CANCELLED
     //    POST /bookingCancel.do
     //    파라미터: bookingId, cancelReason (선택)
-    //    
+    //
+    //    [보안 2026.05.26]
+    //      - memberId 는 세션의 SESSION_NO 만 사용 (URL 파라미터 무시)
+    //      - 해당 bookingId 가 정말 본인 소유인지 DB 로 검증 후 취소
+    //        → 타인 bookingId 변조 취소(IDOR) 차단
+    //
     //    호출 주체:
-    //      - 사용자 직접 취소 (마이페이지)
-    //      - 결제 모듈의 결제 실패/타임아웃
-    //      - 별도 스케줄러의 자동 취소
+    //      - 사용자 직접 취소 (마이페이지) — 이 엔드포인트
+    //      - 결제 실패/타임아웃 콜백 — RealBookingStatusUpdater 가
+    //        BookingService 빈을 직접 호출하므로 이 엔드포인트를 타지 않음
     // ====================================================
     @RequestMapping(value = "/bookingCancel.do", method = RequestMethod.POST)
-    public ModelAndView bookingCancel(CommandMap commandMap, HttpServletRequest request) throws Exception {
+    public ModelAndView bookingCancel(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
 
         log.info("===== 예매 취소 요청 시작 =====");
+
+        Object sessionMemberNo = session.getAttribute("SESSION_NO");
+        if (sessionMemberNo == null) {
+            log.warn("미로그인 상태에서 예매 취소 시도 - 차단");
+            ModelAndView mv = new ModelAndView();
+            mv.setView(new RedirectView("/loginForm.do"));
+            return mv;
+        }
+
+        String bookingId = (String) commandMap.get("bookingId");
+        if (bookingId == null || bookingId.isEmpty()) {
+            log.warn("bookingId 누락 - 차단");
+            ModelAndView mv = new ModelAndView("booking/bookingError");
+            mv.addObject("errorMessage", "필수 파라미터 누락: bookingId");
+            return mv;
+        }
+
+        // [보안] 본인 소유 예매인지 검증
+        Map<String, Object> bookingDetail = bookingService.selectBookingDetail(commandMap);
+        if (bookingDetail == null) {
+            log.warn("존재하지 않는 예매 취소 시도 - bookingId=" + bookingId);
+            ModelAndView mv = new ModelAndView("booking/bookingError");
+            mv.addObject("errorMessage", "예매 정보를 찾을 수 없습니다.");
+            return mv;
+        }
+        // MyBatis + Oracle 조합에서 컬럼 별칭이 대문자로 올라오는 경우가 있어
+        // (memberId / MEMBERID / member_id / MEMBER_ID) 모두 시도.
+        Object ownerMemberId = bookingDetail.get("memberId");
+        if (ownerMemberId == null) ownerMemberId = bookingDetail.get("MEMBERID");
+        if (ownerMemberId == null) ownerMemberId = bookingDetail.get("member_id");
+        if (ownerMemberId == null) ownerMemberId = bookingDetail.get("MEMBER_ID");
+
+        if (!isSameMember(ownerMemberId, sessionMemberNo)) {
+            log.warn("[IDOR 시도] 타인 예매 취소 시도 - bookingId=" + bookingId
+                    + ", owner=" + ownerMemberId
+                    + " (" + (ownerMemberId == null ? "null" : ownerMemberId.getClass().getSimpleName()) + ")"
+                    + ", session=" + sessionMemberNo
+                    + " (" + (sessionMemberNo == null ? "null" : sessionMemberNo.getClass().getSimpleName()) + ")"
+                    + ", detailKeys=" + bookingDetail.keySet());
+            ModelAndView mv = new ModelAndView("booking/bookingError");
+            mv.addObject("errorMessage", "본인의 예매만 취소할 수 있습니다.");
+            return mv;
+        }
 
         try {
             bookingService.cancelBooking(commandMap);
 
-            String bookingId = (String) commandMap.get("bookingId");
-            log.info("예매 취소 성공 - bookingId=" + bookingId);
+            log.info("예매 취소 성공 - bookingId=" + bookingId
+                    + ", memberId=" + sessionMemberNo);
 
             ModelAndView mv = new ModelAndView();
-            String memberId = request.getParameter("memberId");
-            if (memberId == null || memberId.isEmpty()) {
-                memberId = "1";
-            }
-            mv.setView(new RedirectView("/bookingMyList.do?memberId=" + memberId));
+            mv.setView(new RedirectView("/bookingMyList.do"));
             return mv;
 
         } catch (Exception e) {
@@ -239,5 +305,34 @@ public class BookingController {
             mv.addObject("errorMessage", e.getMessage());
             return mv;
         }
+    }
+
+    // ====================================================
+    // 회원 ID 비교 헬퍼
+    //   세션값은 보통 Long, DB 결과는 BigDecimal/Integer/Long/String 등
+    //   다양한 타입으로 올라옴. String.valueOf() 만으로는
+    //   "1"과 "1.0", "1.000" 같은 표현 차이로 실패할 수 있어
+    //   숫자 정규화를 거쳐 비교한다.
+    // ====================================================
+    private boolean isSameMember(Object a, Object b) {
+        if (a == null || b == null) return false;
+        try {
+            long la = toLong(a);
+            long lb = toLong(b);
+            return la == lb;
+        } catch (NumberFormatException e) {
+            return String.valueOf(a).equals(String.valueOf(b));
+        }
+    }
+
+    private long toLong(Object v) {
+        if (v instanceof Number) {
+            return ((Number) v).longValue();
+        }
+        String s = String.valueOf(v).trim();
+        // "1.0" 같은 소수 표현 방어
+        int dot = s.indexOf('.');
+        if (dot >= 0) s = s.substring(0, dot);
+        return Long.parseLong(s);
     }
 }
