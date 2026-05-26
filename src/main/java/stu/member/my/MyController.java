@@ -17,7 +17,8 @@ package stu.member.my;
  *       POST /my/info.do          → 회원정보 수정
  *       GET  /my/bookingList.do   → 예매 내역 조회 (myBookingList.jsp)
  *       POST /my/delete.do        → 회원 탈퇴 (예매 있으면 차단)
- *       POST /my/bookingCancel.do → 예매 취소 (booking 모듈 호출)
+ *
+ *   - 예매 취소는 성우님(booking 모듈)의 /bookingDetail.do 페이지에서 처리
  *
  *   - 세션 키 (batman 컨벤션):
  *       SESSION_ID    : email
@@ -40,7 +41,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import stu.booking.BookingService;
 import stu.common.common.CommandMap;
 
 @Controller
@@ -50,9 +50,6 @@ public class MyController {
 
     @Resource(name = "myService")
     private MyService myService;
-
-    @Resource(name = "bookingService")
-    private BookingService bookingService;
 
     // =====================================================================
     // 1. 회원정보 조회 (GET /my/info.do)
@@ -176,34 +173,6 @@ public class MyController {
         session.invalidate();
 
         mv.setViewName("redirect:/main.do");
-        return mv;
-    }
-
-
-    // =====================================================================
-    // 5. 예매 취소 (POST /my/bookingCancel.do)
-    //    - 성우님(booking 모듈)의 cancelBooking 서비스 호출
-    //    - 취소 성공 후 마이페이지 예매 목록으로 복귀
-    // =====================================================================
-    @RequestMapping(value = "/my/bookingCancel.do", method = RequestMethod.POST)
-    public ModelAndView cancelMyBooking(CommandMap commandMap, HttpSession session) throws Exception {
-        ModelAndView mv = new ModelAndView();
-
-        Object memberId = session.getAttribute("SESSION_NO");
-        if (memberId == null) {
-            mv.setViewName("redirect:/loginForm.do");
-            return mv;
-        }
-
-        // 본인 예매만 취소 가능하도록 세션의 memberId 강제 사용
-        commandMap.put("memberId", memberId);
-
-        String bookingId = (String) commandMap.get("bookingId");
-        log.debug("[MY/BOOKING_CANCEL] member_id=" + memberId + " booking_id=" + bookingId);
-
-        bookingService.cancelBooking(commandMap);
-
-        mv.setViewName("redirect:/my/bookingList.do");
         return mv;
     }
 }
