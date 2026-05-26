@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================
+  Project   : 티켓팅 보안관제 (Ticketing Security Monitoring)
+  File      : logback.xml
+  Location  : src/main/resources/logback.xml
+  Purpose   :
+    1. 보안 로그(JSON) 파일 출력 → Splunk Forwarder
+    2. MyBatis SQL 쿼리 로깅 (log4jdbc 대체)
+    3. 애플리케이션 일반 로그 콘솔 출력
+  ============================================================
+-->
+<configuration scan="true" scanPeriod="60 seconds">
+
+  <!-- ============================================================
+       로그 디렉토리 (Windows 개발 환경 기본값)
+       운영 환경에서는 -DLOG_HOME=/var/log/ticketing/security 로 주입
+       ============================================================ -->
+  <property name="LOG_HOME" value="${LOG_HOME:-C:/logs/ticketing/security}"/>
+
+  <!-- ============================================================
+       1) 콘솔 (개발용)
+       ============================================================ -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       2) 일반 애플리케이션 로그 파일
+       ============================================================ -->
+  <appender name="FILE_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/application.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/application-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>100MB</maxFileSize>
+      <maxHistory>14</maxHistory>
+      <totalSizeCap>5GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       3) SQL 로그 파일 (MyBatis 쿼리 추적)
+       ============================================================ -->
+  <appender name="FILE_SQL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/sql.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/sql-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>200MB</maxFileSize>
+      <maxHistory>7</maxHistory>
+      <totalSizeCap>5GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{40} - %msg%n</pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       4) [보안 로그] log_auth - 로그인 이벤트
+       ============================================================ -->
+  <appender name="FILE_AUTH" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/log_auth.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_auth-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+      <maxFileSize>500MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>10GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <fieldName>event_time</fieldName>
+          <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+        </timestamp>
+        <pattern>
+          <pattern>{"log_type":"log_auth"}</pattern>
+        </pattern>
+        <mdc/>
+        <arguments/>
+        <message><fieldName>message</fieldName></message>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       5) [보안 로그] log_seat - 좌석 선택
+       ============================================================ -->
+  <appender name="FILE_SEAT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/log_seat.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_seat-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+      <maxFileSize>500MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>10GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <fieldName>event_time</fieldName>
+          <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+        </timestamp>
+        <pattern>
+          <pattern>{"log_type":"log_seat"}</pattern>
+        </pattern>
+        <mdc/>
+        <arguments/>
+        <message><fieldName>message</fieldName></message>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       6) [보안 로그] log_payment - 결제 (TAMPER 탐지)
+       ============================================================ -->
+  <appender name="FILE_PAYMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/log_payment.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_payment-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+      <maxFileSize>500MB</maxFileSize>
+      <maxHistory>90</maxHistory>
+      <totalSizeCap>20GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <fieldName>event_time</fieldName>
+          <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+        </timestamp>
+        <pattern>
+          <pattern>{"log_type":"log_payment"}</pattern>
+        </pattern>
+        <mdc/>
+        <arguments/>
+        <message><fieldName>message</fieldName></message>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       7) [보안 로그] log_admin_access - 관리자 접근
+       ============================================================ -->
+  <appender name="FILE_ADMIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/log_admin_access.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_admin_access-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+      <maxFileSize>500MB</maxFileSize>
+      <maxHistory>180</maxHistory>
+      <totalSizeCap>20GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <fieldName>event_time</fieldName>
+          <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+        </timestamp>
+        <pattern>
+          <pattern>{"log_type":"log_admin_access"}</pattern>
+        </pattern>
+        <mdc/>
+        <arguments/>
+        <message><fieldName>message</fieldName></message>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       8) [보안 로그] log_board - 게시판
+       ============================================================ -->
+  <appender name="FILE_BOARD" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/log_board.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_board-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+      <maxFileSize>500MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>10GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <fieldName>event_time</fieldName>
+          <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+        </timestamp>
+        <pattern>
+          <pattern>{"log_type":"log_board"}</pattern>
+        </pattern>
+        <mdc/>
+        <arguments/>
+        <message><fieldName>message</fieldName></message>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       9) [보안 로그] log_behavior_feature - MLTK
+       ============================================================ -->
+  <appender name="FILE_BEHAVIOR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/log_behavior_feature.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_behavior_feature-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+      <maxFileSize>1GB</maxFileSize>
+      <maxHistory>60</maxHistory>
+      <totalSizeCap>30GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <providers>
+        <timestamp>
+          <fieldName>event_time</fieldName>
+          <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+        </timestamp>
+        <pattern>
+          <pattern>{"log_type":"log_behavior_feature"}</pattern>
+        </pattern>
+        <mdc/>
+        <arguments/>
+        <message><fieldName>message</fieldName></message>
+      </providers>
+    </encoder>
+  </appender>
+
+  <!-- ============================================================
+       비동기 Wrapper
+       ============================================================ -->
+  <appender name="ASYNC_AUTH" class="ch.qos.logback.classic.AsyncAppender">
+    <queueSize>10000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>false</neverBlock>
+    <appender-ref ref="FILE_AUTH"/>
+  </appender>
+
+  <appender name="ASYNC_SEAT" class="ch.qos.logback.classic.AsyncAppender">
+    <queueSize>20000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>false</neverBlock>
+    <appender-ref ref="FILE_SEAT"/>
+  </appender>
+
+  <appender name="ASYNC_PAYMENT" class="ch.qos.logback.classic.AsyncAppender">
+    <queueSize>10000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>false</neverBlock>
+    <appender-ref ref="FILE_PAYMENT"/>
+  </appender>
+
+  <appender name="ASYNC_ADMIN" class="ch.qos.logback.classic.AsyncAppender">
+    <queueSize>5000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>false</neverBlock>
+    <appender-ref ref="FILE_ADMIN"/>
+  </appender>
+
+  <appender name="ASYNC_BOARD" class="ch.qos.logback.classic.AsyncAppender">
+    <queueSize>5000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>false</neverBlock>
+    <appender-ref ref="FILE_BOARD"/>
+  </appender>
+
+  <appender name="ASYNC_BEHAVIOR" class="ch.qos.logback.classic.AsyncAppender">
+    <queueSize>30000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>false</neverBlock>
+    <appender-ref ref="FILE_BEHAVIOR"/>
+  </appender>
+
+  <!-- ============================================================
+       보안 로거 매핑
+       ============================================================ -->
+  <logger name="SECURITY.AUTH"     level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_AUTH"/>
+  </logger>
+  <logger name="SECURITY.SEAT"     level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_SEAT"/>
+  </logger>
+  <logger name="SECURITY.PAYMENT"  level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_PAYMENT"/>
+  </logger>
+  <logger name="SECURITY.ADMIN"    level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_ADMIN"/>
+  </logger>
+  <logger name="SECURITY.BOARD"    level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_BOARD"/>
+  </logger>
+  <logger name="SECURITY.BEHAVIOR" level="INFO" additivity="false">
+    <appender-ref ref="ASYNC_BEHAVIOR"/>
+  </logger>
+
+  <!-- ============================================================
+       MyBatis SQL 로깅 (log4jdbc 대체)
+         - 개발 환경: DEBUG (전체 SQL + 파라미터)
+         - 운영 환경: WARN 으로 조정 권장
+       ============================================================ -->
+  <logger name="stu" level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE_APP"/>
+  </logger>
+
+  <!-- MyBatis 핵심 로거 -->
+  <logger name="org.mybatis"                       level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE_SQL"/>
+  </logger>
+
+  <!-- 실제 SQL 쿼리 (MyBatis 가 실행하는 PreparedStatement) -->
+  <logger name="java.sql.Connection"               level="WARN"  additivity="false">
+    <appender-ref ref="FILE_SQL"/>
+  </logger>
+  <logger name="java.sql.PreparedStatement"        level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE_SQL"/>
+  </logger>
+  <logger name="java.sql.Statement"                level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE_SQL"/>
+  </logger>
+  <logger name="java.sql.ResultSet"                level="WARN"  additivity="false">
+    <appender-ref ref="FILE_SQL"/>
+  </logger>
+
+  <!-- ============================================================
+       Spring 프레임워크 로거 (잡음 줄이기)
+       ============================================================ -->
+  <logger name="org.springframework"      level="INFO"/>
+  <logger name="org.springframework.web"  level="INFO"/>
+  <logger name="org.apache.tiles"         level="WARN"/>
+  <logger name="org.apache.commons"       level="WARN"/>
+
+  <!-- ============================================================
+       Root
+       ============================================================ -->
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE_APP"/>
+  </root>
+
+</configuration>
