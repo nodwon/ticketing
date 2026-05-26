@@ -27,6 +27,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -47,19 +48,29 @@ public class LoginController {
 
 
 	@RequestMapping(value = "/loginForm.do")
-	public ModelAndView loginForm(CommandMap commandMap) throws Exception {
-		ModelAndView mv = new ModelAndView("login/loginForm");
-
-		return mv;
+	public ModelAndView loginForm(
+	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
+	        CommandMap commandMap) throws Exception {
+	    ModelAndView mv = new ModelAndView("login/loginForm");
+	    
+	    // returnUrl을 JSP로 전달 (hidden input에 담길 예정)
+	    if (returnUrl != null && !returnUrl.isEmpty()) {
+	        mv.addObject("returnUrl", returnUrl);
+	    }
+	    
+	    return mv;
 	}
 
-	// 로그인 이후 메인페이지 이동
+	// 로그인 이후 메인페이지 이동 (또는 returnUrl로 복귀)
 	@RequestMapping(value = "/loginAction.do", method = RequestMethod.POST)
 	public ModelAndView loginAction(CommandMap commandMap, HttpServletRequest request) throws Exception {
-		ModelAndView mv = new ModelAndView();
-		HttpSession session = request.getSession();
+	    ModelAndView mv = new ModelAndView();
+	    HttpSession session = request.getSession();
 
-		Map<String, Object> chk = loginService.loginAction(commandMap.getMap());
+	    // returnUrl 추출 (loginForm.jsp의 hidden input에서 보냄)
+	    String returnUrl = (String) commandMap.get("returnUrl");
+
+	    Map<String, Object> chk = loginService.loginAction(commandMap.getMap());
 
 		if (chk == null) {
 			mv.setViewName("login/loginForm");
@@ -76,14 +87,39 @@ public class LoginController {
 					session.setAttribute("SESSION_NAME",  chk.get("MEMBER_NAME"));  // name
 					session.setAttribute("SESSION_GRADE", chk.get("MEMBER_GRADE")); // ADMIN / USER
 
-					mv = new ModelAndView("redirect:/main.do");
-					mv.addObject("MEMBER", chk);
+	                // returnUrl 유효성 검증 후 리다이렉트
+	                String redirectUrl = isValidReturnUrl(returnUrl) ? returnUrl : "/main.do";
+	                mv = new ModelAndView("redirect:" + redirectUrl);
+	                mv.addObject("MEMBER", chk);
 
-					session.getMaxInactiveInterval();
-				}
-			}
-			return mv;
-		}
+	                session.getMaxInactiveInterval();
+	            }
+	        }
+	        return mv;
+	    }
+	}
+
+	/**
+	 * returnUrl 안전성 검증 (Open Redirect 공격 방어)
+	 * - null/empty 차단
+	 * - http://, https://, // 로 시작하는 외부 URL 차단
+	 * - / 로 시작하는 내부 경로만 허용
+	 */
+	private boolean isValidReturnUrl(String returnUrl) {
+	    if (returnUrl == null || returnUrl.isEmpty()) {
+	        return false;
+	    }
+	    if (returnUrl.startsWith("//")) {
+	        return false;
+	    }
+	    String lower = returnUrl.toLowerCase();
+	    if (lower.startsWith("http://") || lower.startsWith("https://")) {
+	        return false;
+	    }
+	    if (!returnUrl.startsWith("/")) {
+	        return false;
+	    }
+	    return true;
 	}
 
 	// 소셜로그인 이후 메인페이지 이동
@@ -95,7 +131,7 @@ public class LoginController {
 		HttpSession session = request.getSession();
 
 		session.setAttribute("SESSION_ID", map.get("ID"));
-		session.setAttribute("SESSION_NO", map.get("ID"));
+		session.setAttribute("SESSION_NO", map.get("MEMBER_NO"));
 		session.setAttribute("SESSION_NAME", map.get("Name"));
 
 		session.getMaxInactiveInterval();
