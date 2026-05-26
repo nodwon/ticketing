@@ -19,7 +19,10 @@ package stu.member.my;
  *       POST /my/delete.do        → 회원 탈퇴 (예매 있으면 차단)
  *       POST /my/bookingCancel.do → 예매 취소 (booking 모듈 호출)
  *
- *   - 세션 키 (팀 컨벤션): memberId
+ *   - 세션 키 (batman 컨벤션):
+ *       SESSION_ID    : email
+ *       SESSION_NO    : 회원번호(member_id 숫자) ← 본인이 사용
+ *       SESSION_NAME  : 이름
  * ============================================================
  */
 
@@ -58,10 +61,10 @@ public class MyController {
     public ModelAndView getMemberInfo(HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("memberId");
+        Object memberId = session.getAttribute("SESSION_NO");
         if (memberId == null) {
             log.debug("[MY/INFO] 미로그인 → 로그인 페이지로 이동");
-            mv.setViewName("redirect:/member/loginForm.do");
+            mv.setViewName("redirect:/loginForm.do");
             return mv;
         }
 
@@ -84,9 +87,9 @@ public class MyController {
     public ModelAndView updateMemberInfo(CommandMap commandMap, HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("memberId");
+        Object memberId = session.getAttribute("SESSION_NO");
         if (memberId == null) {
-            mv.setViewName("redirect:/member/loginForm.do");
+            mv.setViewName("redirect:/loginForm.do");
             return mv;
         }
 
@@ -119,9 +122,9 @@ public class MyController {
     public ModelAndView getBookingList(HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("memberId");
+        Object memberId = session.getAttribute("SESSION_NO");
         if (memberId == null) {
-            mv.setViewName("redirect:/member/loginForm.do");
+            mv.setViewName("redirect:/loginForm.do");
             return mv;
         }
 
@@ -138,7 +141,7 @@ public class MyController {
     }
 
 
- // =====================================================================
+    // =====================================================================
     // 4. 회원 탈퇴 (POST /my/delete.do)
     //    - 예매 내역(PENDING/CONFIRMED)이 있으면 탈퇴 차단
     // =====================================================================
@@ -146,9 +149,9 @@ public class MyController {
     public ModelAndView deleteMember(HttpSession session, RedirectAttributes ra) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("memberId");
+        Object memberId = session.getAttribute("SESSION_NO");
         if (memberId == null) {
-            mv.setViewName("redirect:/member/loginForm.do");
+            mv.setViewName("redirect:/loginForm.do");
             return mv;
         }
 
@@ -186,9 +189,9 @@ public class MyController {
     public ModelAndView cancelMyBooking(CommandMap commandMap, HttpSession session) throws Exception {
         ModelAndView mv = new ModelAndView();
 
-        Object memberId = session.getAttribute("memberId");
+        Object memberId = session.getAttribute("SESSION_NO");
         if (memberId == null) {
-            mv.setViewName("redirect:/member/loginForm.do");
+            mv.setViewName("redirect:/loginForm.do");
             return mv;
         }
 
