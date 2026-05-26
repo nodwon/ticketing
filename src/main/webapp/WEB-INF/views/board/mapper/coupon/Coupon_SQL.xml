@@ -43,7 +43,7 @@
 	<!-- Coupon List View  -->
 	<select id="couponList" parameterType="hashmap" resultType="hashmap">
 		<include refid="common.pagingPre2"/>
-		<include refid="coupon.couponView"/>
+		<!--<include refid="coupon.couponView"/> -->
 		<![CDATA[
 			WHERE 1 = 1
 		]]>
@@ -77,7 +77,7 @@
 
 	<!-- Coupon Detail View  -->
 	<select id="couponDetail" parameterType="hashmap" resultType="hashmap">
-		<include refid="coupon.couponView"/>
+		<!--<include refid="coupon.couponView"/> -->
 		<![CDATA[
 			WHERE COUPON_NO = #{COUPON_NO}
 		]]>

@@ -7,7 +7,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>JM COLLECTION</title>
+<title>GWANJE TICKET</title>
 </head>
 
 <body>

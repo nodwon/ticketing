@@ -38,7 +38,7 @@ h1 {
 	<br />
 	<br />
 	<form id="frm" name="frm" class="frm" enctype="multipart/form-data">
-	<input type="hidden" id="member_no" name="MEMBER_NO" value="${SESSION_NO}">
+	<input type="hidden" id="member_no" name="MEMBER_NO" value="${sessionScope.SESSION_NO}">
 		<table class="board_view">
 			<colgroup>
 				<col width="15%">

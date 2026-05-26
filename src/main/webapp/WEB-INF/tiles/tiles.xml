@@ -7,7 +7,7 @@
   
   <!-- 화면의 기초가 되는 base  -->
   <definition name="base" template="/WEB-INF/tiles/layout.jsp">
-  
+    <put-attribute name="content" value="/WEB-INF/views/concert/concert.jsp"/>
   	<put-attribute name="header" value="/WEB-INF/tiles/header.jsp"/>
   	<put-attribute name="content" value=""/>
   	<put-attribute name="footer" value="/WEB-INF/tiles/footer.jsp"/>

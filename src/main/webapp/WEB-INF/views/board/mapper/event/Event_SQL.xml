@@ -23,7 +23,7 @@
 	<!-- Event List View  -->
 	<select id="eventList" parameterType="hashmap" resultType="hashmap">
 		<include refid="common.pagingPre2"/>
-		<include refid="event.eventView"/>
+		<!--  <include refid="event.eventView"/>-->
 		<![CDATA[
 			WHERE 1 = 1
 		]]>
@@ -54,7 +54,7 @@
 
 	<!-- Event Detail View  -->
 	<select id="eventDetail" parameterType="hashmap" resultType="hashmap">
-		<include refid="event.eventView"/>
+		<!--<include refid="event.eventView"/> -->
 		<![CDATA[
 			WHERE EVENT_NO = #{EVENT_NO}
 		]]>
@@ -88,7 +88,7 @@
 	
 	<select id="common_eventList" parameterType="hashmap" resultType="hashmap">
 		<include refid="common.pagingPre2"/>
-		<include refid="event.eventView"/>
+		<!-- error  <include refid="event.eventView"/> -->
 		<![CDATA[
 			WHERE EVENT_STATE = '공개'
             AND EVENT_DATE <= TO_CHAR(sysdate, 'YYYY-MM-DD')
