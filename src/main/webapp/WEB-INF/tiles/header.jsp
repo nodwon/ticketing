@@ -1,12 +1,14 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%
-    String sessionId   = (String) session.getAttribute("SESSION_ID");
-    String sessionName = (String) session.getAttribute("SESSION_NAME");
-    if (sessionId   == null) sessionId   = "";
-    if (sessionName == null) sessionName = "";
-    boolean isLogin = !sessionId.isEmpty();
-    boolean isAdmin = "admin".equals(sessionId);
+	String sessionId    = (String) session.getAttribute("SESSION_ID");
+	String sessionName  = (String) session.getAttribute("SESSION_NAME");
+	String sessionGrade = (String) session.getAttribute("SESSION_GRADE");
+	if (sessionId    == null) sessionId    = "";
+	if (sessionName  == null) sessionName  = "";
+	if (sessionGrade == null) sessionGrade = "";
+	boolean isLogin = !sessionId.isEmpty();
+	boolean isAdmin = "ADMIN".equals(sessionGrade);  // ← GRADE로 체크
 %>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
@@ -127,6 +129,7 @@ a { text-decoration: none; color: inherit; }
 
 <div class="hd-main">
     <div class="hd-main-inner">
+        <!-- 로고 -->
 
         <!-- 로고 -->
         <a href="/main.do" class="hd-logo">
@@ -148,7 +151,7 @@ a { text-decoration: none; color: inherit; }
         <div class="hd-util">
             <%if (!isLogin) {%>
                 <!-- 비로그인 -->
-                <a href="/myOrderList.do" class="hd-icon-btn"><span class="ico">🎫</span><span>예매내역</span></a>
+                <a href="/my/bookingList.do" class="hd-icon-btn"><span class="ico">🎫</span><span>예매내역</span></a>
                 <a href="/basket/basketList.do" class="hd-icon-btn"><span class="ico">🛒</span><span>장바구니</span></a>
                 <a href="/qna/openQnaList.do" class="hd-icon-btn"><span class="ico">💬</span><span>Q&amp;A</span></a>
                 <a href="/loginForm.do" class="hd-btn">로그인</a>
@@ -158,19 +161,19 @@ a { text-decoration: none; color: inherit; }
                 <div class="hd-admin-bar">
                     <span class="hd-welcome">Hi, <strong><%=sessionName%></strong>님</span>
                     <span class="hd-admin-label">ADMIN</span>
-                    <a href="/adminMain.do" class="hd-btn primary">관리자 홈</a>
-                    <a href="/admin/memberList.do" class="hd-btn">회원관리</a>
-                    <a href="/admin/concertList.do" class="hd-btn">공연관리</a>
+					<a href="/admin/main.do" class="hd-btn primary">관리자 홈</a>
+					<a href="/admin/member/list.do" class="hd-btn">회원관리</a>
+					<a href="/admin/concert/list.do" class="hd-btn">공연관리</a>
                     <a href="#" onclick="signOut(); return false;" class="hd-btn">로그아웃</a>
                 </div>
 
             <%} else {%>
                 <!-- 일반 로그인 -->
                 <span style="font-size:12px;color:#aaa;white-space:nowrap;">Hi, <strong style="color:#fff;"><%=sessionName%></strong>님</span>
-                <a href="/myOrderList.do" class="hd-icon-btn"><span class="ico">🎫</span><span>예매내역</span></a>
+                <a href="/my/bookingList.do" class="hd-icon-btn"><span class="ico">🎫</span><span>예매내역</span></a>
                 <a href="/basket/basketList.do" class="hd-icon-btn"><span class="ico">🛒</span><span>장바구니</span></a>
                 <a href="/qna/openQnaList.do" class="hd-icon-btn"><span class="ico">💬</span><span>Q&amp;A</span></a>
-                <a href="/myOrderList.do" class="hd-icon-btn"><span class="ico">👤</span><span>마이페이지</span></a>
+                <a href="/my/info.do" class="hd-icon-btn"><span class="ico">👤</span><span>마이페이지</span></a>
                 <a href="#" onclick="signOut(); return false;" class="hd-btn">로그아웃</a>
             <%}%>
         </div>

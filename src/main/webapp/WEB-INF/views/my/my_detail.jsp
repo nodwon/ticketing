@@ -140,7 +140,6 @@ function fn_order_modify() { // 유효성체크
 </head>
 <body>
 <div class="container">
-	<%@include file="/WEB-INF/tiles/mySide.jsp" %>
 	<div class="row" align="center">
 		<br>
         <div>

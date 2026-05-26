@@ -78,7 +78,9 @@
 </head>
 <body>
 <div class="wrap">
-
+	<a href="/main.do" style="text-decoration: none; color: inherit;">
+	    <h1>🎫 관제 티켓 관리자</h1>
+	</a>
 	<h1>📋 예매 내역</h1>
 
 	<div class="nav">

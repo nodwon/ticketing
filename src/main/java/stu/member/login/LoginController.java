@@ -72,21 +72,20 @@ public class LoginController {
 
 	    Map<String, Object> chk = loginService.loginAction(commandMap.getMap());
 
-	    if (chk == null) {
-	        mv.setViewName("login/loginForm");
-	        mv.addObject("message", "해당 아이디 혹은 비밀번호가 일치하지 않습니다.");
-	        mv.addObject("returnUrl", returnUrl);   // 실패 시에도 returnUrl 유지
-	        return mv;
-	    } else {
-	        if (chk.get("MEMBER_DELETE").equals("1")) {
-	            mv.setViewName("login/loginForm");
-	            mv.addObject("message", "탈퇴한 회원 입니다.");
-	            mv.addObject("returnUrl", returnUrl);
-	        } else {
-	            if (chk.get("MEMBER_PASSWD").equals(commandMap.get("MEMBER_PASSWD"))) {
-	                session.setAttribute("SESSION_ID", chk.get("MEMBER_ID"));
-	                session.setAttribute("SESSION_NO", chk.get("MEMBER_NO"));
-	                session.setAttribute("SESSION_NAME", chk.get("MEMBER_NAME"));
+		if (chk == null) {
+			mv.setViewName("login/loginForm");
+			mv.addObject("message", "해당 아이디 혹은 비밀번호가 일치하지 않습니다.");
+			return mv;
+		} else {
+			if (chk.get("MEMBER_DELETE").equals("1")) {
+				mv.setViewName("login/loginForm");
+				mv.addObject("message", "탈퇴한 회원 입니다.");
+			} else {
+				if (chk.get("MEMBER_PASSWD").equals(commandMap.get("MEMBER_PASSWD"))) {
+					session.setAttribute("SESSION_ID",    chk.get("MEMBER_ID"));    // email
+					session.setAttribute("SESSION_NO",    chk.get("MEMBER_NO"));    // member_id
+					session.setAttribute("SESSION_NAME",  chk.get("MEMBER_NAME"));  // name
+					session.setAttribute("SESSION_GRADE", chk.get("MEMBER_GRADE")); // ADMIN / USER
 
 	                // returnUrl 유효성 검증 후 리다이렉트
 	                String redirectUrl = isValidReturnUrl(returnUrl) ? returnUrl : "/main.do";

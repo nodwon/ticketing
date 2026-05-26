@@ -4,7 +4,11 @@
 
 <mapper namespace="booking">
 
-    <!-- 1) 공연 일정 정보 + 좌석 정보 조회 (좌석 선택 화면용) -->
+    <!-- ============================================================
+         [조회 SELECT] - 화면 표시용
+         ============================================================ -->
+
+    <!-- 1) 공연 일정 정보 조회 -->
     <select id="selectScheduleInfo" parameterType="hashmap" resultType="hashmap">
         SELECT 
             cs.schedule_id        AS scheduleId,
@@ -35,7 +39,7 @@
         ORDER BY seat_row, seat_col
     </select>
 
-    <!-- 3) 예매 상세 조회 -->
+    <!-- 3) 예매 상세 조회 (cancelled_at, cancel_reason 제거됨) -->
     <select id="selectBookingDetail" parameterType="hashmap" resultType="hashmap">
         SELECT 
             b.booking_id        AS bookingId,
@@ -46,12 +50,10 @@
             c.title             AS title,
             c.artist            AS artist,
             c.venue             AS venue,
-            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI')    AS performanceDate,
+            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI')  AS performanceDate,
             b.total_price       AS totalPrice,
             b.status            AS status,
-            TO_CHAR(b.created_at,   'YYYY-MM-DD HH24:MI:SS')      AS createdAt,
-            TO_CHAR(b.cancelled_at, 'YYYY-MM-DD HH24:MI:SS')      AS cancelledAt,
-            b.cancel_reason     AS cancelReason
+            TO_CHAR(b.created_at, 'YYYY-MM-DD HH24:MI:SS')      AS createdAt
         FROM bookings b
         JOIN members m            ON b.member_id = m.member_id
         JOIN concert_schedules cs ON b.schedule_id = cs.schedule_id
@@ -92,15 +94,13 @@
         WHERE b.member_id = #{memberId}
         ORDER BY b.created_at DESC
     </select>
-    
+
+
     <!-- ============================================================
-         [예매 생성 - 6단계 트랜잭션용 SQL]
-         호출 순서: BookingServiceImpl.createBooking()
+         [예매 생성 - PENDING 흐름]
          ============================================================ -->
 
-    <!-- 6) 좌석 상태 확인 (동시성 제어: FOR UPDATE로 행 잠금)
-            선택한 좌석들이 모두 AVAILABLE인지 확인하면서, 
-            동시에 다른 트랜잭션이 같은 좌석을 건드리지 못하게 잠금 -->
+    <!-- 6) 좌석 상태 확인 (FOR UPDATE) -->
     <select id="selectSeatsForUpdate" parameterType="hashmap" resultType="hashmap">
         SELECT 
             seat_id    AS seatId,
@@ -114,22 +114,17 @@
         FOR UPDATE
     </select>
 
-
-    <!-- 7) 예매 헤더 INSERT
-            booking_id는 GENERATED AS IDENTITY로 자동 채번
-            keyProperty="bookingId"로 생성된 ID를 commandMap에 자동 주입 -->
+    <!-- 7) 예매 헤더 INSERT (status='PENDING') -->
     <insert id="insertBooking" parameterType="hashmap" 
             useGeneratedKeys="true" keyProperty="bookingId" keyColumn="BOOKING_ID">
         INSERT INTO bookings (
             member_id, schedule_id, total_price, status, created_at
         ) VALUES (
-            #{memberId}, #{scheduleId}, #{totalPrice}, 'CONFIRMED', SYSTIMESTAMP
+            #{memberId}, #{scheduleId}, #{totalPrice}, 'PENDING', SYSTIMESTAMP
         )
     </insert>
 
-
-    <!-- 8) 예매 항목 INSERT (좌석 하나당 1행)
-            BookingServiceImpl에서 반복 호출됨 -->
+    <!-- 8) 예매 항목 INSERT -->
     <insert id="insertBookingItem" parameterType="hashmap">
         INSERT INTO booking_items (
             booking_id, seat_id, unit_price
@@ -138,19 +133,16 @@
         )
     </insert>
 
-
-    <!-- 9) 좌석 상태 변경 (AVAILABLE → RESERVED)
-            동시성 안전: WHERE status='AVAILABLE' 조건으로 이중 안전장치 -->
-    <update id="updateSeatStatusToReserved" parameterType="hashmap">
+    <!-- 9) 좌석 AVAILABLE → HELD -->
+    <update id="updateSeatStatusToHeld" parameterType="hashmap">
         UPDATE seats
-        SET status = 'RESERVED'
+        SET status = 'HELD'
         WHERE seat_id IN
         <foreach collection="seatIds" item="seatId" open="(" separator="," close=")">
             #{seatId}
         </foreach>
         AND status = 'AVAILABLE'
     </update>
-
 
     <!-- 10) 잔여 좌석수 차감 -->
     <update id="decreaseAvailableSeats" parameterType="hashmap">
@@ -162,33 +154,51 @@
 
 
     <!-- ============================================================
-         [예매 취소 - 3단계 트랜잭션용 SQL]
-         호출 순서: BookingServiceImpl.cancelBooking()
+         [예매 확정 - PENDING → CONFIRMED]
          ============================================================ -->
 
-    <!-- 11) 예매 취소 (status → CANCELLED, 취소일시/사유 기록) -->
-    <update id="cancelBooking" parameterType="hashmap">
+    <!-- 11) bookings: PENDING → CONFIRMED -->
+    <update id="confirmBookingStatus" parameterType="hashmap">
         UPDATE bookings
-        SET status = 'CANCELLED',
-            cancelled_at = SYSTIMESTAMP,
-            cancel_reason = #{cancelReason}
+        SET status = 'CONFIRMED'
         WHERE booking_id = #{bookingId}
-          AND status = 'CONFIRMED'
+          AND status = 'PENDING'
+    </update>
+
+    <!-- 12) 좌석 HELD → RESERVED -->
+    <update id="updateSeatStatusHeldToReserved" parameterType="hashmap">
+        UPDATE seats
+        SET status = 'RESERVED'
+        WHERE seat_id IN (
+            SELECT seat_id FROM booking_items WHERE booking_id = #{bookingId}
+        )
+        AND status = 'HELD'
     </update>
 
 
-    <!-- 12) 좌석 상태 복구 (RESERVED → AVAILABLE)
-            특정 예매에 묶인 좌석들만 복구 -->
+    <!-- ============================================================
+         [예매 취소 - cancelled_at, cancel_reason 제거됨]
+         ============================================================ -->
+
+    <!-- 13) 예매 취소 (status만 변경, 시간/사유 기록 없음) -->
+    <update id="cancelBooking" parameterType="hashmap">
+        UPDATE bookings
+        SET status = 'CANCELLED'
+        WHERE booking_id = #{bookingId}
+          AND status IN ('PENDING', 'CONFIRMED')
+    </update>
+
+    <!-- 14) 좌석 HELD/RESERVED → AVAILABLE -->
     <update id="restoreSeatStatus" parameterType="hashmap">
         UPDATE seats
         SET status = 'AVAILABLE'
         WHERE seat_id IN (
             SELECT seat_id FROM booking_items WHERE booking_id = #{bookingId}
         )
+        AND status IN ('HELD', 'RESERVED')
     </update>
 
-
-    <!-- 13) 잔여 좌석수 복구 (취소 시) -->
+    <!-- 15) 잔여 좌석수 복구 -->
     <update id="increaseAvailableSeats" parameterType="hashmap">
         UPDATE concert_schedules
         SET available_seats = available_seats + (

@@ -21,6 +21,8 @@
 <html lang="ko">
 <head>
 	<meta charset="UTF-8">
+	 	<!-- 관제 -->
+	
 	<title>회원 관리 | 관제 티켓</title>
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
@@ -73,7 +75,9 @@
 </head>
 <body>
 <div class="wrap">
-
+	<a href="/main.do" style="text-decoration: none; color: inherit;">
+	    <h1>🎫 관제 티켓 관리자</h1>
+	</a>
 	<h1>👥 회원 관리</h1>
 
 	<div class="nav">
