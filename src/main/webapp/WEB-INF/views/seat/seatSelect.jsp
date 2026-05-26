@@ -358,21 +358,25 @@
     
     // 선택 좌석 정보 화면 업데이트
     function updateInfo() {
-        if (selectedSeats.length === 0) {
-            document.getElementById('info').innerHTML = '좌석을 선택해 주세요';
-            return;
-        }
-        
-        var seatLabels = selectedSeats.map(function(s) {
-            return s.seatRow + '열 ' + s.seatCol + '번';
-        }).join(', ');
-        
-        var msg = '✅ 선택한 좌석: <b>' + selectedSeats.length + '개</b>';
-        msg += '<br>';
-        msg += '<span style="font-size:14px; color:#555;">' + seatLabels + '</span>';
-        
-        document.getElementById('info').innerHTML = msg;
+    if (selectedSeats.length === 0) {
+        document.getElementById('info').innerHTML = '좌석을 선택해 주세요';
+        return;
     }
+    
+    // ★ 구역 정보 포함해서 라벨 만들기
+    var seatLabels = selectedSeats.map(function(s) {
+        // seatRow를 기반으로 구역 계산
+        var zoneIndex = Math.floor((s.seatRow - 1) / ROWS_PER_ZONE);
+        var zoneName = String.fromCharCode(65 + zoneIndex);  // A, B, C...
+        return zoneName + '구역 ' + s.seatRow + '열 ' + s.seatCol + '번';
+    }).join(', ');
+    
+    var msg = '✅ 선택한 좌석: <b>' + selectedSeats.length + '개</b>';
+    msg += '<br>';
+    msg += '<span style="font-size:14px; color:#555;">' + seatLabels + '</span>';
+    
+    document.getElementById('info').innerHTML = msg;
+	}
     
     // 예매 페이지로 이동
     function goToBooking() {
