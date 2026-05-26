@@ -753,9 +753,9 @@ function buildHeroSlider(concerts) {
         var title     = (c.title || '').replace(/(.{10})/g, '$1<br>');  /* 10자 줄바꿈 */
         var sub       = (c.venue || '') + (c.perform_start_at ? ' · ' + c.perform_start_at.substring(0,10) : '');
         var btnDisabled = (c.status === 'CLOSED') ? 'style="opacity:.5;cursor:not-allowed;"' : '';
-        var btnOnclick = (c.status === 'CLOSED')
-        ? ''
-        : 'onclick="location.href=\'/concert/detail.do?concertId=' + concertId + '\'"';
+        var btnOnclick  = (c.status === 'CLOSED')
+            ? ''
+            : 'onclick="location.href=\'/concert/detail.do?concertId=' + concertId + '\'"';
 
         var li = document.createElement('li');
         li.innerHTML =
