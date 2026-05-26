@@ -70,8 +70,5 @@ public interface AdminMainService {
 	/** 예매 목록 (검색/페이징/탬퍼 필터). */
 	List<Map<String, Object>> selectBookingList(Map<String, Object> map) throws Exception;
 
-	List<Map<String, Object>> order_detail(CommandMap commandMap);
-
-	List<Map<String, Object>> order_detail_sub(CommandMap commandMap);
 
 }

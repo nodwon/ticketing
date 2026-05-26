@@ -151,6 +151,8 @@ a { text-decoration: none; color: inherit; }
                 <a href="/myOrderList.do" class="hd-icon-btn"><span class="ico">🎫</span><span>예매내역</span></a>
                 <a href="/basket/basketList.do" class="hd-icon-btn"><span class="ico">🛒</span><span>장바구니</span></a>
                 <a href="/qna/openQnaList.do" class="hd-icon-btn"><span class="ico">💬</span><span>Q&amp;A</span></a>
+                <a href="/loginForm.do" class="hd-btn">로그인</a>
+    			<a href="/joinForm.do" class="hd-btn primary">회원가입</a>
             <%} else if (isAdmin) {%>
                 <!-- 관리자 -->
                 <div class="hd-admin-bar">
