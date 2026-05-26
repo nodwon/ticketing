@@ -127,6 +127,7 @@ a { text-decoration: none; color: inherit; }
 
 <div class="hd-main">
     <div class="hd-main-inner">
+        <!-- 로고 -->
 
         <!-- 로고 -->
         <a href="/main.do" class="hd-logo">

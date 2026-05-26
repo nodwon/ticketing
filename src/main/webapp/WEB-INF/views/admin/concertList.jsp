@@ -106,7 +106,7 @@
 </head>
 <body>
 <div class="wrap">
-
+ 	<!-- 관제 -->
 	<a href="/main.do" style="text-decoration: none; color: inherit;">
 	    <h1>🎫 관제 티켓 관리자</h1>
 	</a>
