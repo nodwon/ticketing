@@ -1,3 +1,32 @@
+/** 
+* ============================================================ * 
+Project : 관제 티켓 (Ticketing System)
+
+- Package : stu.booking
+- FileName : BookingController.java *
+
+* Developer : 이규왕 (feature/king)
+
+* Created : 
+
+- Modified : 2026.05.26 *
+- Description :
+ * [URL 매핑]
+ *   GET  /bookingSeat.do        좌석 선택 화면 (임시, 좌석 모듈 통합 시 사라질 예정)
+ *   GET  /bookingSeatList.do    좌석 현황 (AJAX, JSON)
+ *   GET  /bookingDetail.do      예매 상세 화면
+ *   GET  /bookingMyList.do      내 예매 목록
+ *   POST /bookingCreate.do      예매 생성 처리 (PENDING) → /payment/form.do 로 redirect
+ *   GET  /bookingComplete.do    예매 완료 화면
+ *   POST /bookingConfirm.do     예매 확정 처리 (결제 모듈이 BookingService 통해 호출)
+ *   POST /bookingCancel.do      예매 취소 처리
+ *   
+ *     bookingCreate.do 후 결제 모듈 /payment/form.do?bookingId={id} 로 redirect.
+ *     결제 모듈은 BookingStatusUpdater → BookingService.confirmBooking 호출하여
+ *     bookings.status PENDING→CONFIRMED, seats HELD→RESERVED 처리.
+ *     bookingConfirm.do 는 다른 진입 (예: 관리자/수동 확정) 용으로 유지.
+* ============================================================ */
+
 package stu.booking;
 
 import java.util.List;
@@ -15,19 +44,6 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import stu.common.common.CommandMap;
 
-/**
- * 예매(Booking) 도메인 Controller
- * 
- * [URL 매핑]
- *   GET  /bookingSeat.do        좌석 선택 화면 (임시, 좌석 모듈 통합 시 사라질 예정)
- *   GET  /bookingSeatList.do    좌석 현황 (AJAX, JSON)
- *   GET  /bookingDetail.do      예매 상세 화면
- *   GET  /bookingMyList.do      내 예매 목록
- *   POST /bookingCreate.do      예매 생성 처리 (PENDING)
- *   GET  /bookingComplete.do    예매 완료 화면
- *   POST /bookingConfirm.do     예매 확정 처리 (결제 모듈이 호출, PENDING → CONFIRMED)
- *   POST /bookingCancel.do      예매 취소 처리
- */
 @Controller
 public class BookingController {
 
@@ -140,13 +156,11 @@ public class BookingController {
 
             log.info("예매 생성 성공 (PENDING) - bookingId=" + bookingId);
 
-            // TODO: 결제 모듈 통합 후 결제 페이지로 리다이렉트
-            // mv.setView(new RedirectView("/paymentForm.do?bookingId=" + bookingId));
-            
-            // [임시] 결제 모듈 없으므로 일단 완료 화면으로 리다이렉트
-            // (실제로는 PENDING 상태이지만 화면 흐름 유지 목적)
+            // [통합 완료] 결제 모듈로 진입
+            //   결제 폼: GET /payment/form.do?bookingId={id}
+            //   결제 처리 후 BookingStatusUpdater 가 confirmBooking() 호출 → CONFIRMED
             ModelAndView mv = new ModelAndView();
-            mv.setView(new RedirectView("/bookingComplete.do?bookingId=" + bookingId));
+            mv.setView(new RedirectView("/payment/form.do?bookingId=" + bookingId));
             return mv;
 
         } catch (Exception e) {
