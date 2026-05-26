@@ -75,9 +75,12 @@ $(document).ready(function() {
         e.preventDefault();
         fn_openFaqWrite();
     });
-
+    <%
+    String sessionGrade = (String) session.getAttribute("SESSION_GRADE");
+    if (sessionGrade == null) sessionGrade = "";
+	%>
     // 버그수정: admin 세션 비교 정확하게
-    <% if ("admin".equals(sessionName.trim())) { %>
+    <% if ("admin".equals(sessionGrade)) { %>
         $("#wrapBtn").show();
         $(".deleteBtn").show();
     <% } %>

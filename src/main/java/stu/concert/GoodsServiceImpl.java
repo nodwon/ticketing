@@ -5,10 +5,8 @@
  * FileName   : GoodsServiceImpl.java
  * Developer  : 주재현 (feature/jjh)
  * Created    : 2026.05.22
- * Modified   : 2026.05.25
+ * Modified   : 2026.05.26
  * Description: GoodsService 구현체
- *              - GoodsDao 위임 호출
- *              - 보안관제 로깅 포인트 (Splunk 수집 대상)
  * ============================================================
  */
 package stu.concert;
@@ -49,12 +47,8 @@ public class GoodsServiceImpl implements GoodsService {
     }
 
     @Override
-    public List<Map<String, Object>> selectReviewPosts() throws Exception {
-        return goodsDao.selectReviewPosts();
-    }
-
-    @Override
-    public List<Map<String, Object>> selectQnaPosts() throws Exception {
-        return goodsDao.selectQnaPosts();
+    public List<Map<String, Object>> selectScheduleListByConcertId(Long concertId) throws Exception {
+        logger.info("[SERVICE] selectScheduleListByConcertId id={}", concertId);
+        return goodsDao.selectScheduleListByConcertId(concertId);
     }
 }

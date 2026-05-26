@@ -71,9 +71,10 @@ public class LoginController {
 				mv.addObject("message", "탈퇴한 회원 입니다.");
 			} else {
 				if (chk.get("MEMBER_PASSWD").equals(commandMap.get("MEMBER_PASSWD"))) {
-					session.setAttribute("SESSION_ID", chk.get("MEMBER_ID"));
-					session.setAttribute("SESSION_NO", chk.get("MEMBER_NO"));
-					session.setAttribute("SESSION_NAME", chk.get("MEMBER_NAME"));
+					session.setAttribute("SESSION_ID",    chk.get("MEMBER_ID"));    // email
+					session.setAttribute("SESSION_NO",    chk.get("MEMBER_NO"));    // member_id
+					session.setAttribute("SESSION_NAME",  chk.get("MEMBER_NAME"));  // name
+					session.setAttribute("SESSION_GRADE", chk.get("MEMBER_GRADE")); // ADMIN / USER
 
 					mv = new ModelAndView("redirect:/main.do");
 					mv.addObject("MEMBER", chk);
