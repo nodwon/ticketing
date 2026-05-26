@@ -52,6 +52,10 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
+    /* PENDING 카드는 좌측 노란 액센트로 시각적 강조 */
+    .booking-card.pending {
+        border-left: 4px solid #f39c12;
+    }
     .booking-info { flex: 1; }
     .booking-info h3 { color: #333; margin: 0 0 8px 0; font-size: 18px; }
     .booking-info p { margin: 4px 0; color: #666; font-size: 14px; }
@@ -72,16 +76,21 @@
     
     .booking-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
     .price { font-size: 20px; color: #e74c3c; font-weight: bold; }
-    .btn-detail {
+    
+    /* 액션 버튼 (상태별 색상 분리) */
+    .btn-action {
         padding: 8px 18px;
-        background: #ff6b6b;
         color: #fff;
         text-decoration: none;
         border-radius: 5px;
         font-size: 13px;
         font-weight: 600;
         transition: background 0.2s;
+        white-space: nowrap;
     }
+    .btn-resume { background: #f39c12; }   /* PENDING: 결제 이어서 */
+    .btn-resume:hover { background: #e67e22; }
+    .btn-detail { background: #ff6b6b; }   /* CONFIRMED/CANCELLED: 상세 */
     .btn-detail:hover { background: #ee5a5a; }
     
     /* 빈 목록 */
@@ -146,7 +155,10 @@
         <%-- 예매 목록 --%>
         <c:otherwise>
             <c:forEach var="booking" items="${myBookings}">
-                <div class="booking-card">
+                <%-- PENDING 여부에 따라 카드 스타일/링크 분기 --%>
+                <c:set var="isPending" value="${booking.STATUS eq 'PENDING'}"/>
+                
+                <div class="booking-card ${isPending ? 'pending' : ''}">
                     <div class="booking-info">
                         <span class="status-badge status-${booking.STATUS}">${booking.STATUS}</span>
                         <h3>${booking.TITLE}</h3>
@@ -158,7 +170,25 @@
                         <span class="price">
                             <fmt:formatNumber value="${booking.TOTALPRICE}" pattern="#,###"/>원
                         </span>
-                        <a href="<c:url value='/bookingDetail.do?bookingId=${booking.BOOKINGID}'/>" class="btn-detail">상세보기</a>
+                        
+                        <c:choose>
+                            <%-- PENDING: 결제 대기 화면(complete.jsp)으로 복귀
+                                 from=mylist 파라미터로 로그 분석 시 진입 경로 식별 --%>
+                            <c:when test="${isPending}">
+                                <a href="<c:url value='/bookingComplete.do?bookingId=${booking.BOOKINGID}&from=mylist'/>"
+                                   class="btn-action btn-resume">
+                                    💳 결제 이어서 진행
+                                </a>
+                            </c:when>
+                            
+                            <%-- CONFIRMED / CANCELLED: 상세 화면으로 --%>
+                            <c:otherwise>
+                                <a href="<c:url value='/bookingDetail.do?bookingId=${booking.BOOKINGID}'/>"
+                                   class="btn-action btn-detail">
+                                    상세보기
+                                </a>
+                            </c:otherwise>
+                        </c:choose>
                     </div>
                 </div>
             </c:forEach>
