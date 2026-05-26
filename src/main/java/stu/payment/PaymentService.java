@@ -11,11 +11,9 @@ Project : 관제 티켓 (Ticketing System)
 
 - Modified : 2026.05.26 *
 - Description : 
- *   결제 서비스 인터페이스 (API 명세서 반영).
- *     - POST   /api/payments          → requestPayment
- *     - POST   /api/payments/{id}/confirm → confirmPayment (PG 콜백)
- *     - POST   /api/payments/{id}/refund  → refundPayment
- *     - GET    /api/payments/{id}      → getPaymentResult
+ *   결제 서비스 인터페이스 (명세서 반영).
+ *     - 결제 요청 / 확정 (PG 콜백) 흐름
+ *     - 환불은 마이페이지팀 영역으로 위임 (본 서비스 책임 아님)
 * ============================================================ */
 
 package stu.payment;
@@ -38,9 +36,6 @@ public interface PaymentService {
      * @param pgResult      "SUCCESS" 또는 "FAILED"
      */
     PaymentVO confirmPayment(String transactionId, String pgResult) throws Exception;
-
-    /** 환불 처리 (SUCCESS → REFUNDED) */
-    PaymentVO refundPayment(String transactionId, String reason) throws Exception;
 
     /** 결제 단건 조회 */
     PaymentVO getPaymentResult(String transactionId) throws Exception;

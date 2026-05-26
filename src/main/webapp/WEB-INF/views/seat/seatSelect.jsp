@@ -378,14 +378,18 @@
     document.getElementById('info').innerHTML = msg;
 	}
     
-    // 예매 페이지로 이동
+    // 예매 페이지로 이동 → 결제 폼까지 자동 redirect
+    // [2026.05.26 결제 모듈(king) 통합]
+    //   기존 : GET /booking/complete.do?... → 404 (해당 매핑 없음)
+    //   변경 : POST /bookingCreate.do (예매 생성, PENDING)
+    //             → BookingController 가 /payment/form.do?bookingId=N 으로 redirect
     function goToBooking() {
         if (selectedSeats.length === 0) {
             alert('좌석을 먼저 선택해주세요!');
             return;
         }
         
-        if (!confirm(selectedSeats.length + '개 좌석을 예매하시겠습니까?')) {
+        if (!confirm(selectedSeats.length + '개 좌석을 결제하시겠습니까?')) {
             return;
         }
         
@@ -394,8 +398,26 @@
         }).join(',');
         
         sessionStorage.removeItem('selectedSeats_' + scheduleId);
-        
-        location.href = '/booking/complete.do?scheduleId=' + scheduleId + '&seatIds=' + seatIds;
+
+        // 동적으로 form 생성 후 POST 전송
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/bookingCreate.do';
+
+        var fields = {
+            memberId  : memberId,
+            scheduleId: scheduleId,
+            seatIds   : seatIds
+        };
+        for (var key in fields) {
+            var input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = key;
+            input.value = fields[key];
+            form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
     }
     
     // 페이지 로드 시 좌석 불러오기

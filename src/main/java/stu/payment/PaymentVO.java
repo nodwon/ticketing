@@ -25,11 +25,10 @@ public class PaymentVO {
 
     private Long   paymentId;
     private Long   bookingId;
-    private Long   memberId;
+    private Long   memberId;          // members.member_id (FK)
     private String transactionId;
     private Long   requestedAmount;
-    private String status;
-    private String payMethod;
+    private String status;            // PENDING / SUCCESS / FAILED / REFUNDED
 
     public Long getPaymentId()                  { return paymentId; }
     public void setPaymentId(Long paymentId)    { this.paymentId = paymentId; }
@@ -48,7 +47,4 @@ public class PaymentVO {
 
     public String getStatus()                   { return status; }
     public void setStatus(String status)        { this.status = status; }
-
-    public String getPayMethod()                { return payMethod; }
-    public void setPayMethod(String payMethod)  { this.payMethod = payMethod; }
 }

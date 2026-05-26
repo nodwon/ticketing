@@ -9,63 +9,49 @@ Project : 관제 티켓 (Ticketing System)
 
 * Created : 2026.05.22
 
-- Modified : 2026.05.26 *
+- Modified : 2026.05.24 *
 - Description :
- *   payments / log_payment 테이블 DAO.
- *     - AbstractDao(stu.common.dao.AbstractDao) 의 메서드만 사용
- *     - VO 반환은 Map 받아서 수동 매핑
- *     - 명세서 반영: confirm / refund / log_payment INSERT 추가
+ *     - 프로젝트 표준 AbstractDao(stu.common.dao.AbstractDao) 를 상속
+ *     - AbstractDao 의 sqlSession 이 private 이라 자식이 직접 접근 불가
+ *       → AbstractDao 의 selectList/selectOne 만 사용
+ *     - 반환 타입이 List<Map> / Object 이므로 PaymentVO 로 수동 매핑
+ *     - Oracle 은 컬럼명을 대문자로 반환하므로 대문자 키로 조회
 * ============================================================ */
 
 package stu.payment;
-
+ 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+ 
 import org.springframework.stereotype.Repository;
-
+ 
 import stu.common.dao.AbstractDao;
-
+ 
 @Repository("paymentDao")
 public class PaymentDao extends AbstractDao {
-
+ 
     private static final String NS = "Payment.";
-
+ 
     // ---------- INSERT / UPDATE ----------
-
+ 
     public void insertPayment(PaymentVO vo) {
         insert(NS + "insertPayment", vo);
     }
-
-    /** PG 콜백으로 결제 완료 처리 — status SUCCESS / FAILED 등으로 전이 */
-    public void confirmPayment(String transactionId, String status) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("transactionId", transactionId);
-        params.put("status",        status);
-        update(NS + "confirmPayment", params);
+ 
+    public void updateStatus(PaymentVO vo) {
+        update(NS + "updateStatus", vo);
     }
-
-    /** 환불 처리 — SUCCESS → REFUNDED */
-    public void refundPayment(String transactionId) {
-        update(NS + "refundPayment", transactionId);
-    }
-
-    /** 감사/관제 로그 INSERT */
-    public void insertLogPayment(LogPaymentVO vo) {
-        insert(NS + "insertLogPayment", vo);
-    }
-
+ 
     // ---------- SELECT ----------
-
+ 
     @SuppressWarnings("unchecked")
     public PaymentVO selectByTxId(String transactionId) {
         Map<String, Object> row =
             (Map<String, Object>) selectOne(NS + "selectByTxId", transactionId);
         return toPaymentVO(row);
     }
-
+ 
     @SuppressWarnings("unchecked")
     public List<PaymentVO> selectHistoryByMember(Long memberId) {
         List<Map<String, Object>> rows = selectList(NS + "selectHistoryByMember", memberId);
@@ -77,14 +63,18 @@ public class PaymentDao extends AbstractDao {
         }
         return result;
     }
-
+ 
     @SuppressWarnings("unchecked")
     public Map<String, Object> selectBookingForPayment(Long bookingId) {
         return (Map<String, Object>) selectOne(NS + "selectBookingForPayment", bookingId);
     }
-
+ 
     // ---------- 매핑 헬퍼 ----------
-
+ 
+    /**
+     * Oracle 의 대문자 컬럼명 기반 Map → PaymentVO 변환.
+     * 결과가 null 이면 null 반환.
+     */
     private PaymentVO toPaymentVO(Map<String, Object> row) {
         if (row == null) return null;
         PaymentVO vo = new PaymentVO();
@@ -96,14 +86,17 @@ public class PaymentDao extends AbstractDao {
         vo.setStatus(         toString(row.get("STATUS")));
         return vo;
     }
-
+ 
     private Long toLong(Object o) {
         if (o == null) return null;
         if (o instanceof Number) return ((Number) o).longValue();
-        try { return Long.parseLong(o.toString().trim()); }
-        catch (NumberFormatException e) { return null; }
+        try {
+            return Long.parseLong(o.toString().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
-
+ 
     private String toString(Object o) {
         return o == null ? null : o.toString();
     }

@@ -4,27 +4,27 @@
     Project    : 관제 티켓 (Ticketing System)
     Package    : payment (MyBatis Mapper)
     FileName   : Payment_SQL.xml
-
-    Developer  : <본인 이름> (feature/king)
+ 
+    Developer  : 이규왕 (feature/king)
     Created    : 2026.05.22
-    Modified   : 2026.05.26
-
+    Modified   : 2026.05.24
+ 
     Description :
-      payments / log_payment 테이블 MyBatis 매퍼 (API 명세서 반영).
-        - payments.payment_id : GENERATED AS IDENTITY (useGeneratedKeys)
-        - log_payment 테이블 INSERT 추가
-        - confirm (PG 콜백) / refund (환불) 상태 전이 쿼리 추가
+      payments 테이블 MyBatis 매퍼.
         - 모든 동적 값은 #{} 바인딩 (PreparedStatement)
+        - payment_id 는 ERD에서 GENERATED ALWAYS AS IDENTITY 이므로
+          INSERT 시 값을 지정하지 않고 Oracle이 자동 생성하게 둔다.
+        - 생성된 payment_id 는 keyProperty 로 VO에 자동 채워진다.
     ============================================================
 -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
+ 
 <mapper namespace="Payment">
-
+ 
     <!-- ============================================================ -->
-    <!-- 1) 결제 요청 INSERT (PENDING)                                  -->
-    <!--    POST /api/payments                                          -->
+    <!-- 1) 결제 INSERT (PENDING)                                       -->
+    <!--    payment_id 는 IDENTITY 컬럼 — INSERT 절에서 제외             -->
     <!-- ============================================================ -->
     <insert id="insertPayment" parameterType="stu.payment.PaymentVO"
             useGeneratedKeys="true" keyProperty="paymentId" keyColumn="PAYMENT_ID">
@@ -39,35 +39,21 @@
             #{memberId},
             #{transactionId},
             #{requestedAmount},
-            'PENDING'
+            #{status}
         )
     </insert>
-
+ 
     <!-- ============================================================ -->
-    <!-- 2) 결제 완료 처리 (PG 콜백)                                    -->
-    <!--    POST /api/payments/{id}/confirm                              -->
-    <!--    transaction_id 기준으로 payments.status UPDATE              -->
+    <!-- 2) 결제 상태 UPDATE                                            -->
     <!-- ============================================================ -->
-    <update id="confirmPayment" parameterType="map">
+    <update id="updateStatus" parameterType="stu.payment.PaymentVO">
         UPDATE payments
            SET status = #{status}
          WHERE transaction_id = #{transactionId}
     </update>
-
+ 
     <!-- ============================================================ -->
-    <!-- 3) 환불 처리                                                   -->
-    <!--    POST /api/payments/{id}/refund                              -->
-    <!-- ============================================================ -->
-    <update id="refundPayment" parameterType="string">
-        UPDATE payments
-           SET status = 'REFUNDED'
-         WHERE transaction_id = #{transactionId}
-           AND status = 'SUCCESS'
-    </update>
-
-    <!-- ============================================================ -->
-    <!-- 4) 결제 내역 단건 조회                                         -->
-    <!--    GET /api/payments/{id}                                       -->
+    <!-- 3) 거래 ID 기반 단건 조회 (Map 반환 — Oracle 대문자 컬럼)       -->
     <!-- ============================================================ -->
     <select id="selectByTxId" parameterType="string"
             resultType="java.util.HashMap">
@@ -80,9 +66,9 @@
           FROM payments
          WHERE transaction_id = #{transactionId}
     </select>
-
+ 
     <!-- ============================================================ -->
-    <!-- 5) 회원별 결제 내역                                            -->
+    <!-- 4) 회원별 결제 내역 (List<Map> 반환)                            -->
     <!-- ============================================================ -->
     <select id="selectHistoryByMember" parameterType="long"
             resultType="java.util.HashMap">
@@ -96,10 +82,9 @@
          WHERE member_id = #{memberId}
          ORDER BY payment_id DESC
     </select>
-
+ 
     <!-- ============================================================ -->
-    <!-- 6) 결제 폼 표시용 — booking + schedule + concert JOIN          -->
-    <!--    화면용 — REST 명세에는 없지만 JSP 진입을 위해 유지          -->
+    <!-- 5) 결제 폼 표시용 — booking + schedule + concert JOIN          -->
     <!-- ============================================================ -->
     <select id="selectBookingForPayment" parameterType="long"
             resultType="java.util.HashMap">
@@ -118,27 +103,5 @@
           JOIN concerts           c ON c.concert_id  = s.concert_id
          WHERE b.booking_id = #{bookingId}
     </select>
-
-    <!-- ============================================================ -->
-    <!-- 7) log_payment INSERT (감사/관제 로그)                          -->
-    <!--    POST /internal/log/payment 와 동일한 데이터                  -->
-    <!--    log_timestamp 은 DB default SYSTIMESTAMP                     -->
-    <!-- ============================================================ -->
-    <insert id="insertLogPayment" parameterType="stu.payment.LogPaymentVO"
-            useGeneratedKeys="true" keyProperty="logId" keyColumn="LOG_ID">
-        INSERT INTO log_payment (
-            user_id,
-            transaction_id,
-            payment_amount,
-            actual_price,
-            payment_result
-        ) VALUES (
-            #{userId},
-            #{transactionId},
-            #{paymentAmount},
-            #{actualPrice},
-            #{paymentResult}
-        )
-    </insert>
-
+ 
 </mapper>
