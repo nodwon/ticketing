@@ -7,9 +7,10 @@
  * Created    : 2026.05.22
  * Modified   : 2026.05.26
  * Description: 공연(Concert) 컨트롤러
- *              - /concert/list.do    : 공연 목록 (status 필터)
- *              - /concert/detail.do  : 공연 상세 + 스케줄 목록
- *              - /concert/search.do  : 공연 검색
+ *              - /concert/list.do      : 공연 목록 (status 필터)
+ *              - /concert/detail.do    : 공연 상세 + 스케줄 목록
+ *              - /concert/search.do    : 공연 검색
+ *              - /concert/listJson.do  : 메인페이지용 Ajax JSON 반환 (추가)
  * ============================================================
  */
 package stu.concert;
@@ -27,6 +28,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.ModelAndView;
 
 @Controller
 @RequestMapping("/concert")
@@ -39,7 +42,6 @@ public class ConcertController {
 
     // ================================================================
     // 1) 공연 목록 (status 필터)
-    //    status: null/빈값=전체, ONGOING, UPCOMING, CLOSED
     // ================================================================
     @RequestMapping("/list.do")
     public String concertList(
@@ -105,5 +107,35 @@ public class ConcertController {
         model.addAttribute("concertList", result);
         model.addAttribute("keyword", keyword);
         return "concert/search";
+    }
+
+    // ================================================================
+    // 4) 메인페이지용 공연 목록 Ajax (JSON 반환)
+    //    URL : /concert/listJson.do
+    //    Param: limit (기본 6)
+    // ================================================================
+    @RequestMapping("/listJson.do")
+    public ModelAndView concertListJson(
+            @RequestParam(value = "limit", required = false, defaultValue = "6") int limit,
+            HttpServletRequest request) throws Exception {
+
+        logger.info("[CTRL] /concert/listJson.do ip={}, limit={}",
+                request.getRemoteAddr(), limit);
+
+        Map<String, Object> paramMap = new HashMap<>();
+        paramMap.put("keyword", null);
+        paramMap.put("status",  null);
+
+        List<Map<String, Object>> concertList = goodsService.selectConcertList(paramMap);
+
+        // limit 적용
+        if (concertList.size() > limit) {
+            concertList = concertList.subList(0, limit);
+        }
+
+        ModelAndView mv = new ModelAndView("jsonView");
+        mv.addObject("list",  concertList);
+        mv.addObject("total", concertList.size());
+        return mv;
     }
 }
