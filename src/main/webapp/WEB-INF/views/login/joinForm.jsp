@@ -56,17 +56,32 @@ h1 {
 		<h3 class="contents">회원가입</h3>
 		<div class="myForm-group">
 			<div class="form-group">
-				<label for="MEMBER_ID">아이디 *</label> <input type="text"
-					class="form-control" id="MEMBER_ID" name="MEMBER_ID"
-					placeholder="아이디를 입력하세요">
-					<div id="id_check"></div>
-			</div>
-			<input type="hidden" id="isCheck" value="0">
-			<div class="form-group">
 				<label for="MEMBER_NAME">이름 *</label> <input type="text"
 					class="form-control" id="MEMBER_NAME" name="MEMBER_NAME"
 					placeholder="이름을 입력하세요">
 					<div id="name_check"></div>
+			</div>
+			
+			<div class="form-group">
+				<label for="MEMBER_EMAIL">이메일 (로그인 ID로 사용) *</label>
+				<div class="form-inline">
+					<input type="email" class="form-control" id="MEMBER_EMAIL" style="width:200px;"
+						name="MEMBER_EMAIL" placeholder="이메일을 입력하세요">
+					<select class="form-control" name="MEMBER_EMAIL2" id="MEMBER_EMAIL2">
+						<option value="">직접입력</option>
+						<option value="naver.com">@naver.com</option>
+						<option value="daum.net">@daum.net</option>
+						<option value="hanmail.net">@hanmail.net</option>
+						<option value="gmail.com">@gmail.com</option>
+						<option value="nate.com">@nate.com</option>
+					</select>
+<%--					<button type="button" class="btn btn-default" id="isCheck_Email">인증</button>--%>
+					<button type="button" class="btn btn-default" id="checkEmailBtn">중복확인</button>
+					<input type="hidden" id="isEmailCheck" value="0">
+				</div>
+				<div id="email_check"></div>
+				<input type="checkbox" id="EMAIL_AGREE" name="EMAIL_AGREE" value="0">
+				<font size="3"> 이메일 수신에 동의합니다.</font>
 			</div>
 			
 			<div class="form-group">
@@ -125,27 +140,6 @@ h1 {
 				<div id="phone_check"></div>
 				<input type="checkbox" id="SMS_AGREE" name="SMS_AGREE" value="0">
 				<font size="3"> SMS 수신에 동의합니다.</font>
-			</div>
-
-			<div class="form-group">
-				<label for="MEMBER_EMAIL">이메일 주소 *</label>
-				<div class="form-inline">
-					<input type="email" class="form-control" id="MEMBER_EMAIL" style="width:200px;"
-						name="MEMBER_EMAIL" placeholder="이메일을 입력하세요">
-					<select class="form-control" name="MEMBER_EMAIL2" id="MEMBER_EMAIL2">
-						<option value="">직접입력</option>
-						<option value="naver.com">@naver.com</option>
-						<option value="daum.net">@daum.net</option>
-						<option value="hanmail.net">@hanmail.net</option>
-						<option value="gmail.com">@gmail.com</option>
-						<option value="nate.com">@nate.com</option>
-					</select>
-<%--					<button type="button" class="btn btn-default" id="isCheck_Email">인증</button>--%>
-					<input type="hidden" id="isEmailCheck" value="1">
-				</div>
-				<div id="email_check"></div>
-				<input type="checkbox" id="EMAIL_AGREE" name="EMAIL_AGREE" value="0">
-				<font size="3"> 이메일 수신에 동의합니다.</font>
 			</div>
 			<div id="isCheck_EmailForm" class="form-group">
 				<label for="user_email">인증번호 확인 *</label>
@@ -241,49 +235,77 @@ h1 {
 
 $(function() {
 	
-	$(document).ready(function() {
-		$("#isCheck_EmailForm").hide();
+	// 이메일 중복 확인 버튼 클릭
+	$(document).on("click", "#checkEmailBtn", function() {
+	    var email1 = $("#MEMBER_EMAIL").val();
+	    var email2 = $("#MEMBER_EMAIL2").val();
+	    var email;
+	    
+	    // 이메일 조합 (도메인 옵션 선택 여부에 따라)
+	    if (email1.length < 1) {
+	        $("#email_check").text("이메일을 입력해주세요.");
+	        $("#email_check").css("color", "red");
+	        $("#isEmailCheck").val("0");
+	        return;
+	    }
+	    
+	    if (email1.indexOf("@") !== -1) {
+	        // 사용자가 @까지 직접 입력한 경우
+	        email = email1;
+	    } else if (email2.length < 1) {
+	        // 도메인 옵션 안 골랐고 @도 없는 경우
+	        $("#email_check").text("올바른 이메일 형식이 아닙니다.");
+	        $("#email_check").css("color", "red");
+	        $("#isEmailCheck").val("0");
+	        return;
+	    } else {
+	        // 정상: 사용자명 + @ + 도메인
+	        email = email1 + "@" + email2;
+	    }
+	    
+	    // 이메일 형식 검증 (정규식)
+	    var emailPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+	    if (!emailPattern.test(email)) {
+	        $("#email_check").text("올바른 이메일 형식이 아닙니다.");
+	        $("#email_check").css("color", "red");
+	        $("#isEmailCheck").val("0");
+	        return;
+	    }
+	    
+	    // 서버에 중복 체크 요청
+	    $.ajax({
+	        url: "${pageContext.request.contextPath}/selectEmailCheck.do",
+	        type: "GET",
+	        data: { user_email: email },
+	        success: function(data) {
+	            console.log("중복 체크 결과 (1=중복, 0=사용가능): " + data);
+	            if (data > 0) {
+	                $("#email_check").text("이미 가입된 이메일입니다.");
+	                $("#email_check").css("color", "red");
+	                $("#isEmailCheck").val("0");
+	            } else {
+	                $("#email_check").text("사용 가능한 이메일입니다.");
+	                $("#email_check").css("color", "blue");
+	                $("#isEmailCheck").val("1");
+	            }
+	        },
+	        error: function() {
+	            $("#email_check").text("중복 확인 중 오류가 발생했습니다.");
+	            $("#email_check").css("color", "red");
+	            $("#isEmailCheck").val("0");
+	        }
+	    });
 	});
 
-	$("#MEMBER_ID").keyup(function() {
-		var mem_userid = $('#MEMBER_ID').val();
-			$.ajax({
-				url : '${pageContext.request.contextPath}/selectIdCheck.do?mem_userid='+ mem_userid,
-				type : 'get',
-				success : function(data) {
-				console.log("1 = 중복o / 0 = 중복x : " + data);
-				if (data > 0) {
-						$("#id_check").text(
-								"사용중인 아이디입니다.");
-						$("#id_check").css("color",
-								"red");
-						$("#isCheck").val("0");
-					} else if (mem_userid == "") {
-						// 입력하지 않을 경우
-						$('#id_check').text(
-								'필수 항목 입니다.');
-						$('#id_check').css('color',
-								'red');
-						$("#isCheck").val("0");
-					} else if (data == 0) {
-						// 0 : 사용가능
-						$("#id_check").text(
-								"사용가능한 아이디입니다.");
-						$("#id_check").css("color",
-								"blue");
-						$("#isCheck").val("1");
-					}
-				}
-			});
+	// 이메일이 변경되면 중복 체크 다시 받도록 상태 초기화
+	$("#MEMBER_EMAIL, #MEMBER_EMAIL2").on("input change", function() {
+	    $("#isEmailCheck").val("0");
+	    $("#email_check").text("중복 확인 버튼을 눌러주세요.");
+	    $("#email_check").css("color", "#888");
 	});
 	
-	//아이디 특수문자 입력 제한
-	$("#MEMBER_ID").bind("keyup", function(){
-		re = /[~!@\#$%^&*\()\-=+_']/gi;
-		var temp = $("#MEMBER_ID").val();
-		if (re.test(temp)) {
-			$("#MEMBER_ID").val(temp.replace(re, ""));
-		}
+	$(document).ready(function() {
+		$("#isCheck_EmailForm").hide();
 	});
 	
 	//이름입력
@@ -578,12 +600,15 @@ $(function() {
 	});
 
 	function fn_signUp() {
-		if ($("#MEMBER_ID").val().length < 1) {
-			alert("아이디를 입력해주세요.");
-			$("#MEMBER_ID").focus();
-		} else if ($("#MEMBER_NAME").val().length < 1) {
+		if ($("#MEMBER_NAME").val().length < 1){
 			alert("이름을 입력해주세요.");
 			$("#MEMBER_NAME").focus();
+		} else if ($("#MEMBER_EMAIL").val().length < 1) {
+			alert("이메일을 입력해주세요.");
+			$("#MEMBER_EMAIL").focus();
+		} else if ($("#isEmailCheck").val() != '1') {
+		    alert("이메일 중복 확인을 해주세요.");
+		    $("#MEMBER_EMAIL").focus();
 		} else if ($("#pwd1").val().length < 1) {
 			alert("사용하실 비밀번호를 입력해주세요.");
 			$("#pwd1").focus();
@@ -608,15 +633,6 @@ $(function() {
 		} else if ($("#MEMBER_PHONE").val().length < 1) {
 			alert("전화번호를 입력해주세요.");
 			$("#MEMBER_PHONE").focus();
-		} else if ($("#MEMBER_EMAIL").val().length < 1) {
-			alert("이메일을 입력해주세요.");
-			$("#MEMBER_EMAIL").focus();
-		} else if ($("#isCheck").val() != '1') {
-			alert("사용 불가능한 아이디 입니다.");
-			$("#MEMBER_ID").focus();
-		} else if ($("#isEmailAuth").val() != '1') {
-			alert("이메일 인증을 해주세요.");
-			$("#isCheck_Email").focus();
 		} else if (!$("#check1").is(":checked")) {
 			alert("서비스 이용약관에 동의 해주세요.");
 			$("#check1").focus();
