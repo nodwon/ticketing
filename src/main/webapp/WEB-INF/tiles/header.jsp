@@ -1,12 +1,14 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%
-    String sessionId   = (String) session.getAttribute("SESSION_ID");
-    String sessionName = (String) session.getAttribute("SESSION_NAME");
-    if (sessionId   == null) sessionId   = "";
-    if (sessionName == null) sessionName = "";
-    boolean isLogin = !sessionId.isEmpty();
-    boolean isAdmin = "admin".equals(sessionId);
+	String sessionId    = (String) session.getAttribute("SESSION_ID");
+	String sessionName  = (String) session.getAttribute("SESSION_NAME");
+	String sessionGrade = (String) session.getAttribute("SESSION_GRADE");
+	if (sessionId    == null) sessionId    = "";
+	if (sessionName  == null) sessionName  = "";
+	if (sessionGrade == null) sessionGrade = "";
+	boolean isLogin = !sessionId.isEmpty();
+	boolean isAdmin = "ADMIN".equals(sessionGrade);  // ← GRADE로 체크
 %>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
