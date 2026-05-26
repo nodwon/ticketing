@@ -14,6 +14,7 @@
 %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions"%>
+<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
 <%@ taglib prefix="ui" uri="http://tiles.apache.org/tags-tiles"%>
 <link rel="stylesheet" type="text/css"
 	href="<c:url value='/css/uii.css'/>" />
@@ -35,7 +36,37 @@ h1 {
     font-weight: normal;
     font-size: 2em;
     letter-spacing: 10px;
-}  
+}
+
+/* 🌟 [신규] 첨부파일 영역 스타일 */
+.attach-list { padding: 5px 0; }
+.attach-list .file-item {
+    display: inline-block;
+    margin: 3px 8px 3px 0;
+    padding: 5px 10px;
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+}
+.attach-list .file-item a {
+    color: #2b2b2b;
+    font-weight: 500;
+}
+.attach-list .file-item a:hover {
+    color: #c00;
+    text-decoration: underline;
+}
+.attach-list .file-size {
+    color: #888;
+    margin-left: 6px;
+    font-size: 12px;
+}
+.attach-empty {
+    color: #999;
+    font-style: italic;
+    padding: 5px 0;
+}
 </style>
 <body>
 	<br />
@@ -72,6 +103,42 @@ h1 {
 			<tr>
 				<th scope="row">내용</th>
 				<td colspan="4" align="left">${map.QNA_CONTENT}</td>
+			</tr>
+			
+			<%-- 🌟 [신규 추가] 첨부파일 표시 영역 --%>
+			<tr>
+				<th scope="row">첨부파일</th>
+				<td colspan="4" align="left">
+					<div class="attach-list">
+						<c:choose>
+							<c:when test="${empty list}">
+								<span class="attach-empty">첨부파일이 없습니다.</span>
+							</c:when>
+							<c:otherwise>
+								<c:forEach var="row" items="${list}">
+									<span class="file-item">
+										<a href="<c:url value='/qna/downloadFile.do'/>?fileId=${row.FILE_ID}">
+											${row.ORIGINAL_FILE_NAME}
+										</a>
+										<span class="file-size">
+											<c:choose>
+												<c:when test="${row.FILE_SIZE >= 1048576}">
+													(<fmt:formatNumber value="${row.FILE_SIZE / 1048576}" pattern="#,##0.0"/> MB)
+												</c:when>
+												<c:when test="${row.FILE_SIZE >= 1024}">
+													(<fmt:formatNumber value="${row.FILE_SIZE / 1024}" pattern="#,##0"/> KB)
+												</c:when>
+												<c:otherwise>
+													(${row.FILE_SIZE} B)
+												</c:otherwise>
+											</c:choose>
+										</span>
+									</span>
+								</c:forEach>
+							</c:otherwise>
+						</c:choose>
+					</div>
+				</td>
 			</tr>
 		</tbody>
 		<tr rows="10" cols="140" title="답변">

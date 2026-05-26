@@ -168,27 +168,21 @@ a { text-decoration: none; color: #666; }
     display: flex;
     gap: 8px;
 }
-.btn-cancel {
+.btn-detail {
     display: inline-block;
     padding: 6px 16px;
-    background: #fff;
-    color: #d33;
-    border: 1px solid #d33;
+    background: #ff4f6b;
+    color: #fff;
+    border: 1px solid #ff4f6b;
     border-radius: 6px;
     font-size: 13px;
     cursor: pointer;
     transition: background 0.15s;
+    text-decoration: none;
 }
-.btn-cancel:hover { background: #d33; color: #fff; }
-.btn-disabled {
-    display: inline-block;
-    padding: 6px 16px;
-    background: #f5f5f5;
-    color: #aaa;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 13px;
-    cursor: not-allowed;
+.btn-detail:hover {
+    background: #e63b56;
+    color: #fff;
 }
 
 .empty-msg {
@@ -275,21 +269,9 @@ a { text-decoration: none; color: #666; }
                                     </div>
 
                                     <div class="booking-actions">
-                                        <c:choose>
-                                            <c:when test="${booking.BOOKING_STATUS eq 'CONFIRMED' or booking.BOOKING_STATUS eq 'PENDING'}">
-                                                <form method="post"
-                                                      action="${pageContext.request.contextPath}/my/bookingCancel.do"
-                                                      onsubmit="return confirm('예매를 취소하시겠습니까?\n\n공연: ${booking.CONCERT_TITLE}\n예매번호: #${booking.BOOKING_ID}');"
-                                                      style="margin: 0;">
-                                                    <input type="hidden" name="bookingId" value="${booking.BOOKING_ID}">
-                                                    <button type="submit" class="btn-cancel">예매 취소</button>
-                                                </form>
-                                            </c:when>
-                                            <c:otherwise>
-                                                <span class="btn-disabled">취소 불가</span>
-                                            </c:otherwise>
-                                        </c:choose>
-                                    </div>
+									    <a href="${pageContext.request.contextPath}/bookingDetail.do?bookingId=${booking.BOOKING_ID}"
+									       class="btn-detail">예매 상세</a>
+									</div>
                                 </div>
 
                             </div>

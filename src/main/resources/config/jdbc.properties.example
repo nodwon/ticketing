@@ -1,21 +1,20 @@
 # =====================================================================
 # DB 접속 정보 템플릿
 #
-# 📌 사용법
+# ▶ 사용법
 #   1) 이 파일을 같은 폴더에 jdbc.properties 로 복사
-#      예: cp jdbc.properties.example jdbc.properties
+#      예) cp jdbc.properties.example jdbc.properties
 #   2) 본인 환경에 맞게 값 수정
-#   3) jdbc.properties 는 .gitignore 에 등록되어 Git에 안 올라감
+#   3) jdbc.properties 는 .gitignore 에 등록되어 Git 에 안 올라감
 #
-# 📌 값 설명
+# ▶ 값 설명
 #   db.driver   : Oracle JDBC 드라이버 클래스 (보통 그대로)
-#   db.url      : DB 접속 URL (XEPDB1 앞은 슬래시 / 주의 — SID 방식인 콜론 : 아님)
+#   db.url      : DB 접속 URL (XEPDB1 같은 서비스명 / 주의: SID 방식의 콜론(:) 아님)
 #   db.username : DB 계정 (개별 PC: ticket_dev, 서버 PC: ticket_app)
-#   db.password : DB 비번 (팀 노션의 "DB 셋업 가이드" 참고)
+#   db.password : DB 비번 (※ 슬랙의 "DB 작업 가이드" 참고)
 #
 # =====================================================================
-
 db.driver   = oracle.jdbc.driver.OracleDriver
 db.url      = jdbc:oracle:thin:@localhost:1521/XEPDB1
 db.username = ticket_dev
-db.password = YOUR_PASSWORD_HERE
+db.password = CHANGE_ME

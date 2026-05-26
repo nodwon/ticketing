@@ -22,6 +22,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -81,21 +82,29 @@ public class LoginController {
 				mv.setViewName("login/loginForm");
 				mv.addObject("message", "탈퇴한 회원 입니다.");
 			} else {
-				if (chk.get("MEMBER_PASSWD").equals(commandMap.get("MEMBER_PASSWD"))) {
-					session.setAttribute("SESSION_ID",    chk.get("MEMBER_ID"));    // email
-					session.setAttribute("SESSION_NO",    chk.get("MEMBER_NO"));    // member_id
-					session.setAttribute("SESSION_NAME",  chk.get("MEMBER_NAME"));  // name
-					session.setAttribute("SESSION_GRADE", chk.get("MEMBER_GRADE")); // ADMIN / USER
+			    // 비밀번호 검증: 사용자 입력(평문) vs DB 저장(BCrypt 해시)
+			    String plainPassword = (String) commandMap.get("MEMBER_PASSWD");
+			    String hashedPassword = (String) chk.get("MEMBER_PASSWD");
+			    
+			    if (BCrypt.checkpw(plainPassword, hashedPassword)) {
+			        session.setAttribute("SESSION_ID", chk.get("MEMBER_ID"));
+			        session.setAttribute("SESSION_NO", chk.get("MEMBER_NO"));
+			        session.setAttribute("SESSION_NAME", chk.get("MEMBER_NAME"));
 
-	                // returnUrl 유효성 검증 후 리다이렉트
-	                String redirectUrl = isValidReturnUrl(returnUrl) ? returnUrl : "/main.do";
-	                mv = new ModelAndView("redirect:" + redirectUrl);
-	                mv.addObject("MEMBER", chk);
+			        mv = new ModelAndView("redirect:/main.do");
+			        mv.addObject("MEMBER", chk);
 
-	                session.getMaxInactiveInterval();
-	            }
-	        }
-	        return mv;
+			        session.getMaxInactiveInterval();
+			        
+			        log.info("로그인 성공: " + chk.get("MEMBER_ID"));
+			    } else {
+			        mv.setViewName("login/loginForm");
+			        mv.addObject("message", "해당 아이디 혹은 비밀번호가 일치하지 않습니다.");
+			        
+			        log.warn("로그인 실패(비밀번호 불일치): " + commandMap.get("MEMBER_ID"));
+			    }
+			}
+			return mv;
 	    }
 	}
 

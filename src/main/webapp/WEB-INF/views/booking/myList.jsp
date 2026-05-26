@@ -134,7 +134,7 @@
     <!-- 상단 네비게이션 -->
     <div class="top-nav">
         <a href="<c:url value='/'/>" class="nav-btn nav-home">🏠 홈</a>
-        <a href="<c:url value='/myPage.do'/>" class="nav-btn nav-mypage">👤 마이페이지</a>
+        <a href="<c:url value='/my/info.do'/>" class="nav-btn nav-mypage">👤 마이페이지</a>
     </div>
 
     <h1>📋 내 예매 목록</h1>

@@ -7,6 +7,7 @@ import javax.annotation.Resource;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.apache.log4j.Logger;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -31,7 +32,17 @@ public class JoinServiceImpl implements JoinService {
 	// 회원가입
 	@Override
 	public void insertMember(Map<String, Object> map) throws Exception {
-		joinDAO.insertMember(map);
+	    // 비밀번호 BCrypt 해싱
+	    String plainPassword = (String) map.get("MEMBER_PASSWD");
+	    String hashedPassword = BCrypt.hashpw(plainPassword, BCrypt.gensalt());
+	    
+	    // 해시값으로 교체
+	    map.put("MEMBER_PASSWD", hashedPassword);
+	    
+	    log.info("회원가입: 비밀번호 BCrypt 해싱 완료, 길이=" + hashedPassword.length());
+	    
+	    // DB 저장 (이제 해시된 값으로)
+	    joinDAO.insertMember(map);
 	}
 	
 	// 아이디 중복 체크
