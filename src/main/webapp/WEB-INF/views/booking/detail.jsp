@@ -71,10 +71,6 @@
                 <tr><th>예매자명</th><td>${bookingDetail.MEMBERNAME}</td></tr>
                 <tr><th>이메일</th><td>${bookingDetail.MEMBEREMAIL}</td></tr>
                 <tr><th>예매일시</th><td>${bookingDetail.CREATEDAT}</td></tr>
-                <c:if test="${bookingDetail.STATUS == 'CANCELLED'}">
-                    <tr><th>취소일시</th><td>${bookingDetail.CANCELLEDAT}</td></tr>
-                    <tr><th>취소사유</th><td>${bookingDetail.CANCELREASON}</td></tr>
-                </c:if>
             </table>
 
             <h3>예매 좌석 (${fn:length(bookingItems)}석)</h3>
@@ -100,14 +96,12 @@
             <div class="actions">
                 <a href="<c:url value='/bookingMyList.do?memberId=${bookingDetail.MEMBERID}'/>" class="btn btn-secondary">목록</a>
 
-                <!-- CONFIRMED 상태일 때만 취소 버튼 표시 -->
                 <c:if test="${bookingDetail.STATUS == 'CONFIRMED'}">
                     <form action="<c:url value='/bookingCancel.do'/>" method="post" 
                           style="display: inline;"
                           onsubmit="return confirm('정말 예매를 취소하시겠습니까?');">
                         <input type="hidden" name="bookingId" value="${bookingDetail.BOOKINGID}" />
                         <input type="hidden" name="memberId" value="${bookingDetail.MEMBERID}" />
-                        <input type="hidden" name="cancelReason" value="사용자 요청" />
                         <button type="submit" class="btn btn-danger">예매 취소</button>
                     </form>
                 </c:if>
