@@ -265,7 +265,6 @@ COMMIT;
 SELECT s.schedule_id, c.title, TO_CHAR(s.performance_date, 'YYYY-MM-DD HH24:MI') AS perf_date,
        TO_CHAR(s.booking_open_at, 'YYYY-MM-DD HH24:MI') AS open_at,
        s.total_seats, s.available_seats
->>>>>>> feature/sungwoo
 FROM concert_schedules s
 JOIN concerts c ON s.concert_id = c.concert_id
 ORDER BY s.schedule_id;

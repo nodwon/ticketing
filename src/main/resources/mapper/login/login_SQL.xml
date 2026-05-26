@@ -31,7 +31,7 @@ Description :
             email         AS MEMBER_EMAIL,
             password_hash AS MEMBER_PASSWD,
             '0'           AS MEMBER_DELETE,
-            role          AS MEMBER_ROLE
+			role AS MEMBER_GRADE
         FROM members
         WHERE email = #{MEMBER_ID}
     </select>
