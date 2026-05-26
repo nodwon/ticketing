@@ -51,4 +51,9 @@ public class MyServiceImpl implements MyService {
     public List<Map<String, Object>> getBookingList(Map<String, Object> map) throws Exception {
         return myDAO.selectBookingList(map);
     }
+    
+    @Override
+    public int countActiveBookings(Map<String, Object> param) throws Exception {
+        return myDAO.countActiveBookings(param);
+    }
 }

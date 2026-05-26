@@ -30,6 +30,14 @@ public interface MyService {
     /** 회원 탈퇴 (물리 삭제) */
     int deleteMember(Map<String, Object> map) throws Exception;
 
+    /**
+     * 활성 예매 건수 조회 (CANCELLED 제외)
+     * - 회원 탈퇴 차단 여부 판단에 사용
+     * @param param MEMBER_ID
+     * @return PENDING + CONFIRMED 건수
+     */
+    int countActiveBookings(Map<String, Object> param) throws Exception;
+    
     /** 예매 내역 조회 */
     List<Map<String, Object>> getBookingList(Map<String, Object> map) throws Exception;
 }

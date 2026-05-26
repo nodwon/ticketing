@@ -56,6 +56,13 @@ public class MyDAO extends AbstractDao {
         Object result = delete("my.deleteMember", map);
         return result == null ? 0 : (Integer) result;
     }
+    
+    /**
+     * 활성 예매 건수 조회 (CANCELLED 제외)
+     */
+    public int countActiveBookings(Map<String, Object> param) throws Exception {
+        return (Integer) selectOne("my.countActiveBookings", param);
+    }
 
     /**
      * 예매 내역 조회 (회원 ID 기준 최신순)

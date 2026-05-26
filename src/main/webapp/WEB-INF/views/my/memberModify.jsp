@@ -26,11 +26,11 @@ Description :
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>마이페이지 - 회원정보</title>
 
-<link rel="stylesheet" href="/css/bootstrap.min.css">
-<link href="/css/dashboard.css" rel="stylesheet">
-<link href="/css/justified-nav.css" rel="stylesheet">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/bootstrap.min.css">
+<link href="${pageContext.request.contextPath}/css/dashboard.css" rel="stylesheet">
+<link href="${pageContext.request.contextPath}/css/justified-nav.css" rel="stylesheet">
 <script src="http://code.jquery.com/jquery-3.5.1.js"></script>
-<link rel="stylesheet" href="/css/bootstrap-theme.min.css">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/bootstrap-theme.min.css">
 <script src="/js/bootstrap.min.js"></script>
 
 <style>
@@ -62,7 +62,7 @@ a { text-decoration: none; color: #666; }
             <c:set var="birthDay"   value="${fn:substring(birth, 8, 10)}" />
 
             <!-- 회원정보 수정 폼 -->
-            <form id="memberInfoForm" method="post" action="/my/info.do">
+            <form id="memberInfoForm" method="post" action="${pageContext.request.contextPath}/my/info.do">
 
                 <div class="form-group">
                     <label>회원번호</label>
@@ -117,17 +117,29 @@ a { text-decoration: none; color: #666; }
                 <button type="submit" class="btn btn-primary btn-lg" style="margin-top:20px;">
                     정보 수정
                 </button>
-                <a href="/my/myBookingList.do" class="btn btn-default btn-lg" style="margin-top:20px;">
+                <a href="${pageContext.request.contextPath}/my/bookingList.do" class="btn btn-default btn-lg" style="margin-top:20px;">
                     예매내역 보기
                 </a>
             </form>
-
+			
             <!-- 회원 탈퇴 (별도 폼) -->
             <div class="delete-section">
+	            <c:if test="${not empty deleteError}">
+				    <div class="alert alert-warning" style="
+				        background: #fff3cd; 
+				        border: 1px solid #ffc107; 
+				        color: #856404;
+				        padding: 12px 16px; 
+				        border-radius: 6px; 
+				        margin-bottom: 20px;
+				        white-space: pre-line;">
+				        ⚠️ ${deleteError}
+				    </div>
+				</c:if>
                 <h4>⚠️ 회원 탈퇴</h4>
                 <p>탈퇴 시 회원정보가 즉시 삭제되며, 복구할 수 없습니다.</p>
-                <form method="post" action="/my/delete.do"
-                      onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 삭제됩니다.');">
+                <form method="post" action="${pageContext.request.contextPath}/my/delete.do"
+                      onsubmit="return confirm('정말 탈퇴하시겠습니까?\n모든 정보가 삭제되며, 복구할 수 없습니다.\n예매 내역이 있는 경우 탈퇴가 제한됩니다.');">
                     <button type="submit" class="btn btn-danger">회원 탈퇴</button>
                 </form>
             </div>

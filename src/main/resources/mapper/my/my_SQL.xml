@@ -83,4 +83,15 @@
         ORDER BY B.created_at DESC
     </select>
 
+	<!-- ============================================================ -->
+    <!-- 5. 활성 예매 건수 조회 (회원 탈퇴 차단용)                          -->
+    <!--    PENDING / CONFIRMED 만 카운트 (CANCELLED 제외)              -->
+    <!-- ============================================================ -->
+    <select id="countActiveBookings" parameterType="hashmap" resultType="int">
+        SELECT COUNT(*)
+        FROM bookings
+        WHERE member_id = #{MEMBER_ID}
+          AND status IN ('PENDING', 'CONFIRMED')
+    </select>
+    
 </mapper>

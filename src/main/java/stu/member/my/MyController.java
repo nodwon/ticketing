@@ -8,15 +8,16 @@ package stu.member.my;
  *
  * Developer  : 김희재 (feature/khj)
  * Created    : 2026.05.24
- * Modified   : 2026.05.25
+ * Modified   : 2026.05.26
  *
  * Description :
  *   - 마이페이지 Controller
  *   - URL 매핑:
- *       GET  /my/info.do        → 회원정보 조회 (memberModify.jsp)
- *       POST /my/info.do        → 회원정보 수정
- *       GET  /my/bookingList.do → 예매 내역 조회 (myBookingList.jsp)
- *       POST /my/delete.do      → 회원 탈퇴
+ *       GET  /my/info.do          → 회원정보 조회 (memberModify.jsp)
+ *       POST /my/info.do          → 회원정보 수정
+ *       GET  /my/bookingList.do   → 예매 내역 조회 (myBookingList.jsp)
+ *       POST /my/delete.do        → 회원 탈퇴 (예매 있으면 차단)
+ *       POST /my/bookingCancel.do → 예매 취소 (booking 모듈 호출)
  *
  *   - 세션 키 (팀 컨벤션): memberId
  * ============================================================
@@ -34,7 +35,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import stu.booking.BookingService;
 import stu.common.common.CommandMap;
 
 @Controller
@@ -45,6 +48,8 @@ public class MyController {
     @Resource(name = "myService")
     private MyService myService;
 
+    @Resource(name = "bookingService")
+    private BookingService bookingService;
 
     // =====================================================================
     // 1. 회원정보 조회 (GET /my/info.do)
@@ -133,11 +138,12 @@ public class MyController {
     }
 
 
-    // =====================================================================
+ // =====================================================================
     // 4. 회원 탈퇴 (POST /my/delete.do)
+    //    - 예매 내역(PENDING/CONFIRMED)이 있으면 탈퇴 차단
     // =====================================================================
     @RequestMapping(value = "/my/delete.do", method = RequestMethod.POST)
-    public ModelAndView deleteMember(HttpSession session) throws Exception {
+    public ModelAndView deleteMember(HttpSession session, RedirectAttributes ra) throws Exception {
         ModelAndView mv = new ModelAndView();
 
         Object memberId = session.getAttribute("memberId");
@@ -149,12 +155,52 @@ public class MyController {
         Map<String, Object> param = new HashMap<String, Object>();
         param.put("MEMBER_ID", memberId);
 
+        // 예매 내역 체크 (CANCELLED 제외, 즉 PENDING/CONFIRMED만 카운트)
+        int activeBookingCount = myService.countActiveBookings(param);
+        if (activeBookingCount > 0) {
+            log.debug("[MY/DELETE] 차단 - member_id=" + memberId
+                    + " active_bookings=" + activeBookingCount);
+            ra.addFlashAttribute("deleteError",
+                "예매 내역이 " + activeBookingCount + "건 있어 탈퇴할 수 없습니다.\n"
+              + "예매를 먼저 취소한 뒤 다시 시도해주세요.");
+            mv.setViewName("redirect:/my/info.do");
+            return mv;
+        }
+
         int affected = myService.deleteMember(param);
         log.debug("[MY/DELETE] member_id=" + memberId + " affected=" + affected);
 
         session.invalidate();
 
         mv.setViewName("redirect:/main.do");
+        return mv;
+    }
+
+
+    // =====================================================================
+    // 5. 예매 취소 (POST /my/bookingCancel.do)
+    //    - 성우님(booking 모듈)의 cancelBooking 서비스 호출
+    //    - 취소 성공 후 마이페이지 예매 목록으로 복귀
+    // =====================================================================
+    @RequestMapping(value = "/my/bookingCancel.do", method = RequestMethod.POST)
+    public ModelAndView cancelMyBooking(CommandMap commandMap, HttpSession session) throws Exception {
+        ModelAndView mv = new ModelAndView();
+
+        Object memberId = session.getAttribute("memberId");
+        if (memberId == null) {
+            mv.setViewName("redirect:/member/loginForm.do");
+            return mv;
+        }
+
+        // 본인 예매만 취소 가능하도록 세션의 memberId 강제 사용
+        commandMap.put("memberId", memberId);
+
+        String bookingId = (String) commandMap.get("bookingId");
+        log.debug("[MY/BOOKING_CANCEL] member_id=" + memberId + " booking_id=" + bookingId);
+
+        bookingService.cancelBooking(commandMap);
+
+        mv.setViewName("redirect:/my/bookingList.do");
         return mv;
     }
 }
