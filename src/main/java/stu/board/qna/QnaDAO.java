@@ -37,5 +37,15 @@ public class QnaDAO extends AbstractDao{
 	public Map<String, Object> selectQnaPassword(Map<String, Object> map) {
 		return (Map<String, Object>) selectOne("qna.selectQnaPassword", map);
 	}
+	
+	// ATTACHMENTS 테이블에 파일 정보 저장
+	public void insertFile(Map<String, Object> map) throws Exception {
+		insert("qna.insertFile", map);
+	}
+
+	// 특정 게시글의 첨부파일 목록 조회
+	public List<Map<String, Object>> selectFileList(Map<String, Object> map) throws Exception {
+		return (List<Map<String, Object>>) selectList("qna.selectFileList", map);
+	}
 
 }

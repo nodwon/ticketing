@@ -17,8 +17,13 @@
 	</select>
 	
 	<insert id="insertQna" parameterType="hashmap">
+		<selectKey keyProperty="QNA_ID" resultType="string" order="BEFORE">
+			SELECT TICKET_DEV.ISEQ$$_75850.NEXTVAL FROM DUAL
+		</selectKey>
+	
 		INSERT INTO QNA_POSTS
 		( 
+			QNA_ID, /* selectKey를 통해 미리 뽑아온 번호를 주입 */
 			MEMBER_ID,
 			QNA_NAME,
 			TITLE,      
@@ -27,6 +32,7 @@
 		)
 		VALUES
 		( 
+			#{QNA_ID},
 			#{MEMBER_ID, jdbcType=NUMERIC},
 			#{QNA_NAME, jdbcType=VARCHAR},
 			#{TITLE, jdbcType=VARCHAR},
@@ -34,6 +40,43 @@
 			SYSDATE 
 		)
 	</insert>
+	
+	<insert id="insertFile" parameterType="hashmap">
+		INSERT INTO ATTACHMENTS
+		(
+			ATTACHMENT_ID,
+			POST_ID,
+			ORIGINAL_NAME,
+			SAVED_NAME,
+			EXTENSION,
+			FILE_SIZE,
+			UPLOADED_AT
+		)
+		VALUES
+		(
+			TICKET_DEV.ISEQ$$_75842.NEXTVAL, /* 첨부파일 시퀀스 */
+			#{POST_ID, jdbcType=NUMERIC},     // QNA 게시글 번호
+			#{ORIGINAL_NAME, jdbcType=VARCHAR},/* CommonController가 찾는 컬럼 규격 동기화 */
+			#{SAVED_NAME, jdbcType=VARCHAR},   /* CommonController가 찾는 컬럼 규격 동기화 */
+			#{EXTENSION, jdbcType=VARCHAR},
+			#{FILE_SIZE, jdbcType=NUMERIC},
+			SYSDATE
+		)
+	</insert>
+	
+	<select id="selectFileList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			ATTACHMENT_ID AS FILE_ID, /* jsp 화면단 ${row.FILE_ID} 일치용 */
+			POST_ID,
+			ORIGINAL_NAME AS ORIGINAL_FILE_NAME, /* jsp 화면단 ${row.ORIGINAL_FILE_NAME} 일치용 */
+			ORIGINAL_NAME AS UPLOAD_ORIGIN_NAME, /* CommonController 매핑용 백업 */
+			SAVED_NAME    AS UPLOAD_SAVE_NAME,   /* CommonController 매핑용 백업 */
+			FILE_SIZE     AS FILE_SIZE          /* jsp 화면단 ${row.FILE_SIZE} 일치용 */
+		FROM
+			ATTACHMENTS
+		WHERE
+			POST_ID = #{QNA_ID}
+	</select>
 	
 	<select id="selectQnaDetail" parameterType="hashmap" resultType="hashmap">
 		SELECT
