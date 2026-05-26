@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+                       "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="booking">
+
+    <!-- ============================================================
+         [조회 SELECT] - 화면 표시용
+         ============================================================ -->
+
+    <!-- 1) 공연 일정 정보 조회 (좌석 선택 화면용) -->
+    <select id="selectScheduleInfo" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            cs.schedule_id        AS scheduleId,
+            cs.concert_id         AS concertId,
+            c.title               AS title,
+            c.artist              AS artist,
+            c.venue               AS venue,
+            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI') AS performanceDate,
+            TO_CHAR(cs.booking_open_at,  'YYYY-MM-DD HH24:MI') AS bookingOpenAt,
+            cs.total_seats        AS totalSeats,
+            cs.available_seats    AS availableSeats
+        FROM concert_schedules cs
+        JOIN concerts c ON cs.concert_id = c.concert_id
+        WHERE cs.schedule_id = #{scheduleId}
+    </select>
+
+    <!-- 2) 좌석 목록 조회 -->
+    <select id="selectSeats" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            seat_id      AS seatId,
+            schedule_id  AS scheduleId,
+            seat_row     AS seatRow,
+            seat_col     AS seatCol,
+            price        AS price,
+            status       AS status
+        FROM seats
+        WHERE schedule_id = #{scheduleId}
+        ORDER BY seat_row, seat_col
+    </select>
+
+    <!-- 3) 예매 상세 조회 -->
+    <select id="selectBookingDetail" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            b.booking_id        AS bookingId,
+            b.member_id         AS memberId,
+            m.name              AS memberName,
+            m.email             AS memberEmail,
+            b.schedule_id       AS scheduleId,
+            c.title             AS title,
+            c.artist            AS artist,
+            c.venue             AS venue,
+            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI')    AS performanceDate,
+            b.total_price       AS totalPrice,
+            b.status            AS status,
+            TO_CHAR(b.created_at,   'YYYY-MM-DD HH24:MI:SS')      AS createdAt,
+            TO_CHAR(b.cancelled_at, 'YYYY-MM-DD HH24:MI:SS')      AS cancelledAt,
+            b.cancel_reason     AS cancelReason
+        FROM bookings b
+        JOIN members m            ON b.member_id = m.member_id
+        JOIN concert_schedules cs ON b.schedule_id = cs.schedule_id
+        JOIN concerts c           ON cs.concert_id = c.concert_id
+        WHERE b.booking_id = #{bookingId}
+    </select>
+
+    <!-- 4) 예매에 포함된 좌석 목록 -->
+    <select id="selectBookingItems" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            bi.item_id     AS itemId,
+            bi.booking_id  AS bookingId,
+            bi.seat_id     AS seatId,
+            bi.unit_price  AS unitPrice,
+            s.seat_row     AS seatRow,
+            s.seat_col     AS seatCol
+        FROM booking_items bi
+        JOIN seats s ON bi.seat_id = s.seat_id
+        WHERE bi.booking_id = #{bookingId}
+        ORDER BY s.seat_row, s.seat_col
+    </select>
+
+    <!-- 5) 내 예매 목록 조회 -->
+    <select id="selectMyBookings" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            b.booking_id        AS bookingId,
+            c.title             AS title,
+            c.artist            AS artist,
+            c.venue             AS venue,
+            TO_CHAR(cs.performance_date, 'YYYY-MM-DD HH24:MI') AS performanceDate,
+            b.total_price       AS totalPrice,
+            b.status            AS status,
+            TO_CHAR(b.created_at, 'YYYY-MM-DD')                AS createdAt,
+            (SELECT COUNT(*) FROM booking_items WHERE booking_id = b.booking_id) AS seatCount
+        FROM bookings b
+        JOIN concert_schedules cs ON b.schedule_id = cs.schedule_id
+        JOIN concerts c           ON cs.concert_id = c.concert_id
+        WHERE b.member_id = #{memberId}
+        ORDER BY b.created_at DESC
+    </select>
+
+
+    <!-- ============================================================
+         [예매 생성 - PENDING 흐름]
+         호출 순서: BookingServiceImpl.createBooking()
+         
+         예매 생성 시점:
+           - bookings.status = 'PENDING' (결제 대기)
+           - seats.status    = 'AVAILABLE' → 'HELD' (임시 선점)
+         
+         결제 확정 시점 (king이 호출):
+           - bookings.status = 'PENDING' → 'CONFIRMED'
+           - seats.status    = 'HELD' → 'RESERVED'
+         ============================================================ -->
+
+    <!-- 6) 좌석 상태 확인 (동시성 제어: FOR UPDATE로 행 잠금) -->
+    <select id="selectSeatsForUpdate" parameterType="hashmap" resultType="hashmap">
+        SELECT 
+            seat_id    AS seatId,
+            status     AS status,
+            price      AS price
+        FROM seats
+        WHERE seat_id IN
+        <foreach collection="seatIds" item="seatId" open="(" separator="," close=")">
+            #{seatId}
+        </foreach>
+        FOR UPDATE
+    </select>
+
+    <!-- 7) 예매 헤더 INSERT (status='PENDING'으로 생성)
+            booking_id는 GENERATED AS IDENTITY로 자동 채번
+            keyProperty="bookingId"로 생성된 ID를 commandMap에 자동 주입 -->
+    <insert id="insertBooking" parameterType="hashmap" 
+            useGeneratedKeys="true" keyProperty="bookingId" keyColumn="BOOKING_ID">
+        INSERT INTO bookings (
+            member_id, schedule_id, total_price, status, created_at
+        ) VALUES (
+            #{memberId}, #{scheduleId}, #{totalPrice}, 'PENDING', SYSTIMESTAMP
+        )
+    </insert>
+
+    <!-- 8) 예매 항목 INSERT (좌석 하나당 1행) -->
+    <insert id="insertBookingItem" parameterType="hashmap">
+        INSERT INTO booking_items (
+            booking_id, seat_id, unit_price
+        ) VALUES (
+            #{bookingId}, #{seatId}, #{unitPrice}
+        )
+    </insert>
+
+    <!-- 9) 좌석 상태 변경 (AVAILABLE → HELD) - 예매 생성 시
+            이중 안전장치: WHERE status='AVAILABLE' 조건으로 동시성 방어 -->
+    <update id="updateSeatStatusToHeld" parameterType="hashmap">
+        UPDATE seats
+        SET status = 'HELD'
+        WHERE seat_id IN
+        <foreach collection="seatIds" item="seatId" open="(" separator="," close=")">
+            #{seatId}
+        </foreach>
+        AND status = 'AVAILABLE'
+    </update>
+
+    <!-- 10) 잔여 좌석수 차감 -->
+    <update id="decreaseAvailableSeats" parameterType="hashmap">
+        UPDATE concert_schedules
+        SET available_seats = available_seats - #{seatCount}
+        WHERE schedule_id = #{scheduleId}
+          AND available_seats >= #{seatCount}
+    </update>
+
+
+    <!-- ============================================================
+         [예매 확정 - PENDING → CONFIRMED]
+         호출 순서: BookingServiceImpl.confirmBooking()
+         호출 주체: 결제 모듈(king)의 결제 완료 후
+         ============================================================ -->
+
+    <!-- 11) bookings 상태 변경 (PENDING → CONFIRMED) -->
+    <update id="confirmBookingStatus" parameterType="hashmap">
+        UPDATE bookings
+        SET status = 'CONFIRMED'
+        WHERE booking_id = #{bookingId}
+          AND status = 'PENDING'
+    </update>
+
+    <!-- 12) 좌석 상태 변경 (HELD → RESERVED) - 결제 확정 시
+            특정 예매에 묶인 좌석들만 변경 -->
+    <update id="updateSeatStatusHeldToReserved" parameterType="hashmap">
+        UPDATE seats
+        SET status = 'RESERVED'
+        WHERE seat_id IN (
+            SELECT seat_id FROM booking_items WHERE booking_id = #{bookingId}
+        )
+        AND status = 'HELD'
+    </update>
+
+
+    <!-- ============================================================
+         [예매 취소 - 모든 상태에서 호출 가능]
+         호출 순서: BookingServiceImpl.cancelBooking()
+         호출 주체: 사용자 취소, 결제 실패, 타임아웃 등
+         
+         취소 가능 케이스:
+           - PENDING: 결제 전 취소 (좌석 HELD → AVAILABLE)
+           - CONFIRMED: 예매 확정 후 취소 (좌석 RESERVED → AVAILABLE)
+         ============================================================ -->
+
+    <!-- 13) 예매 취소 (PENDING 또는 CONFIRMED 상태에서만 가능) -->
+    <update id="cancelBooking" parameterType="hashmap">
+        UPDATE bookings
+        SET status = 'CANCELLED',
+            cancelled_at = SYSTIMESTAMP,
+            cancel_reason = #{cancelReason}
+        WHERE booking_id = #{bookingId}
+          AND status IN ('PENDING', 'CONFIRMED')
+    </update>
+
+    <!-- 14) 좌석 상태 복구 (HELD 또는 RESERVED → AVAILABLE)
+            취소된 예매에 묶인 좌석들을 모두 복구 -->
+    <update id="restoreSeatStatus" parameterType="hashmap">
+        UPDATE seats
+        SET status = 'AVAILABLE'
+        WHERE seat_id IN (
+            SELECT seat_id FROM booking_items WHERE booking_id = #{bookingId}
+        )
+        AND status IN ('HELD', 'RESERVED')
+    </update>
+
+    <!-- 15) 잔여 좌석수 복구 (취소 시) -->
+    <update id="increaseAvailableSeats" parameterType="hashmap">
+        UPDATE concert_schedules
+        SET available_seats = available_seats + (
+            SELECT COUNT(*) FROM booking_items WHERE booking_id = #{bookingId}
+        )
+        WHERE schedule_id = (
+            SELECT schedule_id FROM bookings WHERE booking_id = #{bookingId}
+        )
+    </update>
+
+</mapper>
