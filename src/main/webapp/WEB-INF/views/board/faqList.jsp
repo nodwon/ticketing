@@ -80,7 +80,7 @@ $(document).ready(function() {
     if (sessionGrade == null) sessionGrade = "";
 	%>
     // 버그수정: admin 세션 비교 정확하게
-    <% if ("admin".equals(sessionGrade)) { %>
+	<% if ("ADMIN".equals(sessionGrade)) { %>
         $("#wrapBtn").show();
         $(".deleteBtn").show();
     <% } %>

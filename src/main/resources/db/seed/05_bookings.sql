@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+SELECT * 
+FROM 
+>>>>>>> origin/main
 -- =====================================================================
 -- 05_bookings.sql  — 예매 더미 데이터
 -- 실행 전 필요 : 04_seats.sql 실행 완료
@@ -145,4 +150,8 @@ FROM bookings b
 JOIN members m ON b.member_id = m.member_id
 JOIN concert_schedules s ON b.schedule_id = s.schedule_id
 JOIN concerts c ON s.concert_id = c.concert_id
+<<<<<<< HEAD
 ORDER BY b.booking_id;
+=======
+ORDER BY b.booking_id;
+>>>>>>> origin/main

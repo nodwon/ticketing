@@ -116,7 +116,8 @@ li {
             fn_openNoticeDetail($(this));
          });
    <%
-      if (sessionName.trim().equals("admin")) {
+	   String sessionGrade = (String) session.getAttribute("SESSION_GRADE");
+	   if (sessionGrade != null && sessionGrade.equals("ADMIN")) {
    %>
       $("#wrapBtn").show();
       $(".deleteBtn").show();
