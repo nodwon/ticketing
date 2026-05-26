@@ -25,7 +25,6 @@ import stu.common.dao.AbstractDao;
 public class LoginDAO extends AbstractDao {
 	
 	// 이름 출력
-<<<<<<< Updated upstream
 		public Map<String, Object> selectName(Map<String, Object> map) throws Exception {
 			return (Map<String, Object>)selectOne("login.selectName", map);
 		}
@@ -57,7 +56,6 @@ public class LoginDAO extends AbstractDao {
 		public void lastLogin(Object x) throws Exception {
 			insert("login.lastLogin", x);
 		}
-=======
 	public Map<String, Object> selectName(Map<String, Object> map) throws Exception {
 		return (Map<String, Object>)selectOne("login.selectName", map);
 	}
@@ -91,11 +89,9 @@ public class LoginDAO extends AbstractDao {
 	public void lastLogin(Object x) throws Exception {
 		insert("login.lastLogin", x);
 	}
->>>>>>> Stashed changes
 	
 		
 	// 로그인 처리
-<<<<<<< Updated upstream
 		@SuppressWarnings("unchecked")
 		public Map<String, Object> loginAction(Map<String, Object> map) throws Exception {
 			return (Map<String, Object>)selectOne("login.loginAction", map);
@@ -108,7 +104,6 @@ public class LoginDAO extends AbstractDao {
 		}
 		
 		
-=======
 	@SuppressWarnings("unchecked")
 	public Map<String, Object> loginAction(Map<String, Object> map) throws Exception {
 		return (Map<String, Object>)selectOne("login.loginAction", map);
@@ -119,6 +114,5 @@ public class LoginDAO extends AbstractDao {
 	public Map<String, Object> logout(Map<String, Object> map) throws Exception {
 		return (Map<String, Object>)selectOne("login.logout", map);
 	}
->>>>>>> Stashed changes
 	
 }
