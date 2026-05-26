@@ -158,9 +158,9 @@ a { text-decoration: none; color: inherit; }
                 <div class="hd-admin-bar">
                     <span class="hd-welcome">Hi, <strong><%=sessionName%></strong>님</span>
                     <span class="hd-admin-label">ADMIN</span>
-                    <a href="/adminMain.do" class="hd-btn primary">관리자 홈</a>
-                    <a href="/admin/memberList.do" class="hd-btn">회원관리</a>
-                    <a href="/admin/concertList.do" class="hd-btn">공연관리</a>
+					<a href="/admin/main.do" class="hd-btn primary">관리자 홈</a>
+					<a href="/admin/member/list.do" class="hd-btn">회원관리</a>
+					<a href="/admin/concert/list.do" class="hd-btn">공연관리</a>
                     <a href="#" onclick="signOut(); return false;" class="hd-btn">로그아웃</a>
                 </div>
 
