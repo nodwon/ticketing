@@ -9,7 +9,33 @@
 <style>
     body { font-family: 'Malgun Gothic', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
     .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h1 { color: #333; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px; }
+    
+    /* 상단 네비게이션 */
+    .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #ff6b6b;
+        margin-bottom: 25px;
+    }
+    .top-nav h1 { margin: 0; color: #333; }
+    .nav-buttons { display: flex; gap: 8px; }
+    .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 16px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: bold;
+        transition: opacity 0.15s;
+    }
+    .nav-btn:hover { opacity: 0.85; }
+    .nav-home { background: #6c757d; color: #fff; }
+    .nav-mypage { background: #ff6b6b; color: #fff; }
+    .nav-concert { background: #17a2b8; color: #fff; }
+    
     .booking-card {
         border: 1px solid #eee;
         border-radius: 8px;
@@ -47,18 +73,41 @@
         margin-top: 8px;
     }
     .empty { text-align: center; color: #999; padding: 50px 20px; }
+    .empty .icon { font-size: 48px; margin-bottom: 10px; }
+    
+    /* 하단 네비게이션 */
+    .bottom-nav {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+        text-align: center;
+    }
 </style>
 </head>
 <body>
 
 <div class="container">
 
-    <h1>내 예매 목록</h1>
+    <!-- 상단 네비게이션 -->
+    <div class="top-nav">
+        <h1>내 예매 목록</h1>
+        <div class="nav-buttons">
+            <a href="<c:url value='/'/>" class="nav-btn nav-home">🏠 홈</a>
+            <a href="<c:url value='/myPage.do'/>" class="nav-btn nav-mypage">👤 마이페이지</a>
+        </div>
+    </div>
 
     <c:choose>
         <c:when test="${empty myBookings}">
             <div class="empty">
+                <div class="icon">📋</div>
                 <p>예매 내역이 없습니다.</p>
+                <p style="font-size:13px; color:#bbb; margin-top:15px;">
+                    공연 목록에서 예매하실 수 있습니다.
+                </p>
+                <a href="<c:url value='/concertList.do'/>" class="nav-btn nav-concert" style="margin-top:15px;">
+                    🎵 공연 목록 보러가기
+                </a>
             </div>
         </c:when>
         <c:otherwise>
@@ -77,6 +126,13 @@
                     </div>
                 </div>
             </c:forEach>
+            
+            <!-- 하단 네비게이션 -->
+            <div class="bottom-nav">
+                <a href="<c:url value='/concertList.do'/>" class="nav-btn nav-concert">
+                    🎵 다른 공연 예매하러 가기
+                </a>
+            </div>
         </c:otherwise>
     </c:choose>
 
