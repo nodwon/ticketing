@@ -167,26 +167,33 @@
     
     // 좌석 그리기
     function renderSeats(seats) {
-        var html = '';
-        var currentRow = null;
+    var html = '';
+    var currentRow = null;
+    
+    seats.forEach(function(seat) {
+        if (currentRow !== seat.seatRow) {
+            if (currentRow !== null) html += '</div>';
+            html += '<div class="seat-row">';
+            currentRow = seat.seatRow;
+        }
         
-        seats.forEach(function(seat) {
-            if (currentRow !== seat.seatRow) {
-                if (currentRow !== null) html += '</div>';
-                html += '<div class="seat-row">';
-                currentRow = seat.seatRow;
-            }
-            html += '<div class="seat ' + seat.status + '"';
-            html += ' data-seat-id="' + seat.seatId + '"';
-            html += ' onclick="selectSeat(' + seat.seatId + ', \'' + seat.status + '\', ' + seat.seatRow + ', ' + seat.seatCol + ')"';
-            html += ' title="' + seat.seatRow + '열 ' + seat.seatCol + '번 / ' + seat.price + '원">';
-            html += seat.seatCol;
-            html += '</div>';
+        // ★ 추가: 내가 선점한 좌석은 SELECTED(파란색)로 표시
+        var isMine = selectedSeats.some(function(s) { 
+            return s.seatId === seat.seatId; 
         });
-        if (currentRow !== null) html += '</div>';
+        var displayStatus = isMine ? 'SELECTED' : seat.status;
         
-        document.getElementById('seatMap').innerHTML = html;
-    }
+        html += '<div class="seat ' + displayStatus + '"';
+        html += ' data-seat-id="' + seat.seatId + '"';
+        html += ' onclick="selectSeat(' + seat.seatId + ', \'' + seat.status + '\', ' + seat.seatRow + ', ' + seat.seatCol + ')"';
+        html += ' title="' + seat.seatRow + '열 ' + seat.seatCol + '번 / ' + seat.price + '원">';
+        html += seat.seatCol;
+        html += '</div>';
+    });
+    if (currentRow !== null) html += '</div>';
+    
+    document.getElementById('seatMap').innerHTML = html;
+	}
     
  	// sessionStorage에서 복원 (새로고침해도 유지)
     var selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats_' + scheduleId) || '[]');
@@ -282,21 +289,55 @@
         document.getElementById('info').innerHTML = msg;
     }
     
+    
  // 예매 페이지로 이동
     function goToBooking() {
-        if (selectedSeats.length === 0) {
-            alert('좌석을 먼저 선택해주세요!');
-            return;
-        }
-        
-        // 선택한 좌석 ID들을 콤마로 연결
-        var seatIds = selectedSeats.map(function(s) {
-            return s.seatId;
-        }).join(',');
-        
-        // 예매 페이지로 이동
-        location.href = '/booking/form.do?scheduleId=' + scheduleId + '&seatIds=' + seatIds;
+    if (selectedSeats.length === 0) {
+        alert('좌석을 먼저 선택해주세요!');
+        return;
     }
+    
+    if (!confirm(selectedSeats.length + '개 좌석을 예매하시겠습니까?')) {
+        return;
+    }
+    
+    // 명세 15번: POST /api/bookings
+    var requestBody = {
+        schedule_id: parseInt(scheduleId),
+        seat_ids: selectedSeats.map(function(s) { return s.seatId; }),
+        payment_method: 'CARD'   // 명세에 있는 필드 (값은 임시)
+    };
+    
+    fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(function(res) {
+        if (!res.ok) {
+            throw new Error('예매 요청 실패: HTTP ' + res.status);
+        }
+        return res.json();
+    })
+    .then(function(data) {
+        // 명세 15번 Response: 201 Created / booking_id
+        if (data.booking_id) {
+            // sessionStorage 정리 (예매 완료했으니까)
+            sessionStorage.removeItem('selectedSeats_' + scheduleId);
+            
+            // 완료 페이지로 이동
+            location.href = '/bookingComplete.do?bookingId=' + data.booking_id;
+        } else {
+            alert('예매 처리 중 오류가 발생했습니다.');
+        }
+    })
+    .catch(function(err) {
+        console.error('예매 오류:', err);
+        alert('예매 실패: ' + err.message);
+    });
+	}
     
     
     // 페이지 로드 시 좌석 불러오기
