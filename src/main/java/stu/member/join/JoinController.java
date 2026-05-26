@@ -73,7 +73,14 @@ public class JoinController {
 		commandMap.put("MEMBER_BIRTH", birth);
 		mv.addObject("MEMBER_BIRTH",birth);
 
-		joinService.insertMember(commandMap.getMap());
+		try {
+	        joinService.insertMember(commandMap.getMap());
+	    } catch (org.springframework.dao.DuplicateKeyException e) {
+	        // 이메일 중복
+	        mv.setViewName("login/joinForm");
+	        mv.addObject("message", "이미 가입된 이메일입니다.");
+	        return mv;
+	    }
 
         mv.addObject("MEMBER_NAME", commandMap.get("MEMBER_NAME")); 
         mv.addObject("MEMBER_ID", commandMap.get("MEMBER_ID"));

@@ -26,3 +26,4 @@ COMMIT;
 
 -- 확인
 SELECT member_id, email, name, role FROM members ORDER BY member_id;
+COMMIT;
