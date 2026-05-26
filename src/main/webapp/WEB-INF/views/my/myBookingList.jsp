@@ -208,7 +208,6 @@ a { text-decoration: none; color: #666; }
 </head>
 <body>
 <div class="container">
-    <%@include file="/WEB-INF/tiles/mySide.jsp" %>
 
     <div class="contents">
         <div class="booking-wrap">
