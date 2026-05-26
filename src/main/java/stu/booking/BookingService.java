@@ -8,10 +8,10 @@ import stu.common.common.CommandMap;
 /**
  * 예매(Booking) 도메인 Service 인터페이스
  * 
- * [기능 분류]
- *   조회 5개 - 화면 표시용
- *   생성 1개 - createBooking (트랜잭션 필수)
- *   취소 1개 - cancelBooking (트랜잭션 필수)
+ * [PENDING 흐름]
+ *   1. createBooking()   - 예매 생성 (PENDING 상태)
+ *   2. confirmBooking()  - 결제 확정 (PENDING → CONFIRMED, 결제 모듈이 호출)
+ *   3. cancelBooking()   - 예매 취소 (PENDING 또는 CONFIRMED → CANCELLED)
  */
 public interface BookingService {
 
@@ -25,12 +25,13 @@ public interface BookingService {
     List<Map<String, Object>> selectBookingItems(CommandMap commandMap) throws Exception;
     List<Map<String, Object>> selectMyBookings(CommandMap commandMap) throws Exception;
 
+
     // ====================================================
-    // 생성/취소 (INSERT/UPDATE - 트랜잭션)
+    // 생성/확정/취소 (트랜잭션)
     // ====================================================
 
     /**
-     * 예매 생성 (트랜잭션)
+     * 예매 생성 (트랜잭션) - PENDING 상태로 생성
      * 
      * 필수 파라미터:
      *   memberId    Long   회원 ID
@@ -43,7 +44,16 @@ public interface BookingService {
     Long createBooking(CommandMap commandMap) throws Exception;
 
     /**
-     * 예매 취소 (트랜잭션)
+     * 예매 확정 (트랜잭션) - PENDING → CONFIRMED
+     * 결제 모듈(king)이 결제 완료 후 호출
+     * 
+     * 필수 파라미터:
+     *   bookingId   Long   예매 ID
+     */
+    void confirmBooking(CommandMap commandMap) throws Exception;
+
+    /**
+     * 예매 취소 (트랜잭션) - PENDING 또는 CONFIRMED → CANCELLED
      * 
      * 필수 파라미터:
      *   bookingId     Long   예매 ID
