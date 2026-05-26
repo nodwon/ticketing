@@ -6,8 +6,9 @@ target/
 .project 
 
 # ─── 260524 KHJ 추가 ───
-# DB 접속 정보 (jdbc.properties.example 템플릿으로 수정)
+# DB 접속 정보 (jdbc.properties.example 템플릿으로 관리)
 **/jdbc.properties
+src/main/resources/config/jdbc.properties
 
 # IDE / OS / 로그
 .metadata/
