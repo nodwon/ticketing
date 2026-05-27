@@ -332,7 +332,60 @@ body {
         }
         btnPay.disabled = true;
         btnPay.textContent = '결제 처리 중...';
+
+        // [중요] 결제 진행 중에는 unload 가 발생해도 abandon 보내지 않음
+        //         (결제 결과 페이지로의 정상 전환을 강제종료로 오인 방지)
+        window.__paymentInProgress = true;
     });
+})();
+
+
+// ============================================================
+//  PENDING lifecycle 신호 (heartbeat + beacon)
+//  서버: /booking/heartbeat.do, /booking/abandon.do
+//  목적: 사용자가 결제 페이지를 닫거나 강제 종료하면
+//        PENDING 예매를 즉시(또는 60초 이내) 자동 취소.
+// ============================================================
+(function(){
+    var bookingId = '${bookingId}';
+    if (!bookingId) return;
+
+    // 1) Heartbeat - 30초마다
+    function sendHeartbeat() {
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/booking/heartbeat.do', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('bookingId=' + encodeURIComponent(bookingId));
+        } catch (e) { /* 무시 */ }
+    }
+    sendHeartbeat();
+    var heartbeatTimer = setInterval(sendHeartbeat, 30000);
+
+    // 2) Beacon - 페이지가 닫히는 순간 정리 신호
+    //    pagehide 가 unload 보다 모바일 사파리 호환성 좋음
+    function sendAbandonBeacon() {
+        if (window.__paymentInProgress) return;  // 정상 결제 진행 중이면 보내지 않음
+        try {
+            var data = new Blob(
+                ['bookingId=' + encodeURIComponent(bookingId)],
+                { type: 'application/x-www-form-urlencoded' }
+            );
+            // sendBeacon 은 페이지가 닫혀도 전송 보장
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('/booking/abandon.do', data);
+            } else {
+                // 폴백: 동기 XHR (구형 브라우저)
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/booking/abandon.do', false);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.send('bookingId=' + encodeURIComponent(bookingId));
+            }
+        } catch (e) { /* 무시 */ }
+        clearInterval(heartbeatTimer);
+    }
+    window.addEventListener('pagehide', sendAbandonBeacon);
+    window.addEventListener('beforeunload', sendAbandonBeacon);
 })();
 </script>
 
