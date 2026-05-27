@@ -102,6 +102,12 @@ li {
          fn_selectQnaList(1);
          $("#write").on("click", function(e) { //글쓰기 버튼
             e.preventDefault();
+            var sessionNo = '${sessionScope.SESSION_NO}';
+            if (!sessionNo || sessionNo.trim() === '') {
+               alert("로그인 후 qna 작성이 가능합니다.");
+               location.href = "<c:url value='/qna/openQnaList.do' />";
+               return;
+            }
             fn_openQnaWrite();
          });
          

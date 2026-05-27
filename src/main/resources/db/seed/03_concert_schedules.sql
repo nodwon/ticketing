@@ -1,5 +1,4 @@
 -- =====================================================================
-<<<<<<< HEAD
 -- 03_concert_schedules.sql  — 공연 일정 더미 데이터 (확장판 v2)
 -- 실행 전 필요 : 02_concerts.sql 실행 완료
 -- 일정 수      : 약 28회차 (공연별 1~5회차)
@@ -214,6 +213,8 @@ SELECT s.schedule_id, c.title,
        TO_CHAR(s.booking_open_at,  'YYYY-MM-DD HH24:MI') AS open_at,
        s.available_seats || '/' || s.total_seats AS seats,
        c.status
+<<<<<<< HEAD
+=======
 =======
 -- 03_concert_schedules.sql  — 공연 일정 더미 데이터
 -- 실행 전 필요 : 02_concerts.sql 실행 완료
@@ -265,6 +266,7 @@ COMMIT;
 SELECT s.schedule_id, c.title, TO_CHAR(s.performance_date, 'YYYY-MM-DD HH24:MI') AS perf_date,
        TO_CHAR(s.booking_open_at, 'YYYY-MM-DD HH24:MI') AS open_at,
        s.total_seats, s.available_seats
+>>>>>>> origin/main
 FROM concert_schedules s
 JOIN concerts c ON s.concert_id = c.concert_id
 ORDER BY s.schedule_id;
