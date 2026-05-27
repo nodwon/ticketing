@@ -17,8 +17,13 @@ import stu.common.common.CommandMap;
 /**
  * 예매(Booking) 도메인 Service 구현체
  * 
- * [2026.05.27 available_seats 정합성 개편]
- *   기존: +N / -N 누적 방식 → 정희영 hold/release 정책에 의존, 부정합 다발
+ * [2026.05.27 정책 변경 - develop]
+ *   좌석 클릭은 로컬 저장만 하고 서버에 hold 신호를 보내지 않음.
+ *   createBooking 시점에 HELD 인 좌석 = 다른 사용자가 결제창에 진입해 잡아둔 것.
+ *   → AVAILABLE 만 허용, HELD/RESERVED 는 거부.
+ *
+ * [2026.05.27 available_seats 정합성 개편 - feature/sungwoo]
+ *   기존: +N / -N 누적 방식 → 부정합 다발
  *   변경: seats 테이블 실제 상태 SELECT COUNT 재계산 방식
  *         → 누가 뭘 했든 항상 정확한 잔여좌석 값 보장
  *   적용: createBooking, confirmBooking, cancelBooking, releaseHeldSeats
@@ -65,17 +70,15 @@ public class BookingServiceImpl implements BookingService {
     // ====================================================
     // 예매 생성 (트랜잭션) - PENDING 상태로 생성
     // 
-    // [통합 메모]
-    // 정희영 좌석 모듈 통합 후, 좌석은 두 가지 진입점에서 들어옴:
-    //   A. 본인 임시 화면: AVAILABLE 상태 그대로 진입
-    //   B. 정희영 모듈: /seat/hold.do 호출로 이미 HELD 상태로 진입
-    // → 두 경우 모두 허용. RESERVED만 거부.
+    // [2026-05-27 정책 변경]
+    //   좌석 클릭은 로컬 저장만, 서버에 hold 신호 X.
+    //   따라서 createBooking 진입 시 모든 좌석이 AVAILABLE 이어야 정상.
+    //   HELD = 다른 사용자가 먼저 결제창 진입 → 거부
+    //   RESERVED = 기결제 좌석 → 거부
     //
-    // [2026.05.27 수정] available_seats 재계산 방식 도입
-    //   - 기존 [7] +/- 방식은 정희영 hold.do와의 정책 불일치로 부정합 발생
-    //     (정희영이 차감 안 함 → 본인도 생략 → 영원히 500/500 유지되는 버그)
-    //   - 변경: seats 실제 상태(AVAILABLE 카운트)로 강제 동기화
-    //     → 정희영이 뭘 했든 무관하게 항상 정확
+    // [2026-05-27 available_seats 재계산 도입]
+    //   기존 -N 차감 방식 대신 seats 실제 상태로 재계산.
+    //   → +/- 누적 부정합 버그 방지.
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -112,9 +115,14 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // [3] 좌석 상태 검증 + 가격 합산 (서버측 재계산)
+        //     [2026-05-27 정책 변경]
+        //     이전: AVAILABLE + HELD 둘 다 허용 (클릭 즉시 hold.do 호출하던 시절의 잔재)
+        //     현재: AVAILABLE 만 허용.
+        //       - 좌석 클릭은 로컬 저장만 하고 서버에 hold 신호를 보내지 않음.
+        //       - 따라서 createBooking 시점에 HELD 인 좌석 = 다른 사용자가 먼저
+        //         결제창에 진입해 잡아둔 것 → 즉시 거부.
+        //       - RESERVED 는 기결제 좌석 → 거부.
         long totalPrice = 0;
-        int heldCount = 0;
-        int availableCount = 0;
 
         for (Map<String, Object> seat : seats) {
             String status = (String) seat.get("STATUS");
@@ -125,19 +133,16 @@ public class BookingServiceImpl implements BookingService {
                 throw new Exception("이미 예매 완료된 좌석입니다 (seatId=" + seatId + ")");
             }
 
-            if (!"AVAILABLE".equals(status) && !"HELD".equals(status)) {
-                log.warn("예매 불가능한 좌석 시도 - seatId=" + seatId + ", status=" + status);
-                throw new Exception("예매 불가능한 좌석 (seatId=" + seatId + ", status=" + status + ")");
+            if (!"AVAILABLE".equals(status)) {
+                // HELD: 다른 사용자가 결제 진행 중인 좌석
+                log.warn("이미 선점된 좌석 시도 - seatId=" + seatId + ", status=" + status);
+                throw new Exception("이미 다른 사용자가 선택 중인 좌석입니다 (seatId=" + seatId + ")");
             }
-
-            if ("HELD".equals(status)) heldCount++;
-            else availableCount++;
 
             totalPrice += ((Number) seat.get("PRICE")).longValue();
         }
 
-        log.info("좌석 검증 완료 - 총 가격=" + totalPrice 
-                + " (AVAILABLE=" + availableCount + ", HELD=" + heldCount + ")");
+        log.info("좌석 검증 완료 - 총 가격=" + totalPrice + ", 좌석수=" + seats.size());
 
         // [4] bookings INSERT (status='PENDING')
         Map<String, Object> bookingParam = new HashMap<String, Object>();
@@ -160,25 +165,27 @@ public class BookingServiceImpl implements BookingService {
         log.info("예매 항목 생성 - " + seats.size() + "건");
 
         // [6] seats 상태 변경 → HELD
-        //     - AVAILABLE 좌석만 HELD로 변경 (WHERE status='AVAILABLE')
-        //     - 이미 HELD인 좌석은 영향 없음 (정희영이 미리 HELD 처리)
+        //     FOR UPDATE 로 락이 잡혀있는 상태에서 UPDATE 하므로
+        //     이 사이에 다른 트랜잭션이 끼어들 수 없음.
+        //     UPDATE 영향 행 수가 좌석 수와 다르면 = 락 획득 직전에 다른 트랜잭션이
+        //     먼저 HELD/RESERVED 로 바꿔버린 충돌 → 롤백.
         Map<String, Object> updateSeatParam = new HashMap<String, Object>();
         updateSeatParam.put("seatIds", seatIds);
+        updateSeatParam.put("memberId", memberId);
         int seatsAffected = bookingDao.updateSeatStatusToHeld(updateSeatParam);
 
-        if (seatsAffected != availableCount) {
-            log.error("동시성 충돌 감지 - AVAILABLE 좌석=" + availableCount 
-                    + ", UPDATE 영향=" + seatsAffected);
-            throw new Exception("동시성 충돌: 일부 좌석이 이미 점유되었습니다");
+        if (seatsAffected != seatIds.size()) {
+            log.error("동시성 충돌 감지 - 요청 좌석=" + seatIds.size()
+                    + ", HELD 전환 성공=" + seatsAffected
+                    + " (차이: " + (seatIds.size() - seatsAffected) + "석이 이미 선점됨)");
+            throw new Exception("동시성 충돌: 일부 좌석이 이미 다른 사용자에게 선점되었습니다");
         }
-        log.info("좌석 HELD 처리 - AVAILABLE→HELD " + seatsAffected + "건, 기존 HELD 유지 " 
-                + heldCount + "건");
+        log.info("좌석 HELD 처리 완료 - " + seatsAffected + "석");
 
         // [7] available_seats 재계산 (seats 실제 상태 기반)
-        //     [기존 +/- 방식 제거 이유]
-        //       - availableCount > 0 이면 본인이 -N 차감 (정희영이 안 했다는 가정)
-        //       - availableCount == 0 이면 차감 생략 (정희영이 이미 했다는 가정)
-        //       → 정희영이 실제로 안 차감하니까 후자에서 영원히 500 유지 버그
+        //     [기존 -N 차감 방식 제거 이유]
+        //       - 정희영/king 모듈이 available_seats를 어떻게 다루는지에 따라
+        //         부정합 위험. 누적 +/- 방식은 동기화 안전성이 떨어짐.
         //     [변경 방식]
         //       - seats 테이블에서 AVAILABLE 카운트 직접 SELECT
         //       - 누가 뭘 했든 무관하게 항상 정확
@@ -287,7 +294,6 @@ public class BookingServiceImpl implements BookingService {
     //   → 별도 트랜잭션으로 분리해서 무조건 커밋되도록 한다.
     //
     // [2026.05.27 수정] available_seats 재계산 추가
-    //   - 이전엔 정희영 책임 영역이라 +N 안 했음
     //   - SELECT COUNT 방식이면 누가 뭘 했든 정확하므로 본인이 재계산 책임짐
     // ====================================================
     @Override

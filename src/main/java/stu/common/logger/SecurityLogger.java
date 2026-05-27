@@ -4,14 +4,20 @@
  * Package   : stu.common.logger
  * FileName  : SecurityLogger.java
  * Purpose   : 명세서(log_*) 컬럼 → JSON 키 매핑을 강제하는 헬퍼
- * Note      : SLF4J 가변인자 호환 처리 (Object[] 명시)
+ * Note      : logstash-logback-encoder Marker 방식
+ *             - {} 자리표시자 없이 키-값을 JSON으로 출력
+ *             - 기존 Object[] 방식이 빈 출력을 만드는 문제 해결
  * ============================================================
  */
 package stu.common.logger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import net.logstash.logback.argument.StructuredArguments;
+import net.logstash.logback.marker.Markers;
+import net.logstash.logback.marker.LogstashMarker;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public final class SecurityLogger {
 
@@ -25,14 +31,26 @@ public final class SecurityLogger {
     private SecurityLogger() {}
 
     /* ============================================================
+     * 공통 헬퍼 - Map을 만들어서 Markers.appendEntries() 로 변환
+     * 이렇게 하면 logstash-encoder가 각 키를 JSON 필드로 출력
+     * ============================================================ */
+    private static LogstashMarker marker(Object... kv) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        for (int i = 0; i < kv.length; i += 2) {
+            map.put(String.valueOf(kv[i]), kv[i + 1]);
+        }
+        return Markers.appendEntries(map);
+    }
+
+    /* ============================================================
      * log_auth : 로그인 이벤트
      * ============================================================ */
     public static void auth(Long userId, String srcIp, String result) {
-        AUTH.info("auth_event", new Object[] {
-            StructuredArguments.kv("user_id",      userId),
-            StructuredArguments.kv("src_ip",       srcIp),
-            StructuredArguments.kv("login_result", result)
-        });
+        AUTH.info(marker(
+            "user_id",      userId,
+            "src_ip",       srcIp,
+            "login_result", result
+        ), "auth_event");
     }
 
     /* ============================================================
@@ -40,41 +58,41 @@ public final class SecurityLogger {
      * ============================================================ */
     public static void seat(Long userId, Long concertId, Long seatId,
                             String result, Integer elapsedMs) {
-        SEAT.info("seat_event", new Object[] {
-            StructuredArguments.kv("user_id",        userId),
-            StructuredArguments.kv("concert_id",     concertId),
-            StructuredArguments.kv("seat_id",        seatId),
-            StructuredArguments.kv("request_result", result),
-            StructuredArguments.kv("elapsed_time",   elapsedMs)
-        });
+        SEAT.info(marker(
+            "user_id",        userId,
+            "concert_id",     concertId,
+            "seat_id",        seatId,
+            "request_result", result,
+            "elapsed_time",   elapsedMs
+        ), "seat_event");
     }
 
     /* ============================================================
-     * log_payment : 결제 이벤트 (TAMPER 탐지)
+     * log_payment : 결제 이벤트 (TAMPER 탐지 포함)
      * ============================================================ */
     public static void payment(Long userId, String transactionId,
                                Long paymentAmount, Long actualPrice,
                                String result) {
-        PAYMENT.info("payment_event", new Object[] {
-            StructuredArguments.kv("user_id",        userId),
-            StructuredArguments.kv("transaction_id", transactionId),
-            StructuredArguments.kv("payment_amount", paymentAmount),
-            StructuredArguments.kv("actual_price",   actualPrice),
-            StructuredArguments.kv("payment_result", result)
-        });
+        PAYMENT.info(marker(
+            "user_id",        userId,
+            "transaction_id", transactionId,
+            "payment_amount", paymentAmount,
+            "actual_price",   actualPrice,
+            "payment_result", result
+        ), "payment_event");
     }
 
     /* ============================================================
      * log_admin_access : 관리자 접근 시도
      * ============================================================ */
     public static void adminAccess(String accessUrl, Long userId,
-                                   String srcIp, int statusCode) {
-        ADMIN.info("admin_access_event", new Object[] {
-            StructuredArguments.kv("access_url",  accessUrl),
-            StructuredArguments.kv("user_id",     userId),
-            StructuredArguments.kv("src_ip",      srcIp),
-            StructuredArguments.kv("status_code", statusCode)
-        });
+                                   String srcIp, Integer statusCode) {
+        ADMIN.info(marker(
+            "access_url",  accessUrl,
+            "user_id",     userId,
+            "src_ip",      srcIp,
+            "status_code", statusCode
+        ), "admin_access_event");
     }
 
     /* ============================================================
@@ -82,17 +100,17 @@ public final class SecurityLogger {
      * ============================================================ */
     public static void board(Long userId, String boardType, String content,
                              String attachmentName, String attachmentExt) {
-        BOARD.info("board_event", new Object[] {
-            StructuredArguments.kv("user_id",              userId),
-            StructuredArguments.kv("board_type",           boardType),
-            StructuredArguments.kv("content",              content),
-            StructuredArguments.kv("attachment_name",      attachmentName),
-            StructuredArguments.kv("attachment_extension", attachmentExt)
-        });
+        BOARD.info(marker(
+            "user_id",              userId,
+            "board_type",           boardType,
+            "content",              content,
+            "attachment_name",      attachmentName,
+            "attachment_extension", attachmentExt
+        ), "board_event");
     }
 
     /* ============================================================
-     * log_behavior_feature : MLTK 행동 Feature
+     * log_behavior_feature : MLTK 행동 Feature (Builder 패턴)
      * ============================================================ */
     public static BehaviorBuilder behavior(Long userId, String srcIp) {
         return new BehaviorBuilder(userId, srcIp);
@@ -129,23 +147,24 @@ public final class SecurityLogger {
         }
 
         public void emit() {
-            BEHAVIOR.info("behavior_feature", new Object[] {
-                StructuredArguments.kv("user_id",                 userId),
-                StructuredArguments.kv("src_ip",                  srcIp),
-                StructuredArguments.kv("requests_per_second",     requestsPerSecond),
-                StructuredArguments.kv("requests_per_minute",     requestsPerMinute),
-                StructuredArguments.kv("burst_request_count",     burstRequestCount),
-                StructuredArguments.kv("seat_change_count",       seatChangeCount),
-                StructuredArguments.kv("unique_seat_count",       uniqueSeatCount),
-                StructuredArguments.kv("failed_select_ratio",     failedSelectRatio),
-                StructuredArguments.kv("avg_action_interval",     avgActionInterval),
-                StructuredArguments.kv("page_transition_time",    pageTransitionTime),
-                StructuredArguments.kv("login_fail_ratio",        loginFailRatio),
-                StructuredArguments.kv("target_account_count",    targetAccountCount),
-                StructuredArguments.kv("repeated_fail_count",     repeatedFailCount),
-                StructuredArguments.kv("jailbreak_keyword_count", jailbreakKeywordCount),
-                StructuredArguments.kv("excessive_token_request", excessiveTokenRequest)
-            });
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("user_id",                 userId);
+            map.put("src_ip",                  srcIp);
+            map.put("requests_per_second",     requestsPerSecond);
+            map.put("requests_per_minute",     requestsPerMinute);
+            map.put("burst_request_count",     burstRequestCount);
+            map.put("seat_change_count",       seatChangeCount);
+            map.put("unique_seat_count",       uniqueSeatCount);
+            map.put("failed_select_ratio",     failedSelectRatio);
+            map.put("avg_action_interval",     avgActionInterval);
+            map.put("page_transition_time",    pageTransitionTime);
+            map.put("login_fail_ratio",        loginFailRatio);
+            map.put("target_account_count",    targetAccountCount);
+            map.put("repeated_fail_count",     repeatedFailCount);
+            map.put("jailbreak_keyword_count", jailbreakKeywordCount);
+            map.put("excessive_token_request", excessiveTokenRequest);
+
+            BEHAVIOR.info(Markers.appendEntries(map), "behavior_feature");
         }
     }
 }

@@ -296,73 +296,46 @@
         document.getElementById('seatMap').innerHTML = html;
     }
     
-    // 좌석 클릭 처리 (선점 / 해제 통합)
+    // 좌석 클릭 처리 (선택 / 해제 - 모두 로컬 배열만 조작)
+    // [2026-05-26 정책 변경]
+    //   이전: 클릭 즉시 /seat/hold.do 호출 → seats.status=HELD
+    //   현재: 클릭은 로컬 selectedSeats 에만 저장.
+    //         "다음 단계" 버튼으로 /bookingCreate.do 호출 시
+    //         BookingService 가 트랜잭션 안에서 일괄 HELD + PENDING 생성.
+    //   효과: 결제 페이지 진입 전에는 다른 사용자에게 좌석이 계속 보이고
+    //         클릭만으로는 점유되지 않음.
     function selectSeat(seatId, status, seatRow, seatCol) {
         var isMine = selectedSeats.some(function(s) {
             return s.seatId === seatId;
         });
-        
+
         if (isMine) {
-            releaseMySeat(seatId, seatRow, seatCol);
+            // 선택 취소
+            selectedSeats = selectedSeats.filter(function(s) {
+                return s.seatId !== seatId;
+            });
         } else if (status === 'HELD' || status === 'RESERVED') {
             alert('선택할 수 없는 좌석입니다.');
+            return;
         } else {
-            holdNewSeat(seatId, seatRow, seatCol);
+            // 최대 4석 제한 (서버측 BookingService 와 일치)
+            if (selectedSeats.length >= 4) {
+                alert('최대 4석까지 선택 가능합니다.');
+                return;
+            }
+            selectedSeats.push({
+                seatId: seatId,
+                seatRow: seatRow,
+                seatCol: seatCol
+            });
         }
+
+        sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
+        updateInfo();
+        // 화면만 다시 그리기 (서버 호출 없음)
+        renderSeats(getCurrentZoneSeats());
     }
-    
-    // 좌석 신규 점유 (hold.do 호출)
-    function holdNewSeat(seatId, seatRow, seatCol) {
-        var formData = 'seatId=' + seatId + '&memberId=' + memberId;
-        
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/seat/hold.do', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                var res = JSON.parse(xhr.responseText);
-                if (res.result === 'success') {
-                    selectedSeats.push({
-                        seatId: seatId,
-                        seatRow: seatRow,
-                        seatCol: seatCol
-                    });
-                    sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
-                    updateInfo();
-                } else {
-                    document.getElementById('info').innerHTML = '❌ ' + res.message;
-                }
-                loadSeats();
-            }
-        };
-        xhr.send(formData);
-    }
-    
-    // 좌석 선점 해제 (release.do 호출)
-    function releaseMySeat(seatId, seatRow, seatCol) {
-        var formData = 'seatId=' + seatId + '&memberId=' + memberId;
-        
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/seat/release.do', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                var res = JSON.parse(xhr.responseText);
-                if (res.result === 'success') {
-                    selectedSeats = selectedSeats.filter(function(s) {
-                        return s.seatId !== seatId;
-                    });
-                    sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
-                    updateInfo();
-                } else {
-                    document.getElementById('info').innerHTML = '❌ 해제 실패';
-                }
-                loadSeats();
-            }
-        };
-        xhr.send(formData);
-    }
-    
+
     // 선택 좌석 정보 화면 업데이트
     function updateInfo() {
     if (selectedSeats.length === 0) {
