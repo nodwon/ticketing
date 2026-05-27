@@ -11,6 +11,8 @@ import org.apache.log4j.Logger;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -40,6 +42,9 @@ public class BookingController {
 
     @Resource(name = "bookingService")
     private BookingService bookingService;
+
+    @Resource(name = "pendingBookingTracker")
+    private PendingBookingTracker pendingTracker;
 
     // ====================================================
     // 1. [제거됨 - 2026.05.26]
@@ -145,6 +150,10 @@ public class BookingController {
 
         try {
             Long bookingId = bookingService.createBooking(commandMap);
+
+            // [중요] 결제 페이지 진입 직전, lifecycle 추적 시작
+            //         이 시점부터 heartbeat 가 끊기거나 abandon 신호가 오면 자동 cancel
+            pendingTracker.register(bookingId);
 
             log.info("예매 생성 성공 (PENDING) - bookingId=" + bookingId
                     + ", memberId=" + sessionMemberNo
@@ -307,12 +316,87 @@ public class BookingController {
         }
     }
 
+
+    // ====================================================
+    // 9. 결제 페이지 heartbeat (POST)
+    //    POST /booking/heartbeat.do?bookingId=N
+    //    결제 페이지에서 30초마다 호출.
+    //    응답 body 는 의미 없음. 본인 소유 검증을 수반.
+    // ====================================================
+    @RequestMapping(value = "/booking/heartbeat.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> heartbeat(@RequestParam("bookingId") String bookingIdStr,
+                                         HttpSession session) {
+        Map<String, Object> resp = new java.util.HashMap<String, Object>();
+        Object sessionMemberNo = session.getAttribute("SESSION_NO");
+        if (sessionMemberNo == null) {
+            resp.put("result", "unauth");
+            return resp;
+        }
+        try {
+            long bookingId = Long.parseLong(bookingIdStr);
+            pendingTracker.heartbeat(bookingId);
+            resp.put("result", "ok");
+        } catch (NumberFormatException e) {
+            resp.put("result", "bad");
+        }
+        return resp;
+    }
+
+
+    // ====================================================
+    // 10. 결제 페이지 abandon (POST) - 즉시 cancel
+    //     POST /booking/abandon.do?bookingId=N
+    //     navigator.sendBeacon 으로 호출.
+    //     본인 소유 검증을 수반 (타인 bookingId 변조로 cancel 못 하게).
+    // ====================================================
+    @RequestMapping(value = "/booking/abandon.do", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> abandon(@RequestParam("bookingId") String bookingIdStr,
+                                       HttpSession session) throws Exception {
+        Map<String, Object> resp = new java.util.HashMap<String, Object>();
+        Object sessionMemberNo = session.getAttribute("SESSION_NO");
+        if (sessionMemberNo == null) {
+            resp.put("result", "unauth");
+            return resp;
+        }
+
+        long bookingId;
+        try {
+            bookingId = Long.parseLong(bookingIdStr);
+        } catch (NumberFormatException e) {
+            resp.put("result", "bad");
+            return resp;
+        }
+
+        // [보안] 본인 소유 예매만 abandon 가능
+        CommandMap probe = new CommandMap();
+        probe.put("bookingId", bookingIdStr);
+        Map<String, Object> detail = bookingService.selectBookingDetail(probe);
+        if (detail == null) {
+            resp.put("result", "notfound");
+            return resp;
+        }
+        Object owner = detail.get("memberId");
+        if (owner == null) owner = detail.get("MEMBERID");
+        if (owner == null) owner = detail.get("member_id");
+        if (owner == null) owner = detail.get("MEMBER_ID");
+
+        if (!isSameMember(owner, sessionMemberNo)) {
+            log.warn("[IDOR 시도] 타인 예매 abandon 시도 - bookingId=" + bookingId
+                    + ", owner=" + owner + ", session=" + sessionMemberNo);
+            resp.put("result", "forbidden");
+            return resp;
+        }
+
+        pendingTracker.abandonImmediately(bookingId, "beacon");
+        resp.put("result", "ok");
+        return resp;
+    }
+
+
     // ====================================================
     // 회원 ID 비교 헬퍼
-    //   세션값은 보통 Long, DB 결과는 BigDecimal/Integer/Long/String 등
-    //   다양한 타입으로 올라옴. String.valueOf() 만으로는
-    //   "1"과 "1.0", "1.000" 같은 표현 차이로 실패할 수 있어
-    //   숫자 정규화를 거쳐 비교한다.
     // ====================================================
     private boolean isSameMember(Object a, Object b) {
         if (a == null || b == null) return false;
@@ -330,7 +414,6 @@ public class BookingController {
             return ((Number) v).longValue();
         }
         String s = String.valueOf(v).trim();
-        // "1.0" 같은 소수 표현 방어
         int dot = s.indexOf('.');
         if (dot >= 0) s = s.substring(0, dot);
         return Long.parseLong(s);

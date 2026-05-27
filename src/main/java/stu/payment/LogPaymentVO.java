@@ -10,7 +10,7 @@ Project : 관제 티켓 (Ticketing System)
 * Created : 2026.05.26
 
 - Modified : *
-- Description :
+- Description : 더미파일임 삭제할 것
  *   log_payment 테이블 매핑 VO (API 명세서 반영).
  *     - paymentResult : SUCCESS / FAIL / TAMPER
  *     - 'TAMPER' = paymentAmount != actualPrice (변조 탐지)
