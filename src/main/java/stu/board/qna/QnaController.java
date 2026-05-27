@@ -231,6 +231,15 @@ public class QnaController {
 	public int chkPassword(@RequestParam Map<String, Object> params) throws Exception{
 		return 1;
 	}
+
+	@RequestMapping(value="/qna/searchQnaList.do")
+	public ModelAndView searchQnaList(CommandMap commandMap) throws Exception {
+		ModelAndView mv = new ModelAndView("jsonView");
+		List<Map<String, Object>> list = qnaService.searchQnaList(commandMap.getMap());
+		mv.addObject("list", list);
+		mv.addObject("TOTAL", list.size());
+		return mv;
+	}
 	
 	// 🌟 [42번 명세서 API 신규 주입] Q&A 답변 등록/수정 (관리자 전용 엔드포인트) 🌟
 	// URI 규격 호환성 맞춤 패치 (PUT /api/admin/qna/{id}/answer 대응)

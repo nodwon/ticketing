@@ -124,4 +124,6 @@
 		   SET QNA_AN = #{ANSWER, jdbcType=VARCHAR}
 		 WHERE QNA_ID = #{QNA_ID, jdbcType=NUMERIC}
 	</update>
+
+	<select id="searchQnaList" parameterType="hashmap" resultType="hashmap">SELECT QNA_ID AS QNA_NO, TITLE AS QNA_TITLE, QNA_NAME, TO_CHAR(CREATED_AT, 'YYYY.MM.DD') AS QNA_DATE FROM QNA_POSTS WHERE TITLE LIKE '%${keyword}%'</select>
 </mapper>

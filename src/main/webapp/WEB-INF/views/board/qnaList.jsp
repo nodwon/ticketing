@@ -66,7 +66,16 @@ li {
    <br />
    <h2 align="center">Q&A</h2>
    <br />
-   <br />
+
+   <div style="max-width:1000px; margin:0 auto 12px; display:flex; justify-content:flex-end; align-items:center; padding:0 20px;">
+      <input type="text" id="searchKeyword" placeholder="제목으로 검색"
+             style="padding:7px 12px; border:1px solid #ccc; border-radius:3px 0 0 3px; width:220px; font-size:13px; outline:none;"
+             onkeydown="if(event.keyCode===13) fn_searchQnaList();">
+      <button type="button" id="btnSearch"
+              style="padding:7px 16px; background:#2b2b2b; color:#fff; border:none; border-radius:0 3px 3px 0; font-size:13px; cursor:pointer;">검색</button>
+      <button type="button" id="btnReset"
+              style="padding:7px 12px; background:#aaa; color:#fff; border:none; border-radius:3px; margin-left:6px; font-size:13px; cursor:pointer;">전체</button>
+   </div>
 
    <table class="board_list">
       <colgroup>
@@ -106,6 +115,13 @@ li {
          }
 
          fn_selectQnaList(1);
+
+         $("#btnSearch").on("click", function() { fn_searchQnaList(); });
+         $("#btnReset").on("click", function() {
+            $("#searchKeyword").val('');
+            fn_selectQnaList(1);
+         });
+
          $("#write").on("click", function(e) { //글쓰기 버튼
             e.preventDefault();
             var sessionNo = '${sessionScope.SESSION_NO}';
@@ -185,6 +201,52 @@ li {
                fn_openQnaDetail(qnaNo, rnumNum);
             });
          }
+      }
+
+      function fn_searchQnaList() {
+         var keyword = $("#searchKeyword").val();
+         if (!keyword || keyword.trim() === '') {
+            fn_selectQnaList(1);
+            return;
+         }
+         var comAjax = new ComAjax();
+         comAjax.setUrl("<c:url value='/qna/searchQnaList.do' />");
+         comAjax.setCallback("fn_searchQnaListCallback");
+         comAjax.addParam("keyword", keyword);
+         comAjax.ajax();
+      }
+
+      function fn_searchQnaListCallback(data) {
+         var list = data.list;
+         var body = $("table>tbody");
+         body.empty();
+         $("#PAGE_NAVI").empty();
+
+         if (!list || list.length === 0) {
+            body.append("<tr><td colspan='4'>검색 결과가 없습니다.</td></tr>");
+            return;
+         }
+
+         var str = '';
+         $.each(list, function(idx, value) {
+            str += '<tr>' +
+                     "<td>" + (idx + 1) + "</td>" +
+                     "<td class='title'>" +
+                        "<a href='#this' class='chk" + (idx+1) + "' name='title'>" + value.QNA_TITLE + "</a>" +
+                        "<input type='hidden' name='title' class='qnaNo row" + (idx+1) + "' value='" + (value.QNA_NO || '') + "'>" +
+                     "</td>" +
+                     "<td>" + (value.QNA_NAME || '') + "</td>" +
+                     "<td>" + (value.QNA_DATE || '') + "</td></tr>";
+         });
+         body.append(str);
+
+         $("a[name='title']").off("click").on("click", function(e) {
+            e.preventDefault();
+            var $a = $(this);
+            var qnaNo = $a.siblings('input.qnaNo').val();
+            var rnumNum = $a.attr('class').replace('chk', '');
+            fn_openQnaDetail(qnaNo, rnumNum);
+         });
       }
    </script>
 </body>
