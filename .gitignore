@@ -1,15 +1,127 @@
-# 기존 내용 
-target/ 
-*.class 
-.settings/ 
-.classpath 
-.project 
+# ============================================================
+# 티켓팅 보안관제 프로젝트 .gitignore
+# 작성일: 2026.05.27
+# 작성자: 보안관제 팀
+# ============================================================
 
-# ─── 260524 KHJ 추가 ───
-# DB 접속 정보 (jdbc.properties.example 템플릿으로 관리)
+# ============================================================
+# [1] Java / Maven 빌드 산출물
+# ============================================================
+target/
+build/
+out/
+bin/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+
+# ============================================================
+# [2] IDE 설정 파일 (Eclipse / IntelliJ / VSCode)
+# ============================================================
+# Eclipse
+.metadata/
+.classpath
+.project
+.settings/
+.factorypath
+.springBeans
+.recommenders/
+.apt_generated/
+.cache-main
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# NetBeans
+nbproject/
+build.xml
+
+# ============================================================
+# [3] OS 파일
+# ============================================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============================================================
+# [4] ⚠️ 보안 - 시크릿 / 자격증명 (절대 커밋 금지)
+# ============================================================
+# DB 접속 정보
 **/jdbc.properties
 src/main/resources/config/jdbc.properties
 
+<<<<<<< HEAD
+# 환경변수 (Docker)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# 메일 / API 키
+**/mail.properties
+**/oauth.properties
+**/api-keys.properties
+**/secret.properties
+
+# 인증서 / 키
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+*.csr
+
+# Spring 환경별 설정 (민감 정보 포함 가능)
+application-local.yml
+application-local.properties
+application-secret.yml
+application-secret.properties
+application-prod.yml
+application-prod.properties
+
+# AWS / Cloud 자격증명
+.aws/
+credentials
+*.tfvars
+*.tfstate
+*.tfstate.backup
+
+# ============================================================
+# [5] 보안관제 - 로그 파일 (Splunk 가 수집하므로 Git 제외)
+# ============================================================
+# 로그 디렉토리
+logs/
+log/
+=======
 **/log_payment.sql
 src/main/resources/db/seed/log_payment.sql
 **/LogPaymentVO.java
@@ -22,5 +134,164 @@ src/main/java/stu/payment/LogPaymentVO.java
 *.iml
 .DS_Store
 Thumbs.db
+>>>>>>> ca5c72339164dd6d0641ed215a3c5ef0ac63d1b3
 *.log
-logs/
+*.log.*
+*.log.gz
+
+# Windows 개발 환경 로컬 로그
+C:/logs/
+/var/log/ticketing/
+
+# 보안 로그 JSON (실제 운영 데이터)
+**/log_auth.json
+**/log_seat.json
+**/log_payment.json
+**/log_admin_access.json
+**/log_board.json
+**/log_behavior_feature.json
+**/log_api.json
+**/log_queue.json
+**/log_chatbot.json
+**/application.log
+**/sql.log
+
+# ============================================================
+# [6] Docker 관련
+# ============================================================
+# Docker 볼륨 데이터 (Oracle, Splunk 등 절대 커밋 금지)
+docker/volumes/
+docker-data/
+oracle-data/
+splunk-data/
+ticketing-logs/
+
+# Docker 임시 파일
+.dockerignore.bak
+docker-compose.override.yml
+
+# ============================================================
+# [7] Splunk 관련
+# ============================================================
+# Splunk Forwarder 인증 / 라이센스
+splunk/forwarder/local/
+splunk/forwarder/var/
+splunk-license.lic
+*.spl
+
+# Splunk Web 패스워드
+passwd
+splunk.secret
+
+# ============================================================
+# [8] 잘못 생성된 경로 (과거 사고 방지)
+# ============================================================
+# Windows 절대경로 잘못 커밋 방지
+Users/
+C:/
+D:/
+
+# ============================================================
+# [9] 첨부파일 / 업로드 (운영 데이터)
+# ============================================================
+# 사용자 업로드 파일 (게시판 첨부 등)
+src/main/webapp/upload/
+src/main/webapp/uploads/
+src/main/webapp/resources/upload/
+src/main/webapp/resources/attach/
+upload/
+uploads/
+
+# CKEditor 업로드
+src/main/webapp/ckeditor/uploads/
+
+# ============================================================
+# [10] 테스트 / 임시 파일
+# ============================================================
+# 테스트 산출물
+test-output/
+test-results/
+.gradle/
+*.iml.test
+
+# 임시 파일
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.rej
+*~
+.~lock.*
+
+# JRebel
+rebel.xml
+rebel-remote.xml
+
+# ============================================================
+# [11] 문서 자동 생성물
+# ============================================================
+# Javadoc
+javadoc/
+docs/javadoc/
+docs/api/
+
+# 임시 보고서 (PDF/DOCX 직접 만든 건 제외)
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+# ============================================================
+# [12] Python (공격 시뮬레이터 attacker/)
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+pip-log.txt
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ============================================================
+# [13] Node.js (만약 프론트엔드 추가 시)
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.bak
+
+# ============================================================
+# [14] 기타 사용 안 하는 산출물
+# ============================================================
+# 압축 파일 (소스에 포함되면 안 됨)
+*.7z
+*.rar
+
+# IDE 동기화 파일
+.sync/
+*.sync-conflict-*
+
+# 로컬 메모 / TODO
+TODO.md
+NOTES.md
+memo.txt
+todo.txt
+
+# ============================================================
+# [15] 명시적 허용 (negation - 위에서 제외했지만 다시 포함)
+# ============================================================
+# 환경설정 템플릿은 커밋 (시크릿 아님)
+!.env.example
+!jdbc.properties.example
+!mail.properties.example
+
+# Maven Wrapper 는 보통 커밋 (선택)
+# !.mvn/wrapper/maven-wrapper.jar
+# !.mvn/wrapper/maven-wrapper.properties

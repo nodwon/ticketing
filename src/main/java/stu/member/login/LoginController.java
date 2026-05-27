@@ -91,7 +91,8 @@ public class LoginController {
 			        session.setAttribute("SESSION_NO", chk.get("MEMBER_NO"));
 			        session.setAttribute("SESSION_NAME", chk.get("MEMBER_NAME"));
 
-			        mv = new ModelAndView("redirect:/main.do");
+			        String redirectUrl = isValidReturnUrl(returnUrl) ? returnUrl : "/main.do";
+			        mv = new ModelAndView("redirect:" + redirectUrl);
 			        mv.addObject("MEMBER", chk);
 
 			        session.getMaxInactiveInterval();
