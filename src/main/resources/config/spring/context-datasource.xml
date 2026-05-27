@@ -14,20 +14,29 @@
     <!-- ============================================================ -->
     <context:property-placeholder location="classpath:config/jdbc.properties" />
 
-    <bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+    <!-- ============================================================ -->
+    <!-- dataSource : 단일 BasicDataSource                              -->
+    <!--   - 기존 log4jdbc proxy 제거됨                                  -->
+    <!--   - SQL 로깅은 logback.xml 의 MyBatis 로거가 담당               -->
+    <!-- ============================================================ -->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="${db.driver}" />
         <property name="url"             value="${db.url}" />
         <property name="username"        value="${db.username}" />
         <property name="password"        value="${db.password}" />
+
+        <!-- 커넥션 풀 설정 (티켓팅 부하 대비) -->
+        <property name="initialSize"     value="5" />
+        <property name="maxActive"       value="50" />
+        <property name="maxIdle"         value="20" />
+        <property name="minIdle"         value="5" />
+        <property name="maxWait"         value="10000" />
+
+        <!-- 커넥션 유효성 검증 -->
+        <property name="validationQuery" value="SELECT 1 FROM DUAL" />
+        <property name="testOnBorrow"    value="true" />
+        <property name="testWhileIdle"   value="true" />
+        <property name="timeBetweenEvictionRunsMillis" value="30000" />
     </bean>
 
-    <bean id="dataSource" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
-        <constructor-arg ref="dataSourceSpied" />
-        <property name="logFormatter">
-            <bean class="net.sf.log4jdbc.tools.Log4JdbcCustomFormatter">
-                <property name="loggingType" value="MULTI_LINE" />
-                <property name="sqlPrefix" value="SQL         :  "/>
-            </bean>
-        </property>
-    </bean>
 </beans>
