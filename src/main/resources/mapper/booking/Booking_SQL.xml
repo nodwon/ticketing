@@ -208,5 +208,69 @@
             SELECT schedule_id FROM bookings WHERE booking_id = #{bookingId}
         )
     </update>
+<!-- ============================================================
+         [좌석 해제 - 예매 생성 실패 시 정리용]
+         
+         배경:
+           정희영 /seat/hold.do 호출로 이미 HELD된 좌석을 들고
+           본인 /bookingCreate.do 로 들어왔는데, 예매 생성이 검증 단계
+           (4석 초과 등)에서 실패하면 본인 트랜잭션은 롤백되지만
+           정희영 측에서 HELD 처리한 좌석은 풀리지 않는다.
+           → 매크로가 5+석 요청을 반복하면 좌석이 영구 잠기는 어뷰징 가능.
+         
+         해결:
+           예매 생성 catch 블록에서 이 쿼리로 HELD 좌석을 AVAILABLE로 복원.
+         
+         보호:
+           - HELD 상태인 좌석만 복원 (RESERVED는 건드리지 않음 → 결제완료 보호)
+           - schedule_id 까지 확인하여 잘못된 schedule의 좌석은 건드리지 않음
+         ============================================================ -->
 
+    <!-- 16) 좌석 강제 해제 (HELD → AVAILABLE, seat_id 목록 기준) -->
+    <update id="releaseHeldSeats" parameterType="hashmap">
+        UPDATE seats
+        SET status = 'AVAILABLE'
+        WHERE seat_id IN
+        <foreach collection="seatIds" item="seatId" open="(" separator="," close=")">
+            #{seatId}
+        </foreach>
+        AND schedule_id = #{scheduleId}
+        AND status = 'HELD'
+    </update>
+
+    <!-- 17) 잔여 좌석수 증가 (특정 수만큼, schedule_id 기준)
+            createBooking의 decreaseAvailableSeats와 짝을 이루는 역연산 -->
+    <update id="increaseAvailableSeatsByCount" parameterType="hashmap">
+        UPDATE concert_schedules
+        SET available_seats = available_seats + #{seatCount}
+        WHERE schedule_id = #{scheduleId}
+    </update>
+    
+    <!-- 18) [2026.05.27] 잔여 좌석 재계산 (seats 실제 상태 기반)
+            booking_id로 해당 schedule_id 찾고, 그 schedule의 AVAILABLE 카운트로 강제 동기화 -->
+    <update id="recalcAvailableSeats" parameterType="hashmap">
+        UPDATE concert_schedules cs
+        SET available_seats = (
+            SELECT COUNT(*) FROM seats s
+            WHERE s.schedule_id = cs.schedule_id
+              AND s.status = 'AVAILABLE'
+        )
+        WHERE cs.schedule_id = (
+            SELECT schedule_id FROM bookings WHERE booking_id = #{bookingId}
+        )
+    </update>
+    
+    <!-- 19) [2026.05.27] 잔여 좌석 재계산 (schedule_id 직접 지정 버전)
+            createBooking, releaseHeldSeats 등 bookingId가 없거나 아직 안 만들어진
+            시점에서 사용. 18번(recalcAvailableSeats)의 schedule_id 직접 버전. -->
+    <update id="recalcAvailableSeatsBySchedule" parameterType="hashmap">
+        UPDATE concert_schedules cs
+        SET available_seats = (
+            SELECT COUNT(*) FROM seats s
+            WHERE s.schedule_id = cs.schedule_id
+              AND s.status = 'AVAILABLE'
+        )
+        WHERE cs.schedule_id = #{scheduleId}
+    </update>
+    
 </mapper>

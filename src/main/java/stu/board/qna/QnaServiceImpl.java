@@ -95,5 +95,10 @@ public class QnaServiceImpl implements QnaService{
 	public Map<String, Object> selectQnaPassword(Map<String, Object> map) throws Exception {
 		return qnaDAO.selectQnaPassword(map);
 	}
-	
+
+	@Override
+	public List<Map<String, Object>> searchQnaList(Map<String, Object> map) throws Exception {
+	    return qnaDAO.searchQnaList(map);
+	}
+
 }

@@ -9,10 +9,25 @@ import javax.annotation.Resource;
 
 import org.apache.log4j.Logger;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import stu.common.common.CommandMap;
 
+/**
+ * 예매(Booking) 도메인 Service 구현체
+ * 
+ * [2026.05.27 정책 변경 - develop]
+ *   좌석 클릭은 로컬 저장만 하고 서버에 hold 신호를 보내지 않음.
+ *   createBooking 시점에 HELD 인 좌석 = 다른 사용자가 결제창에 진입해 잡아둔 것.
+ *   → AVAILABLE 만 허용, HELD/RESERVED 는 거부.
+ *
+ * [2026.05.27 available_seats 정합성 개편 - feature/sungwoo]
+ *   기존: +N / -N 누적 방식 → 부정합 다발
+ *   변경: seats 테이블 실제 상태 SELECT COUNT 재계산 방식
+ *         → 누가 뭘 했든 항상 정확한 잔여좌석 값 보장
+ *   적용: createBooking, confirmBooking, cancelBooking, releaseHeldSeats
+ */
 @Service("bookingService")
 public class BookingServiceImpl implements BookingService {
 
@@ -55,11 +70,15 @@ public class BookingServiceImpl implements BookingService {
     // ====================================================
     // 예매 생성 (트랜잭션) - PENDING 상태로 생성
     // 
-    // [통합 메모]
-    // 정희영 좌석 모듈 통합 후, 좌석은 두 가지 진입점에서 들어옴:
-    //   A. 본인 임시 화면: AVAILABLE 상태 그대로 진입
-    //   B. 정희영 모듈: /seat/hold.do 호출로 이미 HELD 상태로 진입
-    // → 두 경우 모두 허용. RESERVED만 거부.
+    // [2026-05-27 정책 변경]
+    //   좌석 클릭은 로컬 저장만, 서버에 hold 신호 X.
+    //   따라서 createBooking 진입 시 모든 좌석이 AVAILABLE 이어야 정상.
+    //   HELD = 다른 사용자가 먼저 결제창 진입 → 거부
+    //   RESERVED = 기결제 좌석 → 거부
+    //
+    // [2026-05-27 available_seats 재계산 도입]
+    //   기존 -N 차감 방식 대신 seats 실제 상태로 재계산.
+    //   → +/- 누적 부정합 버그 방지.
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -163,17 +182,17 @@ public class BookingServiceImpl implements BookingService {
         }
         log.info("좌석 HELD 처리 완료 - " + seatsAffected + "석");
 
-        // [7] concert_schedules.available_seats 차감 (전체 좌석 수)
-        Map<String, Object> updateScheduleParam = new HashMap<String, Object>();
-        updateScheduleParam.put("scheduleId", scheduleId);
-        updateScheduleParam.put("seatCount", seatIds.size());
-        int schedulesAffected = bookingDao.decreaseAvailableSeats(updateScheduleParam);
-
-        if (schedulesAffected == 0) {
-            log.error("잔여 좌석 차감 실패 - scheduleId=" + scheduleId);
-            throw new Exception("잔여 좌석이 부족합니다");
-        }
-        log.info("잔여 좌석 차감 - " + seatIds.size() + "석");
+        // [7] available_seats 재계산 (seats 실제 상태 기반)
+        //     [기존 -N 차감 방식 제거 이유]
+        //       - 정희영/king 모듈이 available_seats를 어떻게 다루는지에 따라
+        //         부정합 위험. 누적 +/- 방식은 동기화 안전성이 떨어짐.
+        //     [변경 방식]
+        //       - seats 테이블에서 AVAILABLE 카운트 직접 SELECT
+        //       - 누가 뭘 했든 무관하게 항상 정확
+        Map<String, Object> recalcParam = new HashMap<String, Object>();
+        recalcParam.put("scheduleId", scheduleId);
+        bookingDao.recalcAvailableSeatsBySchedule(recalcParam);
+        log.info("잔여 좌석 재계산 완료 (seats 실제 상태 기반) - scheduleId=" + scheduleId);
 
         log.info("예매 생성 완료 (PENDING 상태) - bookingId=" + bookingId);
         return bookingId;
@@ -182,6 +201,10 @@ public class BookingServiceImpl implements BookingService {
 
     // ====================================================
     // 예매 확정 (트랜잭션) - PENDING → CONFIRMED
+    //
+    // [2026.05.27 추가] available_seats 재계산 (안전망)
+    //   - HELD→RESERVED는 둘 다 not-AVAILABLE이라 이론적으론 변화 없음
+    //   - 하지만 이전 단계에서 부정합이 있었다면 여기서 교정 가능
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -208,13 +231,20 @@ public class BookingServiceImpl implements BookingService {
         int seatsConfirmed = bookingDao.updateSeatStatusHeldToReserved(param);
         log.info("좌석 확정 완료 - " + seatsConfirmed + "석");
 
+        // [3] available_seats 재계산 (안전망)
+        bookingDao.recalcAvailableSeats(param);
+        log.info("잔여 좌석 재계산 완료 (seats 실제 상태 기반)");
+
         log.info("예매 확정 완료 - bookingId=" + bookingId);
     }
 
 
     // ====================================================
     // 예매 취소 (트랜잭션) - PENDING 또는 CONFIRMED → CANCELLED
-    // cancelled_at, cancel_reason 제거됨 (명세서 표준 적용)
+    //
+    // [2026.05.27 수정] available_seats 누적 부정합 버그 수정
+    //   - 기존: booking_items 개수만큼 무조건 +N
+    //   - 변경: 좌석 풀기 후 seats 실제 상태로 재계산
     // ====================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -229,18 +259,13 @@ public class BookingServiceImpl implements BookingService {
 
         log.info("예매 취소 시도 - bookingId=" + bookingId);
 
-        // [1] 잔여 좌석 복구
-        Map<String, Object> increaseParam = new HashMap<String, Object>();
-        increaseParam.put("bookingId", bookingId);
-        bookingDao.increaseAvailableSeats(increaseParam);
-
-        // [2] 좌석 HELD/RESERVED → AVAILABLE
+        // [1] 좌석 HELD/RESERVED → AVAILABLE (먼저 풀어준다)
         Map<String, Object> restoreParam = new HashMap<String, Object>();
         restoreParam.put("bookingId", bookingId);
         int restored = bookingDao.restoreSeatStatus(restoreParam);
         log.info("좌석 복구 완료 - " + restored + "석");
 
-        // [3] 예매 status → CANCELLED
+        // [2] 예매 status → CANCELLED
         Map<String, Object> cancelParam = new HashMap<String, Object>();
         cancelParam.put("bookingId", bookingId);
         int cancelled = bookingDao.cancelBooking(cancelParam);
@@ -250,7 +275,70 @@ public class BookingServiceImpl implements BookingService {
             throw new Exception("취소할 수 없는 예매입니다 (이미 취소되었거나 존재하지 않음)");
         }
 
+        // [3] 잔여 좌석 재계산 (seats 실제 상태 기반)
+        Map<String, Object> recalcParam = new HashMap<String, Object>();
+        recalcParam.put("bookingId", bookingId);
+        bookingDao.recalcAvailableSeats(recalcParam);
+        log.info("잔여 좌석 재계산 완료 (seats 실제 상태 기반)");
+
         log.info("예매 취소 완료 - bookingId=" + bookingId);
+    }
+
+
+    // ====================================================
+    // 좌석 강제 해제 (HELD → AVAILABLE) - 예매 생성 실패 시
+    // 
+    // [중요] REQUIRES_NEW 트랜잭션
+    //   호출 컨텍스트: createBooking이 throw 한 후 catch 블록에서 호출됨.
+    //   같은 트랜잭션에 묶이면 본 UPDATE도 함께 롤백되어 의미가 없다.
+    //   → 별도 트랜잭션으로 분리해서 무조건 커밋되도록 한다.
+    //
+    // [2026.05.27 수정] available_seats 재계산 추가
+    //   - SELECT COUNT 방식이면 누가 뭘 했든 정확하므로 본인이 재계산 책임짐
+    // ====================================================
+    @Override
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
+    public void releaseHeldSeats(CommandMap commandMap) throws Exception {
+
+        Map<String, Object> params = commandMap.getMap();
+        Long scheduleId = parseLong(params.get("scheduleId"));
+        String seatIdsStr = (String) params.get("seatIds");
+
+        if (scheduleId == null || seatIdsStr == null || seatIdsStr.isEmpty()) {
+            log.warn("releaseHeldSeats - 파라미터 누락. scheduleId=" + scheduleId
+                    + ", seatIds=" + seatIdsStr);
+            return;
+        }
+
+        List<Long> seatIds = parseSeatIds(seatIdsStr);
+        if (seatIds.isEmpty()) {
+            log.warn("releaseHeldSeats - 유효한 seatId 없음");
+            return;
+        }
+
+        log.info("좌석 강제 해제 시도 - scheduleId=" + scheduleId 
+                + ", seatIds=" + seatIds);
+
+        // [1] 좌석 HELD → AVAILABLE
+        Map<String, Object> releaseParam = new HashMap<String, Object>();
+        releaseParam.put("seatIds", seatIds);
+        releaseParam.put("scheduleId", scheduleId);
+        int released = bookingDao.releaseHeldSeats(releaseParam);
+
+        // [2] available_seats 재계산 (seats 실제 상태 기반)
+        Map<String, Object> recalcParam = new HashMap<String, Object>();
+        recalcParam.put("scheduleId", scheduleId);
+        bookingDao.recalcAvailableSeatsBySchedule(recalcParam);
+        log.info("잔여 좌석 재계산 완료 (seats 실제 상태 기반)");
+
+        log.info("좌석 강제 해제 완료 - 해제 좌석 수=" + released 
+                + " (요청 " + seatIds.size() + "개 중)");
+
+        if (released < seatIds.size()) {
+            log.warn("[SEAT_RELEASE_PARTIAL] 일부 좌석만 해제됨 - 요청=" 
+                    + seatIds.size() + ", 해제=" + released
+                    + " (RESERVED 상태이거나 다른 schedule의 좌석일 수 있음)");
+        }
     }
 
 
