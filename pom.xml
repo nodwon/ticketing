@@ -20,7 +20,7 @@
         <!-- 보안 로그 시스템 -->
         <slf4j.version>1.7.36</slf4j.version>
         <logback.version>1.2.13</logback.version>
-        <logstash.encoder.version>7.4</logstash.encoder.version>
+        <logstash.encoder.version>6.6</logstash.encoder.version>
         <jackson.version>2.15.4</jackson.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -8,6 +8,12 @@
     1. 보안 로그(JSON) 파일 출력 → Splunk Forwarder
     2. MyBatis SQL 쿼리 로깅 (log4jdbc 대체)
     3. 애플리케이션 일반 로그 콘솔 출력
+
+  파일명 규칙 (일별 분리):
+    - 오늘:   log_auth.json          (현재 쓰는 파일)
+    - 어제:   log_auth.2026-05-26.json.gz
+    - 그제:   log_auth.2026-05-25.json.gz
+    - ...    (자정에 자동 롤링 + 압축)
   ============================================================
 -->
 <configuration scan="true" scanPeriod="60 seconds">
@@ -29,13 +35,14 @@
   </appender>
 
   <!-- ============================================================
-       2) 일반 애플리케이션 로그 파일
+       2) 일반 애플리케이션 로그 파일 (일별 롤링)
+          application.log                    ← 오늘
+          application.2026-05-26.log.gz      ← 어제 (압축)
        ============================================================ -->
   <appender name="FILE_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/application.log</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/application-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-      <maxFileSize>100MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/application.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
       <maxHistory>14</maxHistory>
       <totalSizeCap>5GB</totalSizeCap>
     </rollingPolicy>
@@ -46,13 +53,14 @@
   </appender>
 
   <!-- ============================================================
-       3) SQL 로그 파일 (MyBatis 쿼리 추적)
+       3) SQL 로그 파일 (MyBatis 쿼리 추적, 일별 롤링)
+          sql.log
+          sql.2026-05-26.log.gz
        ============================================================ -->
   <appender name="FILE_SQL" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/sql.log</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/sql-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-      <maxFileSize>200MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/sql.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
       <maxHistory>7</maxHistory>
       <totalSizeCap>5GB</totalSizeCap>
     </rollingPolicy>
@@ -63,13 +71,14 @@
   </appender>
 
   <!-- ============================================================
-       4) [보안 로그] log_auth - 로그인 이벤트
+       4) [보안 로그] log_auth - 로그인 이벤트 (일별 롤링)
+          log_auth.json
+          log_auth.2026-05-26.json.gz
        ============================================================ -->
   <appender name="FILE_AUTH" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_auth.json</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_auth-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-      <maxFileSize>500MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_auth.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
       <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
@@ -90,13 +99,12 @@
   </appender>
 
   <!-- ============================================================
-       5) [보안 로그] log_seat - 좌석 선택
+       5) [보안 로그] log_seat - 좌석 선택 (일별 롤링)
        ============================================================ -->
   <appender name="FILE_SEAT" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_seat.json</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_seat-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-      <maxFileSize>500MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_seat.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
       <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
@@ -117,13 +125,13 @@
   </appender>
 
   <!-- ============================================================
-       6) [보안 로그] log_payment - 결제 (TAMPER 탐지)
+       6) [보안 로그] log_payment - 결제 (TAMPER 탐지, 일별 롤링)
+          결제 데이터는 컴플라이언스를 위해 90일 보관
        ============================================================ -->
   <appender name="FILE_PAYMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_payment.json</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_payment-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-      <maxFileSize>500MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_payment.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
       <maxHistory>90</maxHistory>
       <totalSizeCap>20GB</totalSizeCap>
     </rollingPolicy>
@@ -144,15 +152,15 @@
   </appender>
 
   <!-- ============================================================
-       7) [보안 로그] log_admin_access - 관리자 접근
+       7) [보안 로그] log_admin_access - 관리자 접근 (일별 롤링)
+          관리자 활동은 감사를 위해 180일 보관
        ============================================================ -->
   <appender name="FILE_ADMIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_admin_access.json</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_admin_access-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-      <maxFileSize>500MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_admin_access.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
       <maxHistory>180</maxHistory>
-      <totalSizeCap>20GB</totalSizeCap>
+      <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
       <providers>
@@ -171,13 +179,12 @@
   </appender>
 
   <!-- ============================================================
-       8) [보안 로그] log_board - 게시판
+       8) [보안 로그] log_board - 게시판 이벤트 (일별 롤링)
        ============================================================ -->
   <appender name="FILE_BOARD" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_board.json</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_board-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-      <maxFileSize>500MB</maxFileSize>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_board.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
       <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
@@ -198,15 +205,14 @@
   </appender>
 
   <!-- ============================================================
-       9) [보안 로그] log_behavior_feature - MLTK
+       9) [보안 로그] log_behavior_feature - MLTK 행동 (일별 롤링)
        ============================================================ -->
   <appender name="FILE_BEHAVIOR" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_behavior_feature.json</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_behavior_feature-%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-      <maxFileSize>1GB</maxFileSize>
-      <maxHistory>60</maxHistory>
-      <totalSizeCap>30GB</totalSizeCap>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/log_behavior_feature.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
       <providers>
@@ -225,48 +231,50 @@
   </appender>
 
   <!-- ============================================================
-       비동기 Wrapper
+       비동기 래퍼 (성능 보호)
+         - 보안 로그가 응답 시간에 영향 주지 않도록 큐 처리
+         - 큐가 가득 차도 INFO 메시지 버리지 않음 (discardingThreshold=0)
        ============================================================ -->
   <appender name="ASYNC_AUTH" class="ch.qos.logback.classic.AsyncAppender">
-    <queueSize>10000</queueSize>
+    <appender-ref ref="FILE_AUTH"/>
+    <queueSize>5000</queueSize>
     <discardingThreshold>0</discardingThreshold>
     <neverBlock>false</neverBlock>
-    <appender-ref ref="FILE_AUTH"/>
   </appender>
 
   <appender name="ASYNC_SEAT" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="FILE_SEAT"/>
     <queueSize>20000</queueSize>
     <discardingThreshold>0</discardingThreshold>
     <neverBlock>false</neverBlock>
-    <appender-ref ref="FILE_SEAT"/>
   </appender>
 
   <appender name="ASYNC_PAYMENT" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="FILE_PAYMENT"/>
     <queueSize>10000</queueSize>
     <discardingThreshold>0</discardingThreshold>
     <neverBlock>false</neverBlock>
-    <appender-ref ref="FILE_PAYMENT"/>
   </appender>
 
   <appender name="ASYNC_ADMIN" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="FILE_ADMIN"/>
     <queueSize>5000</queueSize>
     <discardingThreshold>0</discardingThreshold>
     <neverBlock>false</neverBlock>
-    <appender-ref ref="FILE_ADMIN"/>
   </appender>
 
   <appender name="ASYNC_BOARD" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="FILE_BOARD"/>
     <queueSize>5000</queueSize>
     <discardingThreshold>0</discardingThreshold>
     <neverBlock>false</neverBlock>
-    <appender-ref ref="FILE_BOARD"/>
   </appender>
 
   <appender name="ASYNC_BEHAVIOR" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="FILE_BEHAVIOR"/>
     <queueSize>30000</queueSize>
     <discardingThreshold>0</discardingThreshold>
     <neverBlock>false</neverBlock>
-    <appender-ref ref="FILE_BEHAVIOR"/>
   </appender>
 
   <!-- ============================================================
@@ -292,31 +300,29 @@
   </logger>
 
   <!-- ============================================================
-       MyBatis SQL 로깅 (log4jdbc 대체)
-         - 개발 환경: DEBUG (전체 SQL + 파라미터)
-         - 운영 환경: WARN 으로 조정 권장
+       애플리케이션 로거 (stu.* 패키지)
        ============================================================ -->
   <logger name="stu" level="DEBUG" additivity="false">
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE_APP"/>
   </logger>
 
-  <!-- MyBatis 핵심 로거 -->
+  <!-- ============================================================
+       MyBatis SQL 로깅 (log4jdbc 대체)
+         - 개발 환경: DEBUG (전체 SQL + 파라미터)
+         - 운영 환경: WARN 으로 조정 권장
+       ============================================================ -->
   <logger name="org.mybatis"                       level="DEBUG" additivity="false">
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE_SQL"/>
   </logger>
-
-  <!-- 실제 SQL 쿼리 (MyBatis 가 실행하는 PreparedStatement) -->
   <logger name="java.sql.Connection"               level="WARN"  additivity="false">
     <appender-ref ref="FILE_SQL"/>
   </logger>
   <logger name="java.sql.PreparedStatement"        level="DEBUG" additivity="false">
-    <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE_SQL"/>
   </logger>
   <logger name="java.sql.Statement"                level="DEBUG" additivity="false">
-    <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE_SQL"/>
   </logger>
   <logger name="java.sql.ResultSet"                level="WARN"  additivity="false">
@@ -324,7 +330,7 @@
   </logger>
 
   <!-- ============================================================
-       Spring 프레임워크 로거 (잡음 줄이기)
+       프레임워크 로거 (시끄러운 로그 억제)
        ============================================================ -->
   <logger name="org.springframework"      level="INFO"/>
   <logger name="org.springframework.web"  level="INFO"/>
@@ -332,7 +338,7 @@
   <logger name="org.apache.commons"       level="WARN"/>
 
   <!-- ============================================================
-       Root
+       루트 로거 (그 외 모든 로그)
        ============================================================ -->
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
