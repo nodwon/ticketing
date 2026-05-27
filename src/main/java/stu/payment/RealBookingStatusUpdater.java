@@ -54,6 +54,9 @@ public class RealBookingStatusUpdater implements BookingStatusUpdater {
  
     @Resource(name = "bookingService")
     private BookingService bookingService;
+
+    @Resource(name = "pendingBookingTracker")
+    private stu.booking.PendingBookingTracker pendingTracker;
  
     @Override
     public void confirm(Long bookingId, String transactionId) {
@@ -69,6 +72,8 @@ public class RealBookingStatusUpdater implements BookingStatusUpdater {
  
         try {
             bookingService.confirmBooking(cm);
+            // 결제 확정 → 더 이상 PENDING 추적 필요 없음
+            pendingTracker.confirmed(bookingId);
  
             LOG.event("booking.confirm.delegated",
                     kv("booking_id",     bookingId),
@@ -98,6 +103,8 @@ public class RealBookingStatusUpdater implements BookingStatusUpdater {
  
         try {
             bookingService.cancelBooking(cm);
+            // 결제 실패로 cancel → 추적 해제 (중복 cancel 방지)
+            pendingTracker.confirmed(bookingId);
  
             LOG.event("booking.cancel.delegated",
                     kv("booking_id",     bookingId),

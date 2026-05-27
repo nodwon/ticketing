@@ -10,6 +10,11 @@ target/
 **/jdbc.properties
 src/main/resources/config/jdbc.properties
 
+**/log_payment.sql
+src/main/resources/db/seed/log_payment.sql
+**/LogPaymentVO.java
+src/main/java/stu/payment/LogPaymentVO.java
+
 # IDE / OS / 로그
 .metadata/
 *.swp
