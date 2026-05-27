@@ -32,6 +32,10 @@ import stu.common.common.CommandMap;
  *     - /bookingSeat.do (임시 좌석 선택 화면) 제거됨
  *       → 좌석 모듈 /seat/select.do 로 일원화
  *     - /bookingCreate.do 성공 시 /payment/form.do?bookingId=N 으로 redirect
+ *
+ *   [2026.05.27]
+ *     - bookingCreate 실패 시 HELD 좌석 강제 해제 로직 추가
+ *       → 매크로가 5+석 요청으로 좌석을 영구 잠그는 어뷰징 차단
  */
 @Controller
 public class BookingController {
@@ -125,6 +129,9 @@ public class BookingController {
     //    
     //    [2026.05.26 결제 모듈(king) 통합 완료]
     //      생성 직후 /payment/form.do?bookingId=N 으로 redirect
+    //    
+    //    [2026.05.27 좌석 어뷰징 방어 추가]
+    //      검증 실패(4석 초과 등) 시 정희영 측에서 HELD된 좌석 강제 해제
     // ====================================================
     @RequestMapping(value = "/bookingCreate.do", method = RequestMethod.POST)
     public ModelAndView bookingCreate(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
@@ -158,9 +165,47 @@ public class BookingController {
         } catch (Exception e) {
             log.error("예매 생성 실패: " + e.getMessage(), e);
 
+            // ====================================================
+            // [중요] 좌석 어뷰징 방어 - HELD 좌석 강제 해제
+            //   정희영 /seat/hold.do 로 HELD된 좌석은 본인 트랜잭션 롤백으로도
+            //   풀리지 않는다. 매크로가 좌석을 영구 잠그는 어뷰징 시나리오 방어용.
+            // ====================================================
+            String scheduleIdParam = request.getParameter("scheduleId");
+            String seatIdsParam    = request.getParameter("seatIds");
+
+            if (scheduleIdParam != null && seatIdsParam != null) {
+                try {
+                    CommandMap releaseMap = new CommandMap();
+                    releaseMap.put("scheduleId", scheduleIdParam);
+                    releaseMap.put("seatIds", seatIdsParam);
+                    bookingService.releaseHeldSeats(releaseMap);
+                    log.info("예매 실패 → 좌석 강제 해제 완료. seatIds=" + seatIdsParam);
+                } catch (Exception releaseEx) {
+                    // 좌석 해제 자체 실패는 사용자에게 노출하지 않음.
+                    // 운영 입장에서는 수동 처리 대상으로 로그에 남김.
+                    log.error("[SEAT_RELEASE_FAIL] 좌석 강제 해제 실패 (수동 확인 필요) - "
+                            + "seatIds=" + seatIdsParam + ", err=" + releaseEx.getMessage(),
+                            releaseEx);
+                }
+            }
+
+            // ====================================================
+            // [보안 관제] 좌석 수 제한 위반은 매크로 시그널
+            //   - 정상 사용자는 UI에서 5+석 선택 자체가 불가
+            //   - 5+석이 서버에 도달했다 = JS 우회 또는 매크로
+            //   → log_api 적재 시 Splunk burst 탐지 시그널로 활용
+            // ====================================================
+            if (e.getMessage() != null && e.getMessage().contains("최대")) {
+                log.warn("[SEAT_LIMIT_VIOLATION] 좌석 수 제한 위반 시도 - "
+                        + "memberId=" + sessionMemberNo
+                        + ", seatIds=" + seatIdsParam
+                        + ", ip=" + request.getRemoteAddr()
+                        + ", ua=" + request.getHeader("User-Agent"));
+            }
+
             ModelAndView mv = new ModelAndView("booking/bookingError");
             mv.addObject("errorMessage", e.getMessage());
-            mv.addObject("scheduleId", request.getParameter("scheduleId"));
+            mv.addObject("scheduleId", scheduleIdParam);
             return mv;
         }
     }
