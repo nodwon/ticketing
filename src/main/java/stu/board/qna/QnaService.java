@@ -21,4 +21,6 @@ public interface QnaService {
 	
 	Map<String, Object> selectFileInfo(Map<String, Object> map) throws Exception;
 
+	List<Map<String, Object>> searchQnaList(Map<String, Object> map) throws Exception;
+
 }

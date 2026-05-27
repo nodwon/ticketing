@@ -326,18 +326,23 @@ CREATE TABLE qna_posts (
     member_id       NUMBER(19),
     title           VARCHAR2(300)                          NOT NULL,
     content         CLOB                                   NOT NULL,
+    is_secret       NUMBER(1)       DEFAULT 0              NOT NULL,
     created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP   NOT NULL,
     CONSTRAINT pk_qna_posts         PRIMARY KEY (qna_id),
     CONSTRAINT fk_qna_member        FOREIGN KEY (member_id)
         REFERENCES members (member_id)
 );
 
-COMMENT ON TABLE  qna_posts            IS 'Q&A 게시글';
-COMMENT ON COLUMN qna_posts.qna_id     IS '문의번호';
-COMMENT ON COLUMN qna_posts.member_id  IS '회원번호 → members (비회원 NULL)';
-COMMENT ON COLUMN qna_posts.title      IS '제목';
-COMMENT ON COLUMN qna_posts.content    IS '내용';
-COMMENT ON COLUMN qna_posts.created_at IS '등록일시';
+COMMENT ON TABLE  qna_posts               IS 'Q&A 게시글';
+COMMENT ON COLUMN qna_posts.qna_id        IS '문의번호';
+COMMENT ON COLUMN qna_posts.member_id     IS '회원번호 → members (비회원 NULL)';
+COMMENT ON COLUMN qna_posts.title         IS '제목';
+COMMENT ON COLUMN qna_posts.content       IS '내용';
+COMMENT ON COLUMN qna_posts.is_secret     IS '비밀글 여부 (0=공개, 1=관리자만 열람)';
+COMMENT ON COLUMN qna_posts.created_at    IS '등록일시';
+
+-- ※ 기존 DB에 컬럼 추가 시 아래 ALTER TABLE 실행 필요
+-- ALTER TABLE QNA_POSTS ADD IS_SECRET NUMBER(1) DEFAULT 0 NOT NULL;
 
 
 -- =====================================================================

@@ -1,5 +1,24 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
 	pageEncoding="UTF-8"%>
+<%
+	// 비밀글 접근 제어 — HTML 출력 전에 처리해야 redirect가 동작함
+	Object _mapAttr = request.getAttribute("map");
+	if (_mapAttr instanceof java.util.Map) {
+		java.util.Map _dm = (java.util.Map) _mapAttr;
+		Object _isSecret = _dm.get("IS_SECRET");
+		int _secretVal = 0;
+		if (_isSecret != null) {
+			try { _secretVal = Integer.parseInt(String.valueOf(_isSecret).split("\\.")[0]); } catch (Exception _e) {}
+		}
+		if (_secretVal == 1) {
+			String _adminName = (String) session.getAttribute("SESSION_NAME");
+			if (!"관리자".equals(_adminName)) {
+				response.sendRedirect(request.getContextPath() + "/qna/openQnaList.do?accessDenied=1");
+				return;
+			}
+		}
+	}
+%>
 <!DOCTYPE html>
 <html lang="ko">
 <head>

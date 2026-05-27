@@ -66,7 +66,16 @@ li {
    <br />
    <h2 align="center">Q&A</h2>
    <br />
-   <br />
+
+   <div style="max-width:1000px; margin:0 auto 12px; display:flex; justify-content:flex-end; align-items:center; padding:0 20px;">
+      <input type="text" id="searchKeyword" placeholder="제목으로 검색"
+             style="padding:7px 12px; border:1px solid #ccc; border-radius:3px 0 0 3px; width:220px; font-size:13px; outline:none;"
+             onkeydown="if(event.keyCode===13) fn_searchQnaList();">
+      <button type="button" id="btnSearch"
+              style="padding:7px 16px; background:#2b2b2b; color:#fff; border:none; border-radius:0 3px 3px 0; font-size:13px; cursor:pointer;">검색</button>
+      <button type="button" id="btnReset"
+              style="padding:7px 12px; background:#aaa; color:#fff; border:none; border-radius:3px; margin-left:6px; font-size:13px; cursor:pointer;">전체</button>
+   </div>
 
    <table class="board_list">
       <colgroup>
@@ -99,7 +108,20 @@ li {
    <form id="commonForm" name="commonForm"></form>
    <script type="text/javascript">
       $(document).ready(function() {
+         // 비밀글 접근 차단 후 리다이렉트된 경우 알림
+         var urlParams = new URLSearchParams(window.location.search);
+         if (urlParams.get('accessDenied') === '1') {
+            alert("비밀글입니다. 관리자만 열람 가능합니다.");
+         }
+
          fn_selectQnaList(1);
+
+         $("#btnSearch").on("click", function() { fn_searchQnaList(); });
+         $("#btnReset").on("click", function() {
+            $("#searchKeyword").val('');
+            fn_selectQnaList(1);
+         });
+
          $("#write").on("click", function(e) { //글쓰기 버튼
             e.preventDefault();
             var sessionNo = '${sessionScope.SESSION_NO}';
@@ -111,34 +133,6 @@ li {
             fn_openQnaWrite();
          });
          
-         /* 🌟 [수정] 이벤트 위임 방식으로 변경: Ajax로 동적 생성되는 요소에도 클릭 이벤트가 정상 적용되도록 처리 */
-         $(document).on("click", ".myButton", function(e) { // 비밀글 확인 버튼
-            e.preventDefault();
-            
-            var $this = $(this);
-            var rnumClass = $this.attr('class').split(' ')[1]; // 예: "rnum3"
-            var rnumNum = rnumClass.replace('rnum', '');
-            var qnaPass = $('#qnaPasswd' + rnumNum).val();
-            var qnaNo = $('input.qnaNo.row' + rnumNum).val();
-            
-            var data = { QNA_PASSWD : qnaPass, QNA_NO : qnaNo };
-            
-            $.ajax({
-               url : "<c:url value='/qna/chkPassword.do'/>",
-               type : 'POST',
-               data : data,
-               success : function(res) {
-                  if (res == 1) {
-                     fn_openQnaDetail(qnaNo, rnumNum);
-                  } else {
-                     alert("PASSWORD ERROR!");
-                  }
-               },
-               error : function() {
-                  alert("비밀번호 확인 중 오류가 발생했습니다.");
-               }
-            });
-         });
       });
 
       function fn_openQnaWrite() {
@@ -188,42 +182,71 @@ li {
             var str = '';
             
             $.each(data.list, function(key, value){
-               str += '<tr class="list' + value.RNUM + '">'  + 
-                        "<td id='rnum" + value.RNUM + "' >" + value.RNUM + "</td>" + 
+               str += '<tr class="list' + value.RNUM + '">'  +
+                        "<td id='rnum" + value.RNUM + "' >" + value.RNUM + "</td>" +
                         "<td class='title'>" +
                            "<a href='#this' class='chk"+ value.RNUM +"' name='title'>" + value.QNA_TITLE + "</a>" +
-                           "<input type='hidden' name='title' class='qnaNo row" + value.RNUM + "' value='" + value.QNA_NO + "'>" + 
+                           "<input type='hidden' name='title' class='qnaNo row" + value.RNUM + "' value='" + value.QNA_NO + "'>" +
                         "</td>" +
-                        "<td>" + value.QNA_NAME + "</td>" + 
-                        "<td>" + value.QNA_DATE + "</td> </tr><tr>";
-               str += '<td style="display:none;" id="chk' + value.RNUM + '" class="list' + value.RNUM + '" colspan="4">Password : ';
-               str += '<input type="password" id="qnaPasswd' + value.RNUM + '" value="">';
-               str += '<a href="#" class="myButton rnum' + value.RNUM + '">확인</a>';
-               str += '</td></tr>';
+                        "<td>" + value.QNA_NAME + "</td>" +
+                        "<td>" + value.QNA_DATE + "</td></tr>";
             });
             body.append(str);
-            
-            /* 🌟 [수정] 제목 클릭: 비밀번호 영역 토글 후 즉시 상세조회로 진입 */
+
             $("a[name='title']").off("click").on("click", function(e){
                e.preventDefault();
-               
-               /* 같은 행(tr)의 hidden input에서 QNA_NO 추출 */
                var $a = $(this);
                var qnaNo = $a.siblings('input.qnaNo').val();
-               var chkClass = $a.attr('class'); /* 예: "chk3" */
-               var rnumNum = chkClass.replace('chk', '');
-               
-               /* 비밀번호 입력 영역 토글 */
-               var $pwTd = $("#" + chkClass);
-               if ($pwTd.is(":visible")) {
-                  $pwTd.hide();
-               } else {
-                  $pwTd.show();
-                  /* 🌟 [신규] 토글과 동시에 바로 상세조회 진입 (비밀번호 미입력 케이스 처리) */
-                  fn_openQnaDetail(qnaNo, rnumNum);
-               }
+               var rnumNum = $a.attr('class').replace('chk', '');
+               fn_openQnaDetail(qnaNo, rnumNum);
             });
          }
+      }
+
+      function fn_searchQnaList() {
+         var keyword = $("#searchKeyword").val();
+         if (!keyword || keyword.trim() === '') {
+            fn_selectQnaList(1);
+            return;
+         }
+         var comAjax = new ComAjax();
+         comAjax.setUrl("<c:url value='/qna/searchQnaList.do' />");
+         comAjax.setCallback("fn_searchQnaListCallback");
+         comAjax.addParam("keyword", keyword);
+         comAjax.ajax();
+      }
+
+      function fn_searchQnaListCallback(data) {
+         var list = data.list;
+         var body = $("table>tbody");
+         body.empty();
+         $("#PAGE_NAVI").empty();
+
+         if (!list || list.length === 0) {
+            body.append("<tr><td colspan='4'>검색 결과가 없습니다.</td></tr>");
+            return;
+         }
+
+         var str = '';
+         $.each(list, function(idx, value) {
+            str += '<tr>' +
+                     "<td>" + (idx + 1) + "</td>" +
+                     "<td class='title'>" +
+                        "<a href='#this' class='chk" + (idx+1) + "' name='title'>" + value.QNA_TITLE + "</a>" +
+                        "<input type='hidden' name='title' class='qnaNo row" + (idx+1) + "' value='" + (value.QNA_NO || '') + "'>" +
+                     "</td>" +
+                     "<td>" + (value.QNA_NAME || '') + "</td>" +
+                     "<td>" + (value.QNA_DATE || '') + "</td></tr>";
+         });
+         body.append(str);
+
+         $("a[name='title']").off("click").on("click", function(e) {
+            e.preventDefault();
+            var $a = $(this);
+            var qnaNo = $a.siblings('input.qnaNo').val();
+            var rnumNum = $a.attr('class').replace('chk', '');
+            fn_openQnaDetail(qnaNo, rnumNum);
+         });
       }
    </script>
 </body>

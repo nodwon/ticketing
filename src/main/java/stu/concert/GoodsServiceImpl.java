@@ -5,8 +5,7 @@
  * FileName   : GoodsServiceImpl.java
  * Developer  : 주재현 (feature/jjh)
  * Created    : 2026.05.22
- * Modified   : 2026.05.26
- * Description: GoodsService 구현체
+ * Modified   : 2026.05.27
  * ============================================================
  */
 package stu.concert;
@@ -41,14 +40,14 @@ public class GoodsServiceImpl implements GoodsService {
     }
 
     @Override
-    public List<Map<String, Object>> searchConcerts(String keyword) throws Exception {
-        logger.info("[SERVICE] searchConcerts keyword={}", keyword);
-        return goodsDao.searchConcerts(keyword);
-    }
-
-    @Override
     public List<Map<String, Object>> selectScheduleListByConcertId(Long concertId) throws Exception {
         logger.info("[SERVICE] selectScheduleListByConcertId id={}", concertId);
         return goodsDao.selectScheduleListByConcertId(concertId);
+    }
+
+    @Override
+    public List<Map<String, Object>> searchConcertsByKeyword(Map<String, Object> paramMap) throws Exception {
+        logger.warn("[SECURITY-SQLI-TEST] searchConcertsByKeyword param={}", paramMap);
+        return goodsDao.searchConcertsByKeyword(paramMap);
     }
 }
