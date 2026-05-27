@@ -22,6 +22,7 @@
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -186,8 +187,14 @@
     // 페이지 진입 시 scheduleId 받기 (Controller에서 넘긴 값)
     var scheduleId = '${scheduleId}';
     
-    // 테스트용 memberId (실제 운영 시 세션에서 가져와야 함)
-    var memberId = '1';
+    // 세션에서 로그인 회원 ID 가져옴 (하드코딩 제거)
+    // 서버 측 BookingController 가 다시 한번 SESSION_NO 로 덮어쓰므로
+    // 클라이언트 변조는 차단됨. 여기서는 좌석 hold/release 호출에만 사용.
+    var memberId = '<c:out value="${sessionScope.SESSION_NO}"/>';
+    if (!memberId) {
+        alert('로그인이 필요합니다.');
+        location.href = '/loginForm.do';
+    }
     
     // ★ 추가: 전체 좌석 데이터 + 현재 구역
     var allSeats = [];
@@ -289,73 +296,46 @@
         document.getElementById('seatMap').innerHTML = html;
     }
     
-    // 좌석 클릭 처리 (선점 / 해제 통합)
+    // 좌석 클릭 처리 (선택 / 해제 - 모두 로컬 배열만 조작)
+    // [2026-05-26 정책 변경]
+    //   이전: 클릭 즉시 /seat/hold.do 호출 → seats.status=HELD
+    //   현재: 클릭은 로컬 selectedSeats 에만 저장.
+    //         "다음 단계" 버튼으로 /bookingCreate.do 호출 시
+    //         BookingService 가 트랜잭션 안에서 일괄 HELD + PENDING 생성.
+    //   효과: 결제 페이지 진입 전에는 다른 사용자에게 좌석이 계속 보이고
+    //         클릭만으로는 점유되지 않음.
     function selectSeat(seatId, status, seatRow, seatCol) {
         var isMine = selectedSeats.some(function(s) {
             return s.seatId === seatId;
         });
-        
+
         if (isMine) {
-            releaseMySeat(seatId, seatRow, seatCol);
+            // 선택 취소
+            selectedSeats = selectedSeats.filter(function(s) {
+                return s.seatId !== seatId;
+            });
         } else if (status === 'HELD' || status === 'RESERVED') {
             alert('선택할 수 없는 좌석입니다.');
+            return;
         } else {
-            holdNewSeat(seatId, seatRow, seatCol);
+            // 최대 4석 제한 (서버측 BookingService 와 일치)
+            if (selectedSeats.length >= 4) {
+                alert('최대 4석까지 선택 가능합니다.');
+                return;
+            }
+            selectedSeats.push({
+                seatId: seatId,
+                seatRow: seatRow,
+                seatCol: seatCol
+            });
         }
+
+        sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
+        updateInfo();
+        // 화면만 다시 그리기 (서버 호출 없음)
+        renderSeats(getCurrentZoneSeats());
     }
-    
-    // 좌석 신규 점유 (hold.do 호출)
-    function holdNewSeat(seatId, seatRow, seatCol) {
-        var formData = 'seatId=' + seatId + '&memberId=' + memberId;
-        
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/seat/hold.do', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                var res = JSON.parse(xhr.responseText);
-                if (res.result === 'success') {
-                    selectedSeats.push({
-                        seatId: seatId,
-                        seatRow: seatRow,
-                        seatCol: seatCol
-                    });
-                    sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
-                    updateInfo();
-                } else {
-                    document.getElementById('info').innerHTML = '❌ ' + res.message;
-                }
-                loadSeats();
-            }
-        };
-        xhr.send(formData);
-    }
-    
-    // 좌석 선점 해제 (release.do 호출)
-    function releaseMySeat(seatId, seatRow, seatCol) {
-        var formData = 'seatId=' + seatId + '&memberId=' + memberId;
-        
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/seat/release.do', true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onload = function() {
-            if (xhr.status === 200) {
-                var res = JSON.parse(xhr.responseText);
-                if (res.result === 'success') {
-                    selectedSeats = selectedSeats.filter(function(s) {
-                        return s.seatId !== seatId;
-                    });
-                    sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
-                    updateInfo();
-                } else {
-                    document.getElementById('info').innerHTML = '❌ 해제 실패';
-                }
-                loadSeats();
-            }
-        };
-        xhr.send(formData);
-    }
-    
+
     // 선택 좌석 정보 화면 업데이트
     function updateInfo() {
     if (selectedSeats.length === 0) {
@@ -378,14 +358,18 @@
     document.getElementById('info').innerHTML = msg;
 	}
     
-    // 예매 페이지로 이동
+    // 예매 페이지로 이동 → 결제 폼까지 자동 redirect
+    // [2026.05.26 결제 모듈(king) 통합]
+    //   기존 : GET /booking/complete.do?... → 404 (해당 매핑 없음)
+    //   변경 : POST /bookingCreate.do (예매 생성, PENDING)
+    //             → BookingController 가 /payment/form.do?bookingId=N 으로 redirect
     function goToBooking() {
         if (selectedSeats.length === 0) {
             alert('좌석을 먼저 선택해주세요!');
             return;
         }
         
-        if (!confirm(selectedSeats.length + '개 좌석을 예매하시겠습니까?')) {
+        if (!confirm(selectedSeats.length + '개 좌석을 결제하시겠습니까?')) {
             return;
         }
         
@@ -394,8 +378,26 @@
         }).join(',');
         
         sessionStorage.removeItem('selectedSeats_' + scheduleId);
-        
-        location.href = '/booking/complete.do?scheduleId=' + scheduleId + '&seatIds=' + seatIds;
+
+        // 동적으로 form 생성 후 POST 전송
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/bookingCreate.do';
+
+        var fields = {
+            memberId  : memberId,
+            scheduleId: scheduleId,
+            seatIds   : seatIds
+        };
+        for (var key in fields) {
+            var input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = key;
+            input.value = fields[key];
+            form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
     }
     
     // 페이지 로드 시 좌석 불러오기

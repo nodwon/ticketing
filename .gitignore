@@ -77,6 +77,7 @@ $RECYCLE.BIN/
 **/jdbc.properties
 src/main/resources/config/jdbc.properties
 
+<<<<<<< HEAD
 # 환경변수 (Docker)
 .env
 .env.local
@@ -120,6 +121,20 @@ credentials
 # 로그 디렉토리
 logs/
 log/
+=======
+**/log_payment.sql
+src/main/resources/db/seed/log_payment.sql
+**/LogPaymentVO.java
+src/main/java/stu/payment/LogPaymentVO.java
+
+# IDE / OS / 로그
+.metadata/
+*.swp
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+>>>>>>> ca5c72339164dd6d0641ed215a3c5ef0ac63d1b3
 *.log
 *.log.*
 *.log.gz
