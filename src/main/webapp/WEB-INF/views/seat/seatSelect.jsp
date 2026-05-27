@@ -22,6 +22,7 @@
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -186,8 +187,14 @@
     // 페이지 진입 시 scheduleId 받기 (Controller에서 넘긴 값)
     var scheduleId = '${scheduleId}';
     
-    // 테스트용 memberId (실제 운영 시 세션에서 가져와야 함)
-    var memberId = '1';
+    // 세션에서 로그인 회원 ID 가져옴 (하드코딩 제거)
+    // 서버 측 BookingController 가 다시 한번 SESSION_NO 로 덮어쓰므로
+    // 클라이언트 변조는 차단됨. 여기서는 좌석 hold/release 호출에만 사용.
+    var memberId = '<c:out value="${sessionScope.SESSION_NO}"/>';
+    if (!memberId) {
+        alert('로그인이 필요합니다.');
+        location.href = '/loginForm.do';
+    }
     
     // ★ 추가: 전체 좌석 데이터 + 현재 구역
     var allSeats = [];
@@ -378,14 +385,18 @@
     document.getElementById('info').innerHTML = msg;
 	}
     
-    // 예매 페이지로 이동
+    // 예매 페이지로 이동 → 결제 폼까지 자동 redirect
+    // [2026.05.26 결제 모듈(king) 통합]
+    //   기존 : GET /booking/complete.do?... → 404 (해당 매핑 없음)
+    //   변경 : POST /bookingCreate.do (예매 생성, PENDING)
+    //             → BookingController 가 /payment/form.do?bookingId=N 으로 redirect
     function goToBooking() {
         if (selectedSeats.length === 0) {
             alert('좌석을 먼저 선택해주세요!');
             return;
         }
         
-        if (!confirm(selectedSeats.length + '개 좌석을 예매하시겠습니까?')) {
+        if (!confirm(selectedSeats.length + '개 좌석을 결제하시겠습니까?')) {
             return;
         }
         
@@ -394,8 +405,26 @@
         }).join(',');
         
         sessionStorage.removeItem('selectedSeats_' + scheduleId);
-        
-        location.href = '/booking/complete.do?scheduleId=' + scheduleId + '&seatIds=' + seatIds;
+
+        // 동적으로 form 생성 후 POST 전송
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/bookingCreate.do';
+
+        var fields = {
+            memberId  : memberId,
+            scheduleId: scheduleId,
+            seatIds   : seatIds
+        };
+        for (var key in fields) {
+            var input = document.createElement('input');
+            input.type  = 'hidden';
+            input.name  = key;
+            input.value = fields[key];
+            form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
     }
     
     // 페이지 로드 시 좌석 불러오기

@@ -1,5 +1,8 @@
+<<<<<<< HEAD
+=======
 SELECT * 
 FROM 
+>>>>>>> origin/main
 -- =====================================================================
 -- 05_bookings.sql  — 예매 더미 데이터
 -- 실행 전 필요 : 04_seats.sql 실행 완료
@@ -44,6 +47,7 @@ BEGIN
     UPDATE seats SET status = 'RESERVED' WHERE seat_id = v_seat_id;
     UPDATE concert_schedules SET available_seats = available_seats - 1 WHERE schedule_id = v_schedule_id;
 END;
+/
 
 -- ─────────────────────────────────────────────────────────────
 -- 2. 이영희 → 잠비나이 2석 (PENDING, 결제 대기)
@@ -76,6 +80,7 @@ BEGIN
 
     UPDATE seats SET status = 'HELD' WHERE seat_id IN (v_seat_id1, v_seat_id2);
 END;
+/
 
 -- ─────────────────────────────────────────────────────────────
 -- 3. 박지민 → 성시경 (지난 공연, CANCELLED)
@@ -103,6 +108,7 @@ BEGIN
     INSERT INTO booking_items(booking_id, seat_id, unit_price)
     VALUES (v_booking_id, v_seat_id, v_price);
 END;
+/
 
 -- ─────────────────────────────────────────────────────────────
 -- 4. 최수영 → NEWJEANS 1석 (CONFIRMED)
@@ -124,7 +130,7 @@ BEGIN
     FROM seats WHERE schedule_id = v_schedule_id AND seat_row = 3 AND seat_col = 5;
 
     INSERT INTO bookings(member_id, schedule_id, total_price, status, created_at)
-    VALUES (v_member_id, v_schedule_id, v_price, 'CONFIRMED', SYSTIMESTAMP - INTERVAL '15' DAY)
+    VALUES (v_member_id, m.member_id, v_price, 'CONFIRMED', SYSTIMESTAMP - INTERVAL '15' DAY)
     RETURNING booking_id INTO v_booking_id;
 
     INSERT INTO booking_items(booking_id, seat_id, unit_price)
@@ -132,6 +138,7 @@ BEGIN
 
     UPDATE seats SET status = 'RESERVED' WHERE seat_id = v_seat_id;
 END;
+/
 
 COMMIT;
 
@@ -143,4 +150,8 @@ FROM bookings b
 JOIN members m ON b.member_id = m.member_id
 JOIN concert_schedules s ON b.schedule_id = s.schedule_id
 JOIN concerts c ON s.concert_id = c.concert_id
+<<<<<<< HEAD
 ORDER BY b.booking_id;
+=======
+ORDER BY b.booking_id;
+>>>>>>> origin/main
