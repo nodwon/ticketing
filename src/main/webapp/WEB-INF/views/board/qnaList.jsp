@@ -99,6 +99,12 @@ li {
    <form id="commonForm" name="commonForm"></form>
    <script type="text/javascript">
       $(document).ready(function() {
+         // 비밀글 접근 차단 후 리다이렉트된 경우 알림
+         var urlParams = new URLSearchParams(window.location.search);
+         if (urlParams.get('accessDenied') === '1') {
+            alert("비밀글입니다. 관리자만 열람 가능합니다.");
+         }
+
          fn_selectQnaList(1);
          $("#write").on("click", function(e) { //글쓰기 버튼
             e.preventDefault();
@@ -111,34 +117,6 @@ li {
             fn_openQnaWrite();
          });
          
-         /* 🌟 [수정] 이벤트 위임 방식으로 변경: Ajax로 동적 생성되는 요소에도 클릭 이벤트가 정상 적용되도록 처리 */
-         $(document).on("click", ".myButton", function(e) { // 비밀글 확인 버튼
-            e.preventDefault();
-            
-            var $this = $(this);
-            var rnumClass = $this.attr('class').split(' ')[1]; // 예: "rnum3"
-            var rnumNum = rnumClass.replace('rnum', '');
-            var qnaPass = $('#qnaPasswd' + rnumNum).val();
-            var qnaNo = $('input.qnaNo.row' + rnumNum).val();
-            
-            var data = { QNA_PASSWD : qnaPass, QNA_NO : qnaNo };
-            
-            $.ajax({
-               url : "<c:url value='/qna/chkPassword.do'/>",
-               type : 'POST',
-               data : data,
-               success : function(res) {
-                  if (res == 1) {
-                     fn_openQnaDetail(qnaNo, rnumNum);
-                  } else {
-                     alert("PASSWORD ERROR!");
-                  }
-               },
-               error : function() {
-                  alert("비밀번호 확인 중 오류가 발생했습니다.");
-               }
-            });
-         });
       });
 
       function fn_openQnaWrite() {
@@ -188,40 +166,23 @@ li {
             var str = '';
             
             $.each(data.list, function(key, value){
-               str += '<tr class="list' + value.RNUM + '">'  + 
-                        "<td id='rnum" + value.RNUM + "' >" + value.RNUM + "</td>" + 
+               str += '<tr class="list' + value.RNUM + '">'  +
+                        "<td id='rnum" + value.RNUM + "' >" + value.RNUM + "</td>" +
                         "<td class='title'>" +
                            "<a href='#this' class='chk"+ value.RNUM +"' name='title'>" + value.QNA_TITLE + "</a>" +
-                           "<input type='hidden' name='title' class='qnaNo row" + value.RNUM + "' value='" + value.QNA_NO + "'>" + 
+                           "<input type='hidden' name='title' class='qnaNo row" + value.RNUM + "' value='" + value.QNA_NO + "'>" +
                         "</td>" +
-                        "<td>" + value.QNA_NAME + "</td>" + 
-                        "<td>" + value.QNA_DATE + "</td> </tr><tr>";
-               str += '<td style="display:none;" id="chk' + value.RNUM + '" class="list' + value.RNUM + '" colspan="4">Password : ';
-               str += '<input type="password" id="qnaPasswd' + value.RNUM + '" value="">';
-               str += '<a href="#" class="myButton rnum' + value.RNUM + '">확인</a>';
-               str += '</td></tr>';
+                        "<td>" + value.QNA_NAME + "</td>" +
+                        "<td>" + value.QNA_DATE + "</td></tr>";
             });
             body.append(str);
-            
-            /* 🌟 [수정] 제목 클릭: 비밀번호 영역 토글 후 즉시 상세조회로 진입 */
+
             $("a[name='title']").off("click").on("click", function(e){
                e.preventDefault();
-               
-               /* 같은 행(tr)의 hidden input에서 QNA_NO 추출 */
                var $a = $(this);
                var qnaNo = $a.siblings('input.qnaNo').val();
-               var chkClass = $a.attr('class'); /* 예: "chk3" */
-               var rnumNum = chkClass.replace('chk', '');
-               
-               /* 비밀번호 입력 영역 토글 */
-               var $pwTd = $("#" + chkClass);
-               if ($pwTd.is(":visible")) {
-                  $pwTd.hide();
-               } else {
-                  $pwTd.show();
-                  /* 🌟 [신규] 토글과 동시에 바로 상세조회 진입 (비밀번호 미입력 케이스 처리) */
-                  fn_openQnaDetail(qnaNo, rnumNum);
-               }
+               var rnumNum = $a.attr('class').replace('chk', '');
+               fn_openQnaDetail(qnaNo, rnumNum);
             });
          }
       }
