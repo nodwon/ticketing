@@ -741,6 +741,37 @@ var slideColorPalettes = [
 ];
 var statusLabel = { ONGOING:'예매중', UPCOMING:'예매예정', CLOSED:'종료' };
 
+/* ═══════════════════════════════════
+   예매 버튼 클릭 핸들러
+   - 로그인 체크 → 좌석 선택 페이지로 이동
+═══════════════════════════════════ */
+function goToBooking(concertId, status) {
+    // 1. 종료된 공연은 차단
+    if (status === 'CLOSED') {
+        alert('예매가 종료된 공연입니다.');
+        return;
+    }
+
+    // 2. 예매 오픈 전이면 상세 페이지로
+    if (status === 'UPCOMING') {
+        alert('예매 오픈 전입니다.\n공연 상세 정보로 이동합니다.');
+        location.href = '/concert/detail.do?concertId=' + concertId;
+        return;
+    }
+
+    // 3. 로그인 체크
+    var isLogin = <%= isLogin %>;
+    if (!isLogin) {
+        if (confirm('예매하려면 로그인이 필요합니다.\n로그인 페이지로 이동하시겠습니까?')) {
+            location.href = '/loginForm.do?redirectURL=/seat/select.do?scheduleId=' + concertId;
+        }
+        return;
+    }
+
+    // 4. 예매 가능 → 좌석 선택 페이지로 바로 이동
+    location.href = '/seat/select.do?scheduleId=' + concertId;
+}
+
 function buildHeroSlider(concerts) {
     var ul = document.getElementById('heroSlider');
     ul.innerHTML = '';
@@ -753,9 +784,7 @@ function buildHeroSlider(concerts) {
         var title     = (c.title || '').replace(/(.{10})/g, '$1<br>');  /* 10자 줄바꿈 */
         var sub       = (c.venue || '') + (c.perform_start_at ? ' · ' + c.perform_start_at.substring(0,10) : '');
         var btnDisabled = (c.status === 'CLOSED') ? 'style="opacity:.5;cursor:not-allowed;"' : '';
-        var btnOnclick  = (c.status === 'CLOSED')
-            ? ''
-            : 'onclick="location.href=\'/concert/detail.do?concertId=' + concertId + '\'"';
+        var btnOnclick  = 'onclick="goToBooking(' + concertId + ', \'' + c.status + '\')"';
 
         var li = document.createElement('li');
         li.innerHTML =

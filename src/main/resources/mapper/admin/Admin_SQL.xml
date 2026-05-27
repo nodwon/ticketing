@@ -8,7 +8,7 @@
  FileName  : Admin_SQL.xml
  Namespace : admin
 
- Modified  : 2026.05.25
+ Modified  : 2026.05.26
 
  Description :
    - 관리자 화면 SQL (MyBatis)
@@ -21,13 +21,12 @@
                 · concerts(title/artist), members(email/name),
                   bookings(email/name/concert) 모두 적용
    2026.05.25 - 스마트 공연 삭제용 SQL 추가
-                · countBookingsByConcert      : 예매 건수 카운트
-                · deleteConcertHard           : 공연 row 삭제
-                · deleteSchedulesByConcert    : 산하 일정 삭제
-                · deleteSeatsByConcert        : 산하 좌석 삭제
-                · deleteBookingsByConcert     : 산하 예매 삭제
-                · deleteBookingItemsByConcert : 산하 예매 항목 삭제
-                · deletePaymentsByConcert     : 산하 결제 삭제
+                · countBookingsByConcert / deleteConcertHard 등 7개
+   2026.05.26 - 회원 권한 관리 SQL 추가
+                · selectMember         : 회원 단건 조회 (보호 장치 검증용)
+                · countAdmin           : ADMIN role 카운트 (마지막 관리자 보호)
+                · updateMemberRole     : 회원 role 변경 (정지/활성화/승격/강등 공용)
+                · role 값 정의: USER / USER_BANNED / ADMIN
 ============================================================
 -->
 <mapper namespace="admin">
@@ -46,7 +45,6 @@
 
 	<!-- =====================================================================
 		2. 공연 - 목록 (검색/페이징)
-		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
 	===================================================================== -->
 	<select id="selectConcertList" parameterType="hashMap" resultType="hashMap">
 		SELECT *
@@ -112,8 +110,6 @@
 
 	<!-- =====================================================================
 		4. 공연 - 등록
-		     ▶ concert_id 는 IDENTITY (자동 생성)
-		     ▶ status 미지정 시 DEFAULT 'UPCOMING'
 	===================================================================== -->
 	<insert id="insertConcert" parameterType="hashMap">
 		INSERT INTO concerts (
@@ -155,7 +151,6 @@
 
 	<!-- =====================================================================
 		6-1. 공연 삭제 - 예매 건수 카운트 (스마트 삭제 판정용)
-		      ▶ 결과가 0 이면 Hard Delete, 1 이상이면 Soft Delete
 	===================================================================== -->
 	<select id="countBookingsByConcert" parameterType="hashMap" resultType="int">
 		SELECT COUNT(*)
@@ -167,7 +162,6 @@
 
 	<!-- =====================================================================
 		6-2. 공연 삭제 - Soft : status = 'CLOSED' 만 변경
-		      ▶ 예매 내역이 있는 경우 사용 (FK 무결성 보호)
 	===================================================================== -->
 	<update id="deleteConcert" parameterType="hashMap">
 		UPDATE concerts
@@ -178,8 +172,6 @@
 
 	<!-- =====================================================================
 		6-3. 공연 삭제 - Hard : 공연 row 자체 삭제
-		      ▶ 자식 데이터를 모두 정리한 뒤에만 호출되어야 함
-		      ▶ Service 의 @Transactional 안에서 마지막에 실행
 	===================================================================== -->
 	<delete id="deleteConcertHard" parameterType="hashMap">
 		DELETE FROM concerts
@@ -188,12 +180,8 @@
 
 
 	<!-- =====================================================================
-		6-4. 공연 산하 데이터 삭제 - 가장 깊은 자식부터 (FK 역순)
-		      booking_items  →  payments  →  bookings
-		      →  seats  →  concert_schedules  →  concerts
+		6-4. 공연 산하 데이터 삭제 - FK 역순
 	===================================================================== -->
-
-	<!-- booking_items : booking_id 가 해당 공연의 예매를 참조하는 경우 -->
 	<delete id="deleteBookingItemsByConcert" parameterType="hashMap">
 		DELETE FROM booking_items
 		WHERE  booking_id IN (
@@ -204,7 +192,6 @@
 		)
 	</delete>
 
-	<!-- payments : 해당 공연의 예매를 참조 -->
 	<delete id="deletePaymentsByConcert" parameterType="hashMap">
 		DELETE FROM payments
 		WHERE  booking_id IN (
@@ -215,7 +202,6 @@
 		)
 	</delete>
 
-	<!-- bookings : 해당 공연의 일정에 대한 예매 -->
 	<delete id="deleteBookingsByConcert" parameterType="hashMap">
 		DELETE FROM bookings
 		WHERE  schedule_id IN (
@@ -225,7 +211,6 @@
 		)
 	</delete>
 
-	<!-- seats : 해당 공연의 일정에 속한 좌석 -->
 	<delete id="deleteSeatsByConcert" parameterType="hashMap">
 		DELETE FROM seats
 		WHERE  schedule_id IN (
@@ -235,7 +220,6 @@
 		)
 	</delete>
 
-	<!-- concert_schedules : 해당 공연의 일정 -->
 	<delete id="deleteSchedulesByConcert" parameterType="hashMap">
 		DELETE FROM concert_schedules
 		WHERE  concert_id = #{concertId}
@@ -244,7 +228,7 @@
 
 	<!-- =====================================================================
 		7. 회원 - 목록 (검색/페이징)
-		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
+		     ▶ role 필터는 USER / USER_BANNED / ADMIN 3가지 + 빈값
 	===================================================================== -->
 	<select id="selectMemberList" parameterType="hashMap" resultType="hashMap">
 		SELECT *
@@ -292,10 +276,46 @@
 
 
 	<!-- =====================================================================
+		7-1. 회원 - 단건 조회 (권한 변경 전 현재 role 확인용)
+	===================================================================== -->
+	<select id="selectMember" parameterType="hashMap" resultType="hashMap">
+		SELECT
+			member_id,
+			email,
+			name,
+			role
+		FROM   members
+		WHERE  member_id = #{memberId}
+	</select>
+
+
+	<!-- =====================================================================
+		7-2. 관리자(ADMIN) 카운트 - 마지막 관리자 보호용
+		      ▶ 강등 시 ADMIN 카운트가 1 이하면 차단
+	===================================================================== -->
+	<select id="countAdmin" resultType="int">
+		SELECT COUNT(*)
+		FROM   members
+		WHERE  role = 'ADMIN'
+	</select>
+
+
+	<!-- =====================================================================
+		7-3. 회원 role 변경 (정지/활성화/승격/강등 공용)
+		      ▶ 호출하는 Service 메서드에 따라 newRole 만 다르게 전달
+		      ▶ USER         → 일반 회원 (활성)
+		      ▶ USER_BANNED  → 일반 회원 (정지)
+		      ▶ ADMIN        → 관리자
+	===================================================================== -->
+	<update id="updateMemberRole" parameterType="hashMap">
+		UPDATE members
+		SET    role = #{newRole}
+		WHERE  member_id = #{memberId}
+	</update>
+
+
+	<!-- =====================================================================
 		8. 예매 - 목록 (검색/페이징)
-		     ▶ 회원/공연/일정 JOIN
-		     ▶ 검색 시 대소문자 무시 (LOWER 양쪽 적용)
-		     ▶ 상태 필터 : status (PENDING/CONFIRMED/CANCELLED)
 	===================================================================== -->
 	<select id="selectBookingList" parameterType="hashMap" resultType="hashMap">
 		SELECT *
