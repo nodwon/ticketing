@@ -26,6 +26,16 @@ import stu.common.dao.AbstractDao;
  *   cancelBooking 시점:
  *     - bookings.status = ('PENDING' or 'CONFIRMED') → 'CANCELLED'
  *     - seats.status    = ('HELD' or 'RESERVED') → 'AVAILABLE'
+ *   
+ *   [2026.05.27] 예매 생성 실패 시 정희영측 HELD 좌석 강제 해제:
+ *     - releaseHeldSeats(): HELD → AVAILABLE (seat_id 목록 + schedule_id 기준)
+ *   
+ *   [2026.05.27] available_seats 재계산 방식 전면 도입:
+ *     - recalcAvailableSeats()           : booking_id 기준
+ *     - recalcAvailableSeatsBySchedule() : schedule_id 직접 기준
+ *     → seats 테이블의 실제 상태(AVAILABLE 카운트)로 강제 동기화
+ *     → 기존 +N / -N 누적 방식의 부정합 버그 해결
+ *     → 정희영/king 모듈이 available_seats를 어떻게 다루든 무관하게 항상 정확
  */
 @Repository("bookingDao")
 public class BookingDao extends AbstractDao {
@@ -88,7 +98,10 @@ public class BookingDao extends AbstractDao {
         return (result == null) ? 0 : ((Number) result).intValue();
     }
 
-    /** 잔여 좌석수 차감 */
+    /** [DEPRECATED 2026.05.27] 잔여 좌석수 -N 차감 방식
+     *  - 정희영 hold.do와의 정책 불일치로 부정합 발생
+     *  - recalcAvailableSeatsBySchedule()로 대체됨
+     *  - 메서드 자체는 호환성 위해 남겨둠 (당분간 호출 안 함) */
     public int decreaseAvailableSeats(Map<String, Object> map) throws Exception {
         Object result = update("booking.decreaseAvailableSeats", map);
         return (result == null) ? 0 : ((Number) result).intValue();
@@ -130,9 +143,67 @@ public class BookingDao extends AbstractDao {
         return (result == null) ? 0 : ((Number) result).intValue();
     }
 
-    /** 잔여 좌석수 복구 */
+    /** [DEPRECATED 2026.05.27] 잔여 좌석수 booking_id 기준 +N 방식
+     *  - 정희영/king 모듈이 available_seats를 건드린 경우 누적 부정합 발생
+     *  - cancelBooking 흐름에서는 recalcAvailableSeats()로 대체됨
+     *  - 메서드 자체는 호환성 위해 남겨둠 (당분간 호출 안 함) */
     public int increaseAvailableSeats(Map<String, Object> map) throws Exception {
         Object result = update("booking.increaseAvailableSeats", map);
+        return (result == null) ? 0 : ((Number) result).intValue();
+    }
+
+
+    // ====================================================
+    // [2026.05.27] 예매 생성 실패 시 좌석 강제 해제 (HELD → AVAILABLE)
+    //   - 정희영 /seat/hold.do 가 HELD 처리한 좌석을 본인 검증 단계에서
+    //     실패했을 때 풀어주기 위한 안전망
+    //   - seat_id 목록 + schedule_id 기준
+    // ====================================================
+
+    /** 좌석 강제 해제 (HELD → AVAILABLE)
+     *  - seat_id 목록 + schedule_id 기준
+     *  - HELD 상태인 좌석만 해제 (RESERVED는 건드리지 않음) */
+    public int releaseHeldSeats(Map<String, Object> map) throws Exception {
+        Object result = update("booking.releaseHeldSeats", map);
+        return (result == null) ? 0 : ((Number) result).intValue();
+    }
+
+    /** [DEPRECATED 2026.05.27] 잔여 좌석수 +N 방식 (schedule_id + count)
+     *  - releaseHeldSeats 후 호출되던 메서드
+     *  - 본인이 차감 안 한 값을 증가시켜 누적 부정합 발생 → 호출 제거됨
+     *  - 메서드 자체는 호환성 위해 남겨둠 (당분간 호출 안 함) */
+    public int increaseAvailableSeatsByCount(Map<String, Object> map) throws Exception {
+        Object result = update("booking.increaseAvailableSeatsByCount", map);
+        return (result == null) ? 0 : ((Number) result).intValue();
+    }
+
+
+    // ====================================================
+    // [2026.05.27] available_seats 재계산 (seats 실제 상태 기반) ⭐
+    //
+    //   기존 +N / -N 누적 방식의 부정합 버그를 근본 해결하는 메서드 2종.
+    //   seats 테이블의 실제 AVAILABLE 카운트로 강제 동기화하므로
+    //   정희영/king 모듈이 available_seats를 어떻게 다루든 항상 정확.
+    //
+    //   사용처:
+    //     - recalcAvailableSeats()           : bookingId 있는 시점
+    //       → confirmBooking, cancelBooking
+    //     - recalcAvailableSeatsBySchedule() : bookingId 없는 시점
+    //       → createBooking (booking 만든 직후 가능하지만 schedule이 더 직관적),
+    //         releaseHeldSeats (booking이 안 만들어진 케이스)
+    // ====================================================
+
+    /** 잔여 좌석 재계산 - booking_id 기준
+     *  - bookingId로 schedule_id 찾고, 그 schedule의 AVAILABLE 카운트로 강제 동기화 */
+    public int recalcAvailableSeats(Map<String, Object> map) throws Exception {
+        Object result = update("booking.recalcAvailableSeats", map);
+        return (result == null) ? 0 : ((Number) result).intValue();
+    }
+
+    /** 잔여 좌석 재계산 - schedule_id 직접 지정 버전
+     *  - createBooking, releaseHeldSeats 등 bookingId 없거나 아직 안 만들어진 시점 사용 */
+    public int recalcAvailableSeatsBySchedule(Map<String, Object> map) throws Exception {
+        Object result = update("booking.recalcAvailableSeatsBySchedule", map);
         return (result == null) ? 0 : ((Number) result).intValue();
     }
 }
