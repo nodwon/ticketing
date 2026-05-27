@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 보안관제 시연용: JSESSIONID HttpOnly 비활성화 (XSS 쿠키 탈취 시나리오) -->
+<Context useHttpOnly="false">
+</Context>
