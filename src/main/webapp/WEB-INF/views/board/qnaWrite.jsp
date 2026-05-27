@@ -88,18 +88,6 @@
          </td>
       </tr>
 
-      <tr>
-         <td style="padding:0px; border-bottom:none;">
-            <table style="width:100%; height:30px; border:0; cellpadding:0; cellspacing:0;">
-            <tbody><tr>
-               <td width="100" bgcolor="f6f6f6" align="center">비밀번호</td>
-               <td align="left" class="gray" style="padding-left:10px;text-align:left;">
-                  <input autocomplete="off" type="password" name="QNA_PASSWD" id="qna_passwd" style="width:150px;" maxlength="20" value="">&nbsp;&nbsp;
-                  </td>
-            </tr>
-            </tbody></table>
-         </td>
-      </tr>
       </tbody>
       </table>
       <div id="" class="">
@@ -138,6 +126,7 @@
       }
       
       function fn_insertQna(){
+         check_Qnasecret();
          var comSubmit = new ComSubmit("frm");
          comSubmit.setUrl("<c:url value='/qna/insertQna.do' />");
          comSubmit.submit();
