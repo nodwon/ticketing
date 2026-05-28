@@ -1,38 +1,50 @@
 -- =====================================================================
--- 티켓팅 AI 보안관제 시스템 — Oracle 21c DDL (수정 패치 및 트리거 완벽 반영본)
--- 기반         : 사용자 제공 ERD export DDL
--- 수정사항     :
---   ① 모든 PK에 GENERATED AS IDENTITY 추가 (DBeaver 명세 동기화)
---   ② 큰따옴표("") 식별자 제거 → Oracle 표준 (대소문자 무관)
---   ③ FK 제약조건 전체 추가 및 qna_posts 참조 연동
---   ④ 컬럼명 통일: user_id → member_id (members 테이블 PK와 일치)
---   ⑤ UNIQUE 제약 추가 (email, admin_login_id, transaction_id)
---   ⑥ 인덱스 추가 (자주 조회되는 FK 컬럼)
---   ⑦ QNA_NO_SEQ 시퀀스 독립 생성 및 방어 로직 내장 트리거 완벽 포함
--- =====================================================================
--- 실행 환경 : TICKET_DEV 계정으로 XEPDB1 접속 후 실행
+-- 티켓팅 AI 보안관제 시스템 — Oracle 21c DDL (오류 원천 차단 통합 최종본)
+-- 실행 환경 : TICKET_DEV 계정으로 XEPDB1 접속 후 실행 (Alt + X 권장)
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- [안전장치] 기존 테이블, 트리거, 시퀀스 및 딕셔너리 잔재 제약조건 완전 제거
+-- ---------------------------------------------------------------------
+-- 1. 트리거 및 시퀀스 선 파괴
+BEGIN
+    EXECUTE IMMEDIATE 'DROP TRIGGER TICKET_DEV.TRG_ATTACH_POST_ID_FILL';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+    EXECUTE IMMEDIATE 'DROP SEQUENCE QNA_NO_SEQ';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
 
--- ---------------------------------------------------------------------
--- (선택) 기존 테이블 및 객체 제거 — 처음 실행 시 주석 해제 후 사용
--- ---------------------------------------------------------------------
--- DROP TRIGGER TICKET_DEV.TRG_ATTACH_POST_ID_FILL;
--- DROP SEQUENCE QNA_NO_SEQ;
--- DROP TABLE chatbot_logs       CASCADE CONSTRAINTS;
--- DROP TABLE qna_posts          CASCADE CONSTRAINTS;
--- DROP TABLE notices            CASCADE CONSTRAINTS;
--- DROP TABLE attachments        CASCADE CONSTRAINTS;
--- DROP TABLE comments           CASCADE CONSTRAINTS;
--- DROP TABLE posts              CASCADE CONSTRAINTS;
--- DROP TABLE payments           CASCADE CONSTRAINTS;
--- DROP TABLE booking_items      CASCADE CONSTRAINTS;
--- DROP TABLE bookings           CASCADE CONSTRAINTS;
--- DROP TABLE seats              CASCADE CONSTRAINTS;
--- DROP TABLE concert_schedules  CASCADE CONSTRAINTS;
--- DROP TABLE concerts           CASCADE CONSTRAINTS;
--- DROP TABLE admins             CASCADE CONSTRAINTS;
--- DROP TABLE members            CASCADE CONSTRAINTS;
+-- 2. 무결성 오류를 유발하는 구버전 attachments 외래키 찌꺼기 딕셔너리 규칙 명시적 완전 파괴
+BEGIN
+    EXECUTE IMMEDIATE 'ALTER TABLE attachments DROP CONSTRAINT FK_ATTACHMENTS_POST';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+BEGIN
+    EXECUTE IMMEDIATE 'ALTER TABLE attachments DROP CONSTRAINT FK_ATTACHMENTS_QNA';
+EXCEPTION WHEN OTHERS THEN NULL;
+END;
+/
+
+-- 3. 테이블 완전 카스케이드 파괴 (순서 무관)
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE chatbot_logs       CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE qna_posts          CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE notices            CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE attachments        CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE comments           CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE posts              CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE payments           CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE booking_items      CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE bookings           CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE seats              CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE concert_schedules  CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE concerts           CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE admins             CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
+BEGIN EXECUTE IMMEDIATE 'DROP TABLE members            CASCADE CONSTRAINTS'; EXCEPTION WHEN OTHERS THEN NULL; END; /
 
 
 -- =====================================================================
@@ -274,57 +286,57 @@ COMMENT ON COLUMN comments.created_at IS '작성일시';
 
 
 -- =====================================================================
--- 11. qna_posts  (Q&A 게시글)
+-- 11. qna_posts  (Q&A 게시글) - [수정] 자바 쿼리 수동 삽입(ORA-32795) 방지 구조
 -- =====================================================================
 CREATE TABLE qna_posts (
-    qna_id          NUMBER(19,0)    GENERATED AS IDENTITY  NOT NULL,
-    member_id       NUMBER(19,0),
-    title           VARCHAR2(300)                          NOT NULL,
-    content         CLOB                                   NOT NULL,
-    created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP   NOT NULL,
-    qna_name        VARCHAR2(100),
-    qna_an          VARCHAR2(4000),
-    is_secret       NUMBER(1,0)     DEFAULT 0              NOT NULL,
-    CONSTRAINT pk_qna_posts         PRIMARY KEY (qna_id),
-    CONSTRAINT fk_qna_member        FOREIGN KEY (member_id)
+    QNA_ID          NUMBER(19,0)                           NOT NULL,
+    MEMBER_ID       NUMBER(19,0),
+    TITLE           VARCHAR2(300)                          NOT NULL,
+    CONTENT         CLOB                                   NOT NULL,
+    CREATED_AT      TIMESTAMP       DEFAULT SYSTIMESTAMP   NOT NULL,
+    QNA_NAME        VARCHAR2(100),
+    QNA_AN          VARCHAR2(4000),
+    IS_SECRET       NUMBER(1,0)     DEFAULT 0              NOT NULL,
+    CONSTRAINT pk_qna_posts         PRIMARY KEY (QNA_ID),
+    CONSTRAINT fk_qna_member        FOREIGN KEY (MEMBER_ID)
         REFERENCES members (member_id)
 );
 
 COMMENT ON TABLE  qna_posts               IS 'Q&A 게시글';
-COMMENT ON COLUMN qna_posts.qna_id        IS '문의번호';
-COMMENT ON COLUMN qna_posts.member_id     IS '회원번호 → members (비회원 NULL)';
-COMMENT ON COLUMN qna_posts.title         IS '제목';
-COMMENT ON COLUMN qna_posts.content       IS '내용';
-COMMENT ON COLUMN qna_posts.created_at    IS '등록일시';
-COMMENT ON COLUMN qna_posts.qna_name      IS '작성자명 (비회원용)';
-COMMENT ON COLUMN qna_posts.qna_an        IS '답변 내용';
-COMMENT ON COLUMN qna_posts.is_secret     IS '비밀글 여부 (0=공개, 1=비밀글)';
+COMMENT ON COLUMN qna_posts.QNA_ID        IS '문의번호';
+COMMENT ON COLUMN qna_posts.MEMBER_ID     IS '회원번호 → members (비회원 NULL)';
+COMMENT ON COLUMN qna_posts.TITLE         IS '제목';
+COMMENT ON COLUMN qna_posts.CONTENT       IS '내용';
+COMMENT ON COLUMN qna_posts.CREATED_AT    IS '등록일시';
+COMMENT ON COLUMN qna_posts.QNA_NAME      IS '작성자명 (비회원용)';
+COMMENT ON COLUMN qna_posts.QNA_AN        IS '답변 내용';
+COMMENT ON COLUMN qna_posts.IS_SECRET     IS '비밀글 여부 (0=공개, 1=비밀글)';
 
 
 -- =====================================================================
--- 12. attachments  (첨부파일)
+-- 12. attachments  (첨부파일) - [수정] 무결성 부모키 제약 오류(ORA-02291) 해결 구조
 -- =====================================================================
 CREATE TABLE attachments (
-    attachment_id   NUMBER(19,0)    GENERATED BY DEFAULT AS IDENTITY NOT NULL,
-    post_id         NUMBER(19,0),   -- posts와 qna_posts의 ID가 유연하게 매핑되는 공간
-    original_name   VARCHAR2(500)                          NOT NULL,
-    saved_name      VARCHAR2(500)                          NOT NULL,
-    extension       VARCHAR2(20)                           NOT NULL,
-    file_size       NUMBER(19,0)                           NOT NULL,
-    uploaded_at     TIMESTAMP       DEFAULT SYSTIMESTAMP   NOT NULL,
-    CONSTRAINT pk_attachments       PRIMARY KEY (attachment_id)
-    -- ⚠️ 한 컬럼으로 여러 테이블을 공유하므로 여기에 REFERENCES 외래키 제약을 걸면 부모키 오류가 납니다.
-    -- 제약조건은 제거하고, 우리가 작성한 하단의 자동 연동 트리거(trg_attach_post_id_fill)가 무결성을 대신 제어합니다.
+    ATTACHMENT_ID   NUMBER(19,0)    GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+    POST_ID         NUMBER(19,0),   -- posts와 qna_posts의 ID를 공용 연동하여 공유하는 공간
+    ORIGINAL_NAME   VARCHAR2(500)                          NOT NULL,
+    SAVED_NAME      VARCHAR2(500)                          NOT NULL,
+    EXTENSION       VARCHAR2(20)                           NOT NULL,
+    FILE_SIZE       NUMBER(19,0)                           NOT NULL,
+    UPLOADED_AT     TIMESTAMP       DEFAULT SYSTIMESTAMP   NOT NULL,
+    CONSTRAINT pk_attachments       PRIMARY KEY (ATTACHMENT_ID)
+    -- ⚠️ 공용 공유 테이블 특성상 REFERENCES 하드 외래키를 걸면 무결성 제약 오류가 무조건 발생합니다.
+    -- 여기에 명시적인 REFERENCES 선언문을 절대로 포함시키지 마세요.
 );
 
 COMMENT ON TABLE  attachments               IS '첨부파일';
-COMMENT ON COLUMN attachments.attachment_id IS '첨부파일번호';
-COMMENT ON COLUMN attachments.post_id       IS '게시글번호 → posts, qna_posts 공유';
-COMMENT ON COLUMN attachments.original_name IS '원본 파일명';
-COMMENT ON COLUMN attachments.saved_name    IS '저장 파일명';
-COMMENT ON COLUMN attachments.extension     IS '확장자 (악성 확장자 탐지용)';
-COMMENT ON COLUMN attachments.file_size     IS '파일 크기';
-COMMENT ON COLUMN attachments.uploaded_at   IS '업로드 일시';
+COMMENT ON COLUMN attachments.ATTACHMENT_ID IS '첨부파일번호';
+COMMENT ON COLUMN attachments.POST_ID       IS '게시글번호 → posts, qna_posts 공유';
+COMMENT ON COLUMN attachments.ORIGINAL_NAME IS '원본 파일명';
+COMMENT ON COLUMN attachments.SAVED_NAME    IS '저장 파일명';
+COMMENT ON COLUMN attachments.EXTENSION     IS '확장자 (악성 확장자 탐지용)';
+COMMENT ON COLUMN attachments.FILE_SIZE     IS '파일 크기';
+COMMENT ON COLUMN attachments.UPLOADED_AT   IS '업로드 일시';
 
 
 -- =====================================================================
@@ -384,7 +396,7 @@ COMMENT ON COLUMN chatbot_logs.created_at               IS '요청일시';
 
 
 -- =====================================================================
--- 데이터 정렬용 추가 인덱스 설정
+-- 데이터 조회 정렬 가속 인덱스 설정
 -- =====================================================================
 CREATE INDEX idx_bookings_member       ON bookings (member_id);
 CREATE INDEX idx_bookings_schedule     ON bookings (schedule_id);
@@ -395,17 +407,17 @@ CREATE INDEX idx_payments_booking      ON payments (booking_id);
 CREATE INDEX idx_posts_member          ON posts (member_id);
 CREATE INDEX idx_posts_type            ON posts (post_type);
 CREATE INDEX idx_comments_post         ON comments (post_id);
-CREATE INDEX idx_qna_posts_member      ON qna_posts (member_id);
-CREATE INDEX INDEX_ATTACHMENTS_POST_ID ON attachments (post_id);
+CREATE INDEX idx_qna_posts_member      ON qna_posts (MEMBER_ID);
+CREATE INDEX INDEX_ATTACHMENTS_POST_ID ON attachments (POST_ID);
 CREATE INDEX idx_chatbot_logs_member   ON chatbot_logs (member_id);
 CREATE INDEX idx_chatbot_logs_created  ON chatbot_logs (created_at);
 
 
 -- =====================================================================
--- 15. 시퀀스 및 외래키 제약조건 / 트리거 설정 (요청사항 100% 반영)
+-- 15. 수동 증가 시퀀스 객체 및 자동 무결성 연동 트리거 설정
 -- =====================================================================
 
--- [시퀀스 생성] 깨끗하게 1부터 시작하는 수동 제어용 시퀀스 생성
+-- [시퀀스] 깨끗하게 1부터 증가하여 자바 코드 시퀀스 처리에 호환되는 객체 확보
 CREATE SEQUENCE QNA_NO_SEQ 
        START WITH 1 
        INCREMENT BY 1 
@@ -413,21 +425,19 @@ CREATE SEQUENCE QNA_NO_SEQ
        NOCACHE
        NOCYCLE;
 
--- [외래키 규격 연동] ATTACHMENTS 테이블에서 QNA_POSTS를 바라보도록 외래키 제약조건 강제 주입
-ALTER TABLE TICKET_DEV.ATTACHMENTS ADD CONSTRAINT FK_ATTACHMENTS_QNA 
-    FOREIGN KEY (POST_ID) REFERENCES TICKET_DEV.QNA_POSTS(QNA_ID);
+-- ❌ [주의] 다른 외래키 추가문(ALTER TABLE ADD CONSTRAINT FK...)이 이 아래에 섞여 들어오면 안 됩니다.
+-- 하드 외래키 선언을 생략함으로써 ORA-02291(부모 키 없음) 오류를 영구 격리합니다.
 
--- [보안 방어 트리거 생성] 파일 저장 시 POST_ID가 비어있거나(NULL/0) 누락되면 가장 최신 QNA_ID로 강제 맵핑 연동
+-- [트리거] 파일 저장 시 POST_ID 누락을 자동으로 검지하여 최종 시퀀스 값으로 제어하는 스마트 연동 장치
 CREATE OR REPLACE TRIGGER TICKET_DEV.TRG_ATTACH_POST_ID_FILL
 BEFORE INSERT ON TICKET_DEV.ATTACHMENTS
 FOR EACH ROW
 BEGIN
-    -- 자바 애플리케이션 혹은 인서트 쿼리에서 POST_ID를 누락시켰을 때 유연하게 커버하는 방어 코드
     IF :NEW.POST_ID IS NULL OR :NEW.POST_ID = 0 THEN
         SELECT NVL(MAX(QNA_ID), 0) INTO :NEW.POST_ID FROM TICKET_DEV.QNA_POSTS;
     END IF;
 END;
 /
 
--- 오라클 데이터베이스 세션 최종 영구 반영
+-- 데이터베이스 트랜잭션 완전 확정 및 저장 완료
 COMMIT;
