@@ -532,12 +532,12 @@ img { display: block; }
     </div>
 </div>
 
-<!-- ══ BEST ════════════════════════════════════ -->
+<!-- ══ COMING SOON ════════════════════════════════════ -->
 <div class="section">
     <div class="section-header">
         <h2 class="section-title">
-            인기 공연 랭킹
-            <span class="en">BEST</span>
+            공연 예정작
+            <span class="en">COMING SOON</span>
         </h2>
         <span class="section-more" onclick="location.href='/concert/list.do'">전체보기</span>
     </div>
@@ -641,14 +641,57 @@ function makeCanvasPoster(idx, colors, title, artist, price) {
     return c;
 }
 
-/* 더미 공연 데이터 (DB 조회 실패 시 fallback) */
-var dummyConcerts = [
-    { no:1, title:'IU HEREH WORLD TOUR', artist:'IU (아이유)', price:'165,000', colors:['#1a0a2e','#3d1560'], rank:1, tag:'콘서트' },
-    { no:2, title:'BTS PERMISSION TO DANCE', artist:'BTS (방탄소년단)', price:'154,000', colors:['#0a1628','#1e3a6e'], rank:2, tag:'콘서트' },
-    { no:3, title:'NewJeans Bunnies Camp', artist:'NewJeans', price:'110,000', colors:['#0d2018','#1a5c35'], rank:3, tag:'팬미팅' },
-    { no:4, title:'임영웅 전국투어 IM HERO', artist:'임영웅', price:'132,000', colors:['#1a1208','#5c3d0d'], rank:4, tag:'콘서트' },
-    { no:5, title:'BLACKPINK BORN PINK', artist:'BLACKPINK', price:'143,000', colors:['#2a0a1e','#8b1a5e'], rank:5, tag:'콘서트' },
-    { no:6, title:'Stray Kids MANIAC TOUR', artist:'Stray Kids', price:'121,000', colors:['#0a0a1e','#1a1a5c'], rank:6, tag:'콘서트' }
+/* ═══════════════════════════════════════════════════════════════
+메인 화면 더미 데이터
+- sliderConcerts/hotConcerts: DB 콘서트와 동일 no → detail.do로 이동
+- upcomingConcerts: DB에 없는 가상 → list.do로 이동
+═══════════════════════════════════════════════════════════════ */
+
+/* ── 슬라이더 전용 더미 (no = DB의 concertId, detail.do로 이동) ── */
+var sliderConcerts = [
+ { 
+     no:1,                                        /* ← DB의 concertId */
+     title:'IU 2026 WORLD TOUR : THE WINNING', 
+     artist:'아이유', 
+     status:'UPCOMING', 
+     venue:'서울 올림픽공원 KSPO DOME', 
+     perform_start_at:'2026-08-15'
+ },
+ { 
+     no:2,                                        /* ← DB의 concertId */
+     title:'BTS PERMISSION TO DANCE - ENCORE', 
+     artist:'BTS', 
+     status:'UPCOMING', 
+     venue:'인천 아시아드 주경기장', 
+     perform_start_at:'2026-09-05'
+ },
+ { 
+     no:4,                                        /* ← DB의 concertId */
+     title:'NEWJEANS GET UP TOUR', 
+     artist:'뉴진스', 
+     status:'ONGOING', 
+     venue:'고척 스카이돔', 
+     perform_start_at:'2026-07-20'
+ }
+];
+
+/* ── WHAT'S HOT 전용 더미 (no = DB의 concertId, detail.do로 이동) ── */
+var hotConcerts = [
+ { no:1, title:'IU 2026 WORLD TOUR : THE WINNING', artist:'아이유',     status:'UPCOMING', price:'165,000', colors:['#1a0a2e','#3d1560'], rank:1, tag:'예매예정' },
+ { no:2, title:'BTS PERMISSION TO DANCE - ENCORE', artist:'BTS',        status:'UPCOMING', price:'154,000', colors:['#0a1628','#1e3a6e'], rank:2, tag:'예매예정' },
+ { no:3, title:'잠비나이 10주년 기념 공연',         artist:'잠비나이',    status:'UPCOMING', price:'88,000',  colors:['#0d2018','#1a5c35'], rank:3, tag:'예매예정' },
+ { no:4, title:'NEWJEANS GET UP TOUR',             artist:'뉴진스',      status:'ONGOING',  price:'143,000', colors:['#2a0a1e','#8b1a5e'], rank:4, tag:'예매중'   },
+ { no:5, title:'AURORA WORLD TOUR 2026 in SEOUL',  artist:'AURORA',     status:'ONGOING',  price:'121,000', colors:['#1a1208','#5c3d0d'], rank:5, tag:'예매중'   }
+];
+
+/* ── 공연 예정작 전용 더미 (DB에 없는 가상, list.do로 이동) ── */
+var upcomingConcerts = [
+    { no:'-1', isDummy:true, title:'RIIZE 1000 DAYS FAN PARTY [RIIZE OFFIICE]',          artist:'RIIZE',     price:'COMING SOON', colors:['#1a0a2e','#3d1560'], rank:1, tag:'예매예정' },
+    { no:'-2', isDummy:true, title:'JAEHYUN FAN-CON TOUR 〈Mono〉 in SEOUL',               artist:'JAEHYUN',   price:'COMING SOON', colors:['#0a1628','#1e3a6e'], rank:2, tag:'예매예정' },
+    { no:'-3', isDummy:true, title:'2026 NCT JNJM FANMEETING TOUR [DUALITY] # SEOUL',    artist:'NCT JNJM',  price:'COMING SOON', colors:['#0d2018','#1a5c35'], rank:3, tag:'예매예정' },
+    { no:'-4', isDummy:true, title:'2026 NCT DREAM TOUR 〈THE DREAM SHOW 4〉',             artist:'NCT DREAM', price:'COMING SOON', colors:['#1a1208','#5c3d0d'], rank:4, tag:'예매예정' },
+    { no:'-5', isDummy:true, title:'NCT WISH 1st CONCERT TOUR INTO THE WISH : Our WISH', artist:'NCT WISH',  price:'COMING SOON', colors:['#2a0a1e','#8b1a5e'], rank:5, tag:'예매예정' },
+    { no:'-6', isDummy:true, title:'2026 DOYOUNG ENCORE CONCERT [ Yours ]',              artist:'DOYOUNG',   price:'COMING SOON', colors:['#0a0a1e','#1a1a5c'], rank:6, tag:'예매예정' }
 ];
 
 /* 상태별 색상 */
@@ -688,7 +731,12 @@ function renderGrid(gridId, data, showRank) {
         var canvas = makeCanvasPoster(gridId + i, item.colors, item.title, item.artist, item.price);
         var card = document.createElement('div');
         card.className = 'poster-card';
-        card.setAttribute('onclick', 'goDetail(' + item.no + ')');
+        /* 더미 데이터는 list.do로, 실 DB 데이터는 detail.do로 */
+        if (item.isDummy === true) {
+            card.setAttribute('onclick', "goDummyList()");
+        } else {
+            card.setAttribute('onclick', 'goDetail(' + item.no + ')');
+        }
 
         var thumb = document.createElement('div');
         thumb.className = 'poster-thumb';
@@ -728,6 +776,12 @@ function renderGrid(gridId, data, showRank) {
 
 function goDetail(no) {
     location.href = '/concert/detail.do?concertId=' + no;
+}
+
+/* 공연 예정작 더미 카드 클릭 → 알림 후 list.do로 이동 */
+function goDummyList() {
+    alert('해당 공연은 준비 중입니다.\n현재 예매 가능한 공연 목록으로 이동합니다.');
+    location.href = '/concert/list.do';
 }
 
 /* 슬라이더 색상 팔레트 */
@@ -782,9 +836,14 @@ function buildHeroSlider(concerts) {
         var tag       = statusLabel[c.status] || '공연';
         var title     = (c.title || '').replace(/(.{10})/g, '$1<br>');  /* 10자 줄바꿈 */
         var sub       = (c.venue || '') + (c.perform_start_at ? ' · ' + c.perform_start_at.substring(0,10) : '');
+        var isDummy     = c.isDummy === true;
         var btnDisabled = (c.status === 'CLOSED') ? 'style="opacity:.5;cursor:not-allowed;"' : '';
-        var btnOnclick  = 'onclick="goToBooking(' + concertId + ', \'' + c.status + '\')"';
-
+        var btnOnclick;
+        if (isDummy) {
+            btnOnclick = "onclick=\"location.href='/concert/list.do'\"";
+        } else {
+            btnOnclick = 'onclick="goToBooking(' + concertId + ', \'' + c.status + '\')"';
+        }
         var li = document.createElement('li');
         li.innerHTML =
             '<div class="hero-slide">' +
@@ -817,11 +876,17 @@ function buildHeroSlider(concerts) {
 }
 
 function buildHeroSliderDummy() {
-    var dummySlides = [
-        { concertId:1, title:'IU HEREH WORLD TOUR',       artist:'IU (아이유)',      status:'UPCOMING', venue:'서울올림픽주경기장', perform_start_at:'2026-08-15' },
-        { concertId:2, title:'BTS PERMISSION TO DANCE',   artist:'BTS',              status:'UPCOMING', venue:'KSPO DOME',         perform_start_at:'2026-09-05' },
-        { concertId:3, title:'NewJeans Bunnies Camp',      artist:'NewJeans',         status:'ONGOING',  venue:'잠실실내체육관',    perform_start_at:'2026-11-22' }
-    ];
+    /* sliderConcerts 사용 (concertId 필드명 맞춰서 변환) */
+    var dummySlides = sliderConcerts.map(function(c) {
+        return {
+            concertId:        c.no,
+            title:            c.title,
+            artist:           c.artist,
+            status:           c.status,
+            venue:            c.venue,
+            perform_start_at: c.perform_start_at
+        };
+    });
     buildHeroSlider(dummySlides);
 }
 
@@ -846,32 +911,34 @@ $(document).ready(function() {
     drawBanner('bnr1', ['#1a0a0a','#5c1010']);
     drawBanner('bnr2', ['#0a1020','#102040']);
 
-    /* DB에서 실제 공연 데이터 조회 → 슬라이더 + 그리드 모두 세팅 */
+    /* 
+     * 현재 /concert/listJson.do는 백엔드에 미구현 → 항상 error 블록 진입
+     * 향후 백엔드 구현되면 success 블록에서 실 DB 데이터로 자동 전환됨
+     */
     $.ajax({
         url: '<c:url value="/concert/listJson.do"/>',
         type: 'GET',
         dataType: 'json',
         data: { limit: 6 },
         success: function(data) {
+            /* DB 연동 살아나면 실 데이터 사용 (지금은 안 옴) */
             if (data.list && data.list.length > 0) {
-                /* ── 히어로 슬라이더 동적 생성 ── */
                 buildHeroSlider(data.list.slice(0, 3));
-
-                /* ── 포스터 그리드 ── */
-                var hotData  = convertConcertData(data.list.slice(0, 5), 0);
-                var bestData = convertConcertData(data.list, 0);
-                renderGrid('newGrid',  hotData,  false);
-                renderGrid('bestGrid', bestData, true);
+                var hotData = convertConcertData(data.list.slice(0, 5), 0);
+                renderGrid('newGrid',  hotData,           false);
+                renderGrid('bestGrid', upcomingConcerts,  false);   /* 예정작은 항상 더미 */
             } else {
+                /* DB 비어있을 때도 더미 폴백 */
                 buildHeroSliderDummy();
-                renderGrid('newGrid',  dummyConcerts.slice(0,5), false);
-                renderGrid('bestGrid', dummyConcerts,            true);
+                renderGrid('newGrid',  hotConcerts,      false);
+                renderGrid('bestGrid', upcomingConcerts, false);
             }
         },
         error: function() {
-            buildHeroSliderDummy();
-            renderGrid('newGrid',  dummyConcerts.slice(0,5), false);
-            renderGrid('bestGrid', dummyConcerts,            true);
+            /* 현재는 항상 이쪽으로 빠짐 (listJson.do 404) */
+            buildHeroSliderDummy();                              /* 슬라이더 → sliderConcerts */
+            renderGrid('newGrid',  hotConcerts,      false);     /* WHAT'S HOT → hotConcerts */
+            renderGrid('bestGrid', upcomingConcerts, false);     /* 공연 예정작 → upcomingConcerts */
         }
     });
 });
