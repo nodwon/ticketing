@@ -86,7 +86,9 @@ img { display: block; }
 }
 .slide-bg {
     position: absolute; inset: 0;
-    background-size: cover; background-position: center;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center 60%;
 }
 .slide-overlay {
     position: absolute; inset: 0;
@@ -168,7 +170,9 @@ img { display: block; }
     width: 36px; height: 36px;
     display: flex; align-items: center; justify-content: center;
     font-size: 22px;
+    font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
+
 .quick-label { font-size: 12px; color: #aaa; font-weight: 500; letter-spacing: 1px; }
 
 /* ═══════════════════════════════════
@@ -292,7 +296,7 @@ img { display: block; }
     height: 160px; border-radius: 4px; cursor: pointer;
     display: flex; align-items: center; padding: 0 36px;
 }
-.banner-block .bg-canvas { position: absolute; inset: 0; }
+.banner-block .bg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .banner-block .bb-content { position: relative; z-index: 1; }
 .banner-block .bb-tag {
     font-size: 10px; font-weight: 700;
@@ -514,20 +518,12 @@ img { display: block; }
 <div class="banner-strip">
     <div class="banner-strip-inner">
         <div class="banner-block" onclick="location.href='/faq/openFaqList.do'">
-            <canvas class="bg-canvas" id="bnr1"></canvas>
-            <div class="bb-content">
-                <div class="bb-tag">EARLY BOOKING</div>
-                <div class="bb-title">선예매 혜택<br>최대 20% 할인</div>
-                <span class="bb-btn">지금 확인하기</span>
-            </div>
+            <%-- ★ image file: 아래 canvas 대신 이미지를 쓰려면 위에 <img class="bg-canvas" src="이미지경로"> 추가 (가로형 600x160 권장) --%>
+            <img class="bg-canvas" src="/img/concert/discount.png">
         </div>
         <div class="banner-block" onclick="location.href='/notice/openNoticeList.do'">
-            <canvas class="bg-canvas" id="bnr2"></canvas>
-            <div class="bb-content">
-                <div class="bb-tag">MEMBERSHIP</div>
-                <div class="bb-title">회원가입 시<br>10,000P 즉시 지급</div>
-                <span class="bb-btn">혜택 알아보기</span>
-            </div>
+            <%-- ★ image file: 아래 canvas 대신 이미지를 쓰려면 위에 <img class="bg-canvas" src="이미지경로"> 추가 (가로형 600x160 권장) --%>
+            <img class="bg-canvas" src="/img/concert/sign.png">
         </div>
     </div>
 </div>
@@ -648,22 +644,27 @@ function makeCanvasPoster(idx, colors, title, artist, price) {
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── 슬라이더 전용 더미 (no = DB의 concertId, detail.do로 이동) ── */
+/* ★ image 필드: 슬라이더 배경 이미지 경로를 여기에 넣으세요 (가로형 권장, 예: 1280x480)
+ *    - 비워두면('') 기존 색상(canvas) 배경이 그대로 표시됩니다.
+ *    - 예) image:'/resources/images/slider/iu.jpg' */
 var sliderConcerts = [
- { 
-     no:1,                                        /* ← DB의 concertId */
-     title:'IU 2026 WORLD TOUR : THE WINNING', 
-     artist:'아이유', 
-     status:'UPCOMING', 
-     venue:'서울 올림픽공원 KSPO DOME', 
-     perform_start_at:'2026-08-15'
- },
  { 
      no:2,                                        /* ← DB의 concertId */
      title:'BTS PERMISSION TO DANCE - ENCORE', 
      artist:'BTS', 
      status:'UPCOMING', 
      venue:'인천 아시아드 주경기장', 
-     perform_start_at:'2026-09-05'
+     perform_start_at:'2026-09-05',
+     image:'/img/concert/bts.jpg'
+ },
+ { 
+     no:3,                                        /* ← DB의 concertId */
+     title:'잠비나이 10주년 기념 공연', 
+     artist:'잠비나이', 
+     status:'UPCOMING', 
+     venue:'블루스퀘어 마스터카드홀', 
+     perform_start_at:'2026-07-11',
+     image:'/img/concert/jambi.jpg'
  },
  { 
      no:4,                                        /* ← DB의 concertId */
@@ -671,27 +672,32 @@ var sliderConcerts = [
      artist:'뉴진스', 
      status:'ONGOING', 
      venue:'고척 스카이돔', 
-     perform_start_at:'2026-07-20'
+     perform_start_at:'2026-07-20',
+     image:'/img/concert/new.jpg'
  }
 ];
 
 /* ── WHAT'S HOT 전용 더미 (no = DB의 concertId, detail.do로 이동) ── */
+/* ★ image 필드: 포스터 이미지 경로를 여기에 넣으세요 (세로형 권장, 비율 3:4, 예: 600x800)
+ *    - 비워두면('') 기존 색상(canvas) 포스터가 그대로 표시됩니다. */
 var hotConcerts = [
- { no:1, title:'IU 2026 WORLD TOUR : THE WINNING', artist:'아이유',     status:'UPCOMING', price:'165,000', colors:['#1a0a2e','#3d1560'], rank:1, tag:'예매예정' },
- { no:2, title:'BTS PERMISSION TO DANCE - ENCORE', artist:'BTS',        status:'UPCOMING', price:'154,000', colors:['#0a1628','#1e3a6e'], rank:2, tag:'예매예정' },
- { no:3, title:'잠비나이 10주년 기념 공연',         artist:'잠비나이',    status:'UPCOMING', price:'88,000',  colors:['#0d2018','#1a5c35'], rank:3, tag:'예매예정' },
- { no:4, title:'NEWJEANS GET UP TOUR',             artist:'뉴진스',      status:'ONGOING',  price:'143,000', colors:['#2a0a1e','#8b1a5e'], rank:4, tag:'예매중'   },
- { no:5, title:'AURORA WORLD TOUR 2026 in SEOUL',  artist:'AURORA',     status:'ONGOING',  price:'121,000', colors:['#1a1208','#5c3d0d'], rank:5, tag:'예매중'   }
+ { no:1, title:'IU 2026 WORLD TOUR : THE WINNING', artist:'아이유',     status:'UPCOMING', price:'165,000', colors:['#1a0a2e','#3d1560'], rank:1, tag:'예매예정', image:'/img/concert/iu.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+ { no:2, title:'BTS PERMISSION TO DANCE - ENCORE', artist:'BTS',        status:'UPCOMING', price:'154,000', colors:['#0a1628','#1e3a6e'], rank:2, tag:'예매예정', image:'/img/concert/bts.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+ { no:3, title:'잠비나이 10주년 기념 공연',         artist:'잠비나이',    status:'UPCOMING', price:'88,000',  colors:['#0d2018','#1a5c35'], rank:3, tag:'예매예정', image:'/img/concert/jambi.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+ { no:4, title:'NEWJEANS GET UP TOUR',             artist:'뉴진스',      status:'ONGOING',  price:'143,000', colors:['#2a0a1e','#8b1a5e'], rank:4, tag:'예매중',   image:'/img/concert/new.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+ { no:5, title:'AURORA WORLD TOUR 2026 in SEOUL',  artist:'AURORA',     status:'ONGOING',  price:'121,000', colors:['#1a1208','#5c3d0d'], rank:5, tag:'예매중',   image:'/img/concert/aurora.jpg' }   /* ★ image file (포스터, 세로형 3:4) */
 ];
 
 /* ── 공연 예정작 전용 더미 (DB에 없는 가상, list.do로 이동) ── */
+/* ★ image 필드: 포스터 이미지 경로를 여기에 넣으세요 (세로형 권장, 비율 3:4)
+ *    - 비워두면('') 기존 색상(canvas) 포스터가 그대로 표시됩니다. */
 var upcomingConcerts = [
-    { no:'-1', isDummy:true, title:'RIIZE 1000 DAYS FAN PARTY [RIIZE OFFIICE]',          artist:'RIIZE',     price:'COMING SOON', colors:['#1a0a2e','#3d1560'], rank:1, tag:'예매예정' },
-    { no:'-2', isDummy:true, title:'JAEHYUN FAN-CON TOUR 〈Mono〉 in SEOUL',               artist:'JAEHYUN',   price:'COMING SOON', colors:['#0a1628','#1e3a6e'], rank:2, tag:'예매예정' },
-    { no:'-3', isDummy:true, title:'2026 NCT JNJM FANMEETING TOUR [DUALITY] # SEOUL',    artist:'NCT JNJM',  price:'COMING SOON', colors:['#0d2018','#1a5c35'], rank:3, tag:'예매예정' },
-    { no:'-4', isDummy:true, title:'2026 NCT DREAM TOUR 〈THE DREAM SHOW 4〉',             artist:'NCT DREAM', price:'COMING SOON', colors:['#1a1208','#5c3d0d'], rank:4, tag:'예매예정' },
-    { no:'-5', isDummy:true, title:'NCT WISH 1st CONCERT TOUR INTO THE WISH : Our WISH', artist:'NCT WISH',  price:'COMING SOON', colors:['#2a0a1e','#8b1a5e'], rank:5, tag:'예매예정' },
-    { no:'-6', isDummy:true, title:'2026 DOYOUNG ENCORE CONCERT [ Yours ]',              artist:'DOYOUNG',   price:'COMING SOON', colors:['#0a0a1e','#1a1a5c'], rank:6, tag:'예매예정' }
+    { no:'-1', isDummy:true, title:'2026 JISUNG B-day PARTY [FM 2.05 Mhz 〈Happy JISUNG Day〉]',          artist:'JISUNG',     price:'COMING SOON', colors:['#1a0a2e','#3d1560'], rank:1, tag:'예매예정', image:'/img/concert/banner/1.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+    { no:'-2', isDummy:true, title:'JAEHYUN FAN-CON TOUR 〈Mono〉 in SEOUL',               artist:'JAEHYUN',   price:'COMING SOON', colors:['#0a1628','#1e3a6e'], rank:2, tag:'예매예정', image:'/img/concert/banner/2.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+    { no:'-3', isDummy:true, title:'2026 NCT JNJM FANMEETING TOUR [DUALITY] # SEOUL',    artist:'NCT JNJM',  price:'COMING SOON', colors:['#0d2018','#1a5c35'], rank:3, tag:'예매예정', image:'/img/concert/banner/3.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+    { no:'-4', isDummy:true, title:'2026 NCT DREAM TOUR 〈THE DREAM SHOW 4〉',             artist:'NCT DREAM', price:'COMING SOON', colors:['#1a1208','#5c3d0d'], rank:4, tag:'예매예정', image:'/img/concert/banner/4.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+    { no:'-5', isDummy:true, title:'NCT WISH 1st CONCERT TOUR INTO THE WISH : Our WISH', artist:'NCT WISH',  price:'COMING SOON', colors:['#2a0a1e','#8b1a5e'], rank:5, tag:'예매예정', image:'/img/concert/banner/5.jpg' },  /* ★ image file (포스터, 세로형 3:4) */
+    { no:'-6', isDummy:true, title:'2026 DOYOUNG ENCORE CONCERT [ Yours ]',              artist:'DOYOUNG',   price:'COMING SOON', colors:['#0a0a1e','#1a1a5c'], rank:6, tag:'예매예정', image:'/img/concert/banner/6.jpg' }   /* ★ image file (포스터, 세로형 3:4) */
 ];
 
 /* 상태별 색상 */
@@ -728,7 +734,6 @@ function renderGrid(gridId, data, showRank) {
         return;
     }
     data.forEach(function(item, i) {
-        var canvas = makeCanvasPoster(gridId + i, item.colors, item.title, item.artist, item.price);
         var card = document.createElement('div');
         card.className = 'poster-card';
         /* 더미 데이터는 list.do로, 실 DB 데이터는 detail.do로 */
@@ -740,7 +745,23 @@ function renderGrid(gridId, data, showRank) {
 
         var thumb = document.createElement('div');
         thumb.className = 'poster-thumb';
-        thumb.appendChild(canvas);
+
+        /* ★ image file: item.image 경로가 있으면 <img>로 표시, 없으면 기존 색상(canvas) 포스터로 폴백 */
+        if (item.image) {
+            var imgEl = document.createElement('img');
+            imgEl.src = item.image;            /* ★ 포스터 이미지 (세로형 3:4 권장) */
+            imgEl.alt = item.title || '';
+            imgEl.loading = 'lazy';
+            /* 이미지 로드 실패 시 canvas 포스터로 자동 대체 */
+            imgEl.onerror = function() {
+                this.remove();
+                thumb.insertBefore(makeCanvasPoster(gridId + i, item.colors, item.title, item.artist, item.price), thumb.firstChild);
+            };
+            thumb.appendChild(imgEl);
+        } else {
+            var canvas = makeCanvasPoster(gridId + i, item.colors, item.title, item.artist, item.price);
+            thumb.appendChild(canvas);
+        }
 
         if (showRank) {
             var rank = document.createElement('span');
@@ -845,9 +866,23 @@ function buildHeroSlider(concerts) {
             btnOnclick = 'onclick="goToBooking(' + concertId + ', \'' + c.status + '\')"';
         }
         var li = document.createElement('li');
+
+        /* ★ image file: c.image 경로가 있으면 <img> 배경, 없으면 기존 색상(canvas) 배경으로 폴백 */
+        var bgHtml;
+        var hasImage = !!c.image;
+        if (hasImage) {
+            /* ★ 슬라이더 배경 이미지 (가로형 1280x480 권장) */
+            bgHtml = '<img class="slide-bg" src="' + c.image + '" alt="' + (c.title || '') + '" '
+                   + 'onerror="this.style.display=\'none\';var cv=this.parentElement.querySelector(\'canvas\');if(cv)cv.style.display=\'block\';">';
+            /* 이미지 실패 시 대비해 canvas도 함께 넣되 기본은 숨김 */
+            bgHtml += '<canvas id="' + canvasId + '" style="position:absolute;inset:0;width:100%;height:100%;display:none;"></canvas>';
+        } else {
+            bgHtml = '<canvas id="' + canvasId + '" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>';
+        }
+
         li.innerHTML =
             '<div class="hero-slide">' +
-              '<canvas id="' + canvasId + '" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>' +
+              bgHtml +
               '<div class="slide-overlay"></div>' +
               '<div class="slide-content">' +
                 '<span class="slide-tag">' + tag.toUpperCase() + ' 2026</span>' +
@@ -858,10 +893,12 @@ function buildHeroSlider(concerts) {
             '</div>';
         ul.appendChild(li);
 
-        /* canvas 배경 그리기 */
-        setTimeout(function(id, cols) {
-            drawSlide(id, cols);
-        }.bind(null, canvasId, colors), 50);
+        /* 이미지가 없을 때만 canvas 배경 그리기 (이미지 있으면 폴백용으로만 존재) */
+        if (!hasImage) {
+            setTimeout(function(id, cols) {
+                drawSlide(id, cols);
+            }.bind(null, canvasId, colors), 50);
+        }
     });
 
     /* bxSlider 초기화 */
@@ -884,7 +921,8 @@ function buildHeroSliderDummy() {
             artist:           c.artist,
             status:           c.status,
             venue:            c.venue,
-            perform_start_at: c.perform_start_at
+            perform_start_at: c.perform_start_at,
+            image:            c.image   /* ★ image file: 슬라이더 배경 이미지 경로 전달 */
         };
     });
     buildHeroSlider(dummySlides);
@@ -908,6 +946,8 @@ document.getElementById && $('#logoutBtn') && $('#logoutBtn').on('click', functi
 });
 
 $(document).ready(function() {
+    /* ★ image file: 띠 배너를 이미지로 교체했다면 아래 canvas 그리기는 자동으로 건너뜁니다
+       (해당 id의 canvas가 없으면 drawBanner 내부에서 무시됨) */
     drawBanner('bnr1', ['#1a0a0a','#5c1010']);
     drawBanner('bnr2', ['#0a1020','#102040']);
 
