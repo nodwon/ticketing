@@ -27,7 +27,16 @@ h1 {
     font-weight: normal;
     font-size: 2em;
     letter-spacing: 10px;
-}  
+}
+
+/* 삭제 버튼은 빨간색으로 강조 */
+.btn-delete {
+    background-color: #d9534f !important;
+    color: white !important;
+}
+.btn-delete:hover {
+    background-color: #c9302c !important;
+}
 </style>
 <body>
 	<br />
@@ -64,8 +73,13 @@ h1 {
 	<br />
 
 	<p>
-		<a href="#this" class="btn" id="list">목록으로</a> <a href="#this"
-			class="btn" id="update">수정하기</a>
+		<a href="#this" class="btn" id="list">목록으로</a>
+		
+		<%-- ★★★ 보안: 관리자(ADMIN)만 수정/삭제 버튼 노출 --%>
+		<c:if test="${sessionScope.SESSION_GRADE eq 'ADMIN'}">
+			<a href="#this" class="btn" id="update">수정하기</a>
+			<a href="#this" class="btn btn-delete" id="delete">삭제하기</a>
+		</c:if>
 	</p>
 
 	<form id="commonForm" name="commonForm"></form>
@@ -80,6 +94,14 @@ h1 {
 				e.preventDefault();
 				fn_openNoticeUpdate();
 			});
+			
+			// ★ 삭제 버튼 (관리자만)
+			$("#delete").on("click", function(e) {
+				e.preventDefault();
+				if (confirm("정말 이 공지사항을 삭제하시겠습니까?")) {
+					fn_deleteNotice();
+				}
+			});
 
 		});
 
@@ -93,6 +115,15 @@ h1 {
 			var notice_no = "${map.NOTICE_NO}";
 			var comSubmit = new ComSubmit();
 			comSubmit.setUrl("<c:url value='/notice/openNoticeUpdate.do' />");
+			comSubmit.addParam("NOTICE_NO", notice_no);
+			comSubmit.submit();
+		}
+		
+		// ★ 삭제 처리 함수
+		function fn_deleteNotice() {
+			var notice_no = "${map.NOTICE_NO}";
+			var comSubmit = new ComSubmit();
+			comSubmit.setUrl("<c:url value='/notice/deleteNotice.do' />");
 			comSubmit.addParam("NOTICE_NO", notice_no);
 			comSubmit.submit();
 		}
