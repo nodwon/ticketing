@@ -44,10 +44,10 @@ public class FileUtils {
 		String requestName = null;
 		String UPLOAD_NO = null;
 
-//		File file = new File(filePath);
-//		if(file.exists() == false) {//경로에 파일이 없으면 
-//			file.mkdirs(); // 파일을 생성
-//		}
+		File file = new File(filePath);
+		if(file.exists() == false) {
+			file.mkdirs();
+		}
 
 		while (iterator.hasNext()) {// 파일이 있나 확인
 			multipartFile = multipartHttpServletRequest.getFile(iterator.next());// 파일가져오기
