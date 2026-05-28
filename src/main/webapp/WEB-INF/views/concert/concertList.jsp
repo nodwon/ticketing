@@ -79,7 +79,7 @@
     <div class="topbar"><div class="topbar-inner"><a href="/" class="btn-home">🏠 홈으로</a></div></div>
     <div class="header">
         <div class="brand">STU CONCERT · TICKETING</div>
-        <h1>🎵 지금 가장 핫한 공연</h1>
+        <h1>🎵 지금 만날 수 있는 공연</h1>
         <p>당신만의 특별한 순간, STU Concert에서 만나보세요.</p>
     </div>
 </div>
