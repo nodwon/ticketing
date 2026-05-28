@@ -3,11 +3,12 @@
  * FileName   : concertDetail.jsp
  * Developer  : 주재현 (feature/jjh)
  * Created    : 2026.05.22
- * Modified   : 2026.05.27
-
+ * Modified   : 2026.05.28 (UI 공통 테마 통일 - theme.css 적용)
+ *
     ⚠️ SECURITY LAB - concertDetail.jsp
     [VULN-3]  Open Redirect - returnUrl 검증 없이 사용
     [VULN-2d] XSS Reflected - returnUrl 파라미터 (JS 컨텍스트)
+    ※ 보안 실습용 취약점이므로 의도적으로 유지함
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
@@ -20,123 +21,118 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>
     <c:choose>
-        <c:when test="${not empty concert}"><c:out value="${concert.title}"/> | STU Concert</c:when>
-        <c:otherwise>공연 정보 | STU Concert</c:otherwise>
+        <c:when test="${not empty concert}"><c:out value="${concert.title}"/> | GWANJE TICKET</c:when>
+        <c:otherwise>공연 정보 | GWANJE TICKET</c:otherwise>
     </c:choose>
 </title>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/theme.css">
 <style>
-    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: 'Pretendard', sans-serif; background: #f5f6fa; color: #1a1a1a; line-height: 1.6; }
-    a { text-decoration:none; color:inherit; }
-    button { font-family: inherit; }
+    body { background: var(--gray); }
 
-    .header { background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; padding: 18px 0; }
-    .header-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
-    .header-left { display: flex; align-items: center; gap: 10px; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .btn-icon { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
-    .header h1 { font-size: 20px; font-weight: 800; cursor: pointer; margin-left: 8px; }
-    .session-info { font-size: 13px; color: rgba(255,255,255,0.92); }
+    /* 상단 미니 헤더 */
+    .dt-header { background: var(--dark); border-bottom: 2px solid var(--red); padding: 14px 0; }
+    .dt-header-inner { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+    .dt-header-left { display: flex; align-items: center; gap: 10px; }
+    .dt-header-right { display: flex; align-items: center; gap: 10px; }
+    .dt-header h1 { font-size: 20px; font-weight: 800; cursor: pointer; margin-left: 8px; color: var(--white); font-family: var(--font-en); letter-spacing: 1px; }
+    .dt-session { font-size: 13px; color: rgba(255,255,255,.85); }
 
-    .container { max-width: 1200px; margin: 40px auto 60px; padding: 0 24px; }
-    .detail-card { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 28px; }
-    .detail-thumb { height: 580px; background: linear-gradient(135deg, #e5e7eb, #cbd5e1); background-size: cover; background-position: center; position: relative; }
+    .detail-card { background: var(--white); border:1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); display: grid; grid-template-columns: 1fr 1fr; margin: 36px 0 28px; }
+    .detail-thumb { height: 560px; background: linear-gradient(135deg,#e8e8e8,#d4d4d4); background-size: cover; background-position: center; position: relative; }
     .status-badge-lg { position: absolute; top: 20px; right: 20px; padding: 8px 18px; border-radius: 24px; font-size: 13px; font-weight: 700; color: #fff; }
-    .status-UPCOMING { background: rgba(245,158,11,0.95); }
-    .status-ONGOING  { background: rgba(34,197,94,0.95); }
-    .status-CLOSED   { background: rgba(107,114,128,0.95); }
+    .status-UPCOMING { background: #f59e0b; }
+    .status-ONGOING  { background: #22c55e; }
+    .status-CLOSED   { background: #9ca3af; }
 
     .detail-info { padding: 44px; display: flex; flex-direction: column; }
-    .detail-artist { color: #6a11cb; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
-    .detail-title { font-size: 28px; font-weight: 800; color: #1a1a1a; margin-bottom: 24px; line-height: 1.25; }
-    .info-table { border-top: 1.5px solid #e5e7eb; border-bottom: 1.5px solid #e5e7eb; padding: 20px 0; margin-bottom: 24px; }
+    .detail-artist { color: var(--red); font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+    .detail-title { font-size: 28px; font-weight: 800; color: var(--dark); margin-bottom: 24px; line-height: 1.25; }
+    .info-table { border-top: 1.5px solid var(--border); border-bottom: 1.5px solid var(--border); padding: 20px 0; margin-bottom: 24px; }
     .info-row { display: flex; padding: 7px 0; font-size: 14px; }
-    .info-label { width: 110px; color: #9ca3af; font-weight: 500; }
-    .info-value { flex: 1; color: #1a1a1a; font-weight: 600; }
-    .detail-desc-title { font-size: 15px; font-weight: 800; color: #1a1a1a; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2.5px solid #6a11cb; display: inline-block; }
-    .detail-desc { font-size: 14px; color: #4b5563; line-height: 1.8; white-space: pre-wrap; flex: 1; }
+    .info-label { width: 110px; color: var(--muted); font-weight: 500; }
+    .info-value { flex: 1; color: var(--text); font-weight: 600; }
+    .detail-desc-title { font-size: 15px; font-weight: 800; color: var(--dark); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2.5px solid var(--red); display: inline-block; }
+    .detail-desc { font-size: 14px; color: #555; line-height: 1.8; white-space: pre-wrap; flex: 1; }
 
-    .schedule-section { background: #fff; border-radius: 20px; padding: 36px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
-    .schedule-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1.5px solid #f3f4f6; }
-    .schedule-title { font-size: 20px; font-weight: 800; color: #1a1a1a; }
-    .schedule-title-sub { font-size: 12px; color: #6a11cb; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-    .schedule-count { font-size: 13px; color: #6b7280; }
-    .schedule-count strong { color: #6a11cb; font-weight: 700; }
+    .schedule-section { background: var(--white); border:1px solid var(--border); border-radius: var(--radius-lg); padding: 36px; box-shadow: var(--shadow); margin-bottom: 60px; }
+    .schedule-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1.5px solid var(--gray); }
+    .schedule-title { font-size: 20px; font-weight: 800; color: var(--dark); }
+    .schedule-title-sub { font-size: 12px; color: var(--red); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; font-family: var(--font-en); }
+    .schedule-count { font-size: 13px; color: var(--muted); }
+    .schedule-count strong { color: var(--red); font-weight: 700; }
 
-    .closed-banner { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border: 2px dashed #9ca3af; border-radius: 14px; padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
-    .closed-banner-icon { width: 48px; height: 48px; background: #6b7280; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; flex-shrink: 0; }
-    .closed-banner-title { font-size: 15px; font-weight: 800; color: #374151; margin-bottom: 4px; }
-    .closed-banner-desc { font-size: 13px; color: #6b7280; }
+    .closed-banner { background: var(--gray); border: 2px dashed #aaa; border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+    .closed-banner-icon { width: 48px; height: 48px; background: var(--muted); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; flex-shrink: 0; }
+    .closed-banner-title { font-size: 15px; font-weight: 800; color: #444; margin-bottom: 4px; }
+    .closed-banner-desc { font-size: 13px; color: var(--muted); }
 
     .schedule-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 28px; }
-    .schedule-card { border: 2px solid #e5e7eb; border-radius: 14px; padding: 20px; cursor: pointer; position: relative; background: #fff; }
-    .schedule-card:hover { border-color: #c4b5fd; background: #faf5ff; }
-    .schedule-card.selected { border-color: #6a11cb; background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); }
-    .schedule-card.disabled { opacity: 0.55; cursor: not-allowed; background: #f9fafb; }
-    .schedule-card-radio { position: absolute; top: 18px; right: 18px; width: 22px; height: 22px; border: 2px solid #d1d5db; border-radius: 50%; }
-    .schedule-card.selected .schedule-card-radio { border-color: #6a11cb; background: #6a11cb; box-shadow: inset 0 0 0 4px #fff; }
+    .schedule-card { border: 2px solid var(--border); border-radius: var(--radius); padding: 20px; cursor: pointer; position: relative; background: var(--white); transition: all .2s; }
+    .schedule-card:hover { border-color: #f5a3ad; background: #fff5f6; }
+    .schedule-card.selected { border-color: var(--red); background: #fff5f6; }
+    .schedule-card.disabled { opacity: 0.55; cursor: not-allowed; background: #f9f9f9; }
+    .schedule-card-radio { position: absolute; top: 18px; right: 18px; width: 22px; height: 22px; border: 2px solid #ccc; border-radius: 50%; }
+    .schedule-card.selected .schedule-card-radio { border-color: var(--red); background: var(--red); box-shadow: inset 0 0 0 4px #fff; }
     .schedule-date-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-    .schedule-date { font-size: 18px; font-weight: 800; color: #1a1a1a; }
-    .schedule-weekday { font-size: 14px; font-weight: 700; color: #6a11cb; }
-    .schedule-weekday.weekend { color: #ef4444; }
-    .schedule-time { font-size: 14px; color: #4b5563; font-weight: 600; margin-bottom: 14px; }
+    .schedule-date { font-size: 18px; font-weight: 800; color: var(--dark); }
+    .schedule-weekday { font-size: 14px; font-weight: 700; color: var(--red); }
+    .schedule-weekday.weekend { color: var(--red); }
+    .schedule-time { font-size: 14px; color: #555; font-weight: 600; margin-bottom: 14px; }
     .schedule-meta { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
-    .schedule-meta-row { display: flex; justify-content: space-between; color: #6b7280; }
-    .schedule-meta-row b { color: #1a1a1a; font-weight: 700; }
-    .seat-progress-bar { width: 100%; height: 6px; background: #f3f4f6; border-radius: 3px; overflow: hidden; margin-top: 6px; }
-    .seat-progress-fill { height: 100%; background: linear-gradient(90deg, #6a11cb, #2575fc); border-radius: 3px; }
-    .seat-progress-fill.warn { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+    .schedule-meta-row { display: flex; justify-content: space-between; color: var(--muted); }
+    .schedule-meta-row b { color: var(--text); font-weight: 700; }
+    .seat-progress-bar { width: 100%; height: 6px; background: var(--gray); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+    .seat-progress-fill { height: 100%; background: var(--red); border-radius: 3px; }
+    .seat-progress-fill.warn { background: #f59e0b; }
     .seat-progress-fill.full { background: #9ca3af; }
 
-    .badge { position: absolute; top: 14px; left: 14px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: #fff; }
-    .badge-soldout { background: #ef4444; }
+    .badge { position: absolute; top: 14px; left: 14px; padding: 4px 10px; border-radius: var(--radius); font-size: 11px; font-weight: 800; color: #fff; }
+    .badge-soldout { background: var(--red); }
     .badge-waiting { background: #f59e0b; }
-    .badge-ended   { background: #6b7280; }
-    .badge-closed  { background: #374151; }
+    .badge-ended   { background: var(--muted); }
+    .badge-closed  { background: #444; }
 
-    .booking-bar { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-radius: 14px; }
-    .booking-selected-info { font-size: 14px; color: #4b5563; }
-    .booking-selected-info strong { color: #6a11cb; font-weight: 700; }
-    .booking-selected-info .placeholder { color: #9ca3af; }
-    .booking-selected-info .ended { color: #6b7280; }
+    .booking-bar { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: var(--gray); border-radius: var(--radius); }
+    .booking-selected-info { font-size: 14px; color: #555; }
+    .booking-selected-info strong { color: var(--red); font-weight: 700; }
+    .booking-selected-info .placeholder { color: var(--muted); }
+    .booking-selected-info .ended { color: var(--muted); }
     .booking-actions { display: flex; gap: 10px; }
-    .btn-primary { padding: 16px 36px; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
-    .btn-primary:disabled { background: #d1d5db; cursor: not-allowed; }
-    .btn-secondary { padding: 16px 24px; background: #fff; color: #4b5563; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }
 
-    .schedule-empty { text-align: center; padding: 60px 20px; color: #9ca3af; }
-    .error-box { background: #fff; border-radius: 20px; padding: 100px 20px; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+    .schedule-empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .error-box { background: var(--white); border:1px solid var(--border); border-radius: var(--radius-lg); padding: 100px 20px; text-align: center; box-shadow: var(--shadow); margin: 36px 0; }
     .error-icon { font-size: 72px; margin-bottom: 20px; }
-    .btn-home-lg { padding: 14px 32px; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; border-radius: 10px; font-weight: 700; font-size: 14px; display: inline-block; }
 
-    .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px); padding: 14px 26px; background: #1f2937; color: #fff; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 2000; opacity: 0; transition: transform .25s, opacity .25s; }
+    .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px); padding: 14px 26px; background: var(--dark); color: #fff; border-radius: var(--radius); font-size: 14px; font-weight: 600; z-index: 2000; opacity: 0; transition: transform .25s, opacity .25s; }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    @media (max-width: 768px) { .detail-card { grid-template-columns: 1fr; } .detail-thumb { height: 360px; } }
 </style>
 </head>
 <body>
 
-<div class="header">
-    <div class="header-inner">
-        <div class="header-left">
-            <a href="/" class="btn-icon">🏠 홈</a>
-            <a href="/concert/list.do" class="btn-icon">📋 목록</a>
-            <h1 onclick="location.href='/concert/list.do'">🎵 STU Concert</h1>
+<div class="dt-header">
+    <div class="dt-header-inner">
+        <div class="dt-header-left">
+            <a href="/" class="tk-btn tk-btn-sm tk-btn-dark">🏠 홈</a>
+            <a href="/concert/list.do" class="tk-btn tk-btn-sm tk-btn-dark">📋 목록</a>
+            <h1 onclick="location.href='/concert/list.do'">GWANJE TICKET</h1>
         </div>
-        <div class="header-right">
+        <div class="dt-header-right">
             <c:choose>
                 <c:when test="${not empty sessionScope.SESSION_ID}">
-                    <span class="session-info">👤 <c:out value="${sessionScope.SESSION_NAME}"/>님</span>
-                    <a href="javascript:doLogout();" class="btn-icon">로그아웃</a>
+                    <span class="dt-session">👤 <c:out value="${sessionScope.SESSION_NAME}"/>님</span>
+                    <a href="javascript:doLogout();" class="tk-btn tk-btn-sm tk-btn-dark">로그아웃</a>
                 </c:when>
                 <c:otherwise>
-                    <a href="/loginForm.do" class="btn-icon">🔑 로그인</a>
+                    <a href="/loginForm.do" class="tk-btn tk-btn-sm tk-btn-primary">🔑 로그인</a>
                 </c:otherwise>
             </c:choose>
         </div>
     </div>
 </div>
 
-<div class="container">
+<div class="tk-container">
 
 <c:choose>
     <c:when test="${empty concert}">
@@ -144,7 +140,7 @@
             <div class="error-icon">😢</div>
             <h2>공연 정보를 찾을 수 없습니다</h2>
             <p><c:out value="${errorMsg}"/></p>
-            <a href="/concert/list.do" class="btn-home-lg">목록으로 돌아가기</a>
+            <a href="/concert/list.do" class="tk-btn tk-btn-primary tk-mt-24">목록으로 돌아가기</a>
         </div>
     </c:when>
     <c:otherwise>
@@ -266,8 +262,8 @@
                             </c:choose>
                         </div>
                         <div class="booking-actions">
-                            <button class="btn-secondary" onclick="location.href='/concert/list.do'">목록</button>
-                            <button class="btn-primary" id="btnBooking" disabled onclick="handleBooking()">
+                            <button class="tk-btn tk-btn-ghost" onclick="location.href='/concert/list.do'">목록</button>
+                            <button class="tk-btn tk-btn-primary tk-btn-lg" id="btnBooking" disabled onclick="handleBooking()">
                                 <c:choose>
                                     <c:when test="${concertClosed}">예매 종료</c:when>
                                     <c:otherwise>🎟️ 예매하기</c:otherwise>

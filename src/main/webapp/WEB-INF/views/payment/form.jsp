@@ -7,13 +7,13 @@
 Project    : 관제 티켓 (Ticketing System)
 FileName   : payment/form.jsp
 Developer  : 이규왕 (feature/king)
-Modified   : 2026.05.26
+Modified   : 2026.05.28 (UI 공통 테마 통일 - theme.css 적용)
 
 Description :
   - 결제 정보 확인 + 결제 수단 선택 화면
   - 진입: GET /payment/form.do?bookingId=N (BookingController 가 redirect)
   - 제출: POST /payment/result.do
-  - 사이트 메인 컬러(#ff4f6b) 톤에 맞춤
+  - 사이트 메인 컬러(#e8001c) 톤으로 통일
 ============================================================
 --%>
 
@@ -22,184 +22,98 @@ Description :
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>결제하기 - GWANJE TICKET</title>
+<title>결제하기 | GWANJE TICKET</title>
 
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/bootstrap.min.css">
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/theme.css">
 
 <style>
-* { box-sizing: border-box; }
-body {
-    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-    background: #f7f7f9;
-    margin: 0;
-    color: #222;
-}
+body { background: var(--gray); }
 
-.pay-wrap {
-    max-width: 720px;
-    margin: 40px auto;
-    padding: 0 20px;
-}
-
-.pay-header {
-    border-bottom: 2px solid #ff4f6b;
-    padding-bottom: 12px;
-    margin-bottom: 24px;
-}
-.pay-header h2 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: #222;
-}
-.pay-header .sub {
-    color: #888;
-    font-size: 14px;
-    margin: 6px 0 0;
-}
+.pay-wrap { max-width: 760px; margin: 0 auto 60px; padding: 0 20px; }
 
 .pay-card {
-    background: #fff;
-    border: 1px solid #eee;
-    border-radius: 10px;
-    padding: 24px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow);
 }
 .pay-card h3 {
-    margin: 0 0 16px;
-    font-size: 17px;
-    font-weight: 700;
-    color: #333;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #f0f0f0;
+    margin: 0 0 18px;
+    font-size: 17px; font-weight: 700; color: var(--dark);
+    padding-bottom: 12px; border-bottom: 2px solid var(--gray);
 }
 
 /* 예매 정보 */
 .info-row {
-    display: flex;
-    padding: 10px 0;
-    font-size: 14px;
-    border-bottom: 1px dashed #f0f0f0;
+    display: flex; padding: 11px 0; font-size: 14px;
+    border-bottom: 1px solid var(--gray);
 }
 .info-row:last-child { border-bottom: none; }
-.info-row .label {
-    width: 110px;
-    color: #888;
-    flex-shrink: 0;
-}
-.info-row .value {
-    color: #222;
-    flex: 1;
-    font-weight: 500;
-}
+.info-row .label { width: 110px; color: var(--muted); flex-shrink: 0; }
+.info-row .value { color: var(--text); flex: 1; font-weight: 500; }
 .info-row.price {
-    margin-top: 8px;
-    padding-top: 16px;
-    border-top: 2px solid #f0f0f0;
-    border-bottom: none;
-    font-size: 15px;
+    margin-top: 8px; padding-top: 16px;
+    border-top: 2px solid var(--border); border-bottom: none; font-size: 15px;
 }
-.info-row.price .value {
-    color: #ff4f6b;
-    font-size: 22px;
-    font-weight: 700;
-}
+.info-row.price .value { color: var(--red); font-size: 22px; font-weight: 800; }
 
 /* 약관 */
-.agree-row {
-    display: flex;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 13px;
-    color: #555;
-}
-.agree-row input[type=checkbox] {
-    margin-right: 8px;
-    transform: scale(1.1);
-    accent-color: #ff4f6b;
-}
+.agree-row { display: flex; align-items: center; padding: 9px 0; font-size: 13px; color: #555; }
+.agree-row input[type=checkbox] { margin-right: 8px; transform: scale(1.1); accent-color: var(--red); }
 .agree-row.all {
-    font-weight: 700;
-    font-size: 14px;
-    color: #222;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f0f0f0;
-    margin-bottom: 8px;
+    font-weight: 700; font-size: 14px; color: var(--text);
+    padding-bottom: 12px; border-bottom: 1px solid var(--gray); margin-bottom: 8px;
 }
 
-/* 버튼 */
-.btn-area {
-    display: flex;
-    gap: 10px;
-    margin-top: 24px;
-}
-.btn-back, .btn-pay {
-    flex: 1;
-    height: 54px;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.btn-back {
-    background: #fff;
-    color: #555;
-    border: 1.5px solid #ddd;
-    flex: 0 0 140px;
-}
-.btn-back:hover { background: #f5f5f5; }
-.btn-pay {
-    background: #ff4f6b;
-    color: #fff;
-}
-.btn-pay:hover { background: #e63e58; }
-.btn-pay:disabled {
-    background: #ddd;
-    color: #888;
-    cursor: not-allowed;
-}
+/* 버튼 영역 */
+.btn-area { display: flex; gap: 10px; margin-top: 24px; }
+.btn-area .tk-btn { height: 54px; font-size: 16px; }
+.btn-area .btn-back { flex: 0 0 140px; }
+.btn-area .btn-pay { flex: 1; }
 
 /* 안내 박스 */
 .notice {
-    background: #fff8f9;
-    border-left: 3px solid #ff4f6b;
-    padding: 12px 16px;
-    font-size: 13px;
-    color: #666;
-    border-radius: 0 6px 6px 0;
-    line-height: 1.6;
-    margin-top: 16px;
+    background: #fde8ea;
+    border-left: 3px solid var(--red);
+    padding: 13px 16px; font-size: 13px; color: #7a2230;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    line-height: 1.6; margin-top: 16px;
 }
 
 /* 데이터 없는 경우 */
 .empty-msg {
-    background: #fff;
-    border: 1px solid #eee;
-    border-radius: 10px;
-    padding: 60px 20px;
-    text-align: center;
-    color: #888;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 60px 20px; text-align: center; color: var(--muted);
 }
 .empty-msg .icon { font-size: 48px; margin-bottom: 16px; }
-.empty-msg a {
-    display: inline-block;
-    margin-top: 16px;
-    color: #ff4f6b;
-    font-weight: 700;
-}
+.empty-msg a { display: inline-block; margin-top: 16px; color: var(--red); font-weight: 700; }
 </style>
 </head>
 <body>
 
-<div class="pay-wrap">
-
-    <div class="pay-header">
-        <h2>결제하기</h2>
-        <p class="sub">예매하신 공연 정보를 확인하고 결제를 진행해주세요</p>
+<!-- 페이지 헤더 (공통 톤) -->
+<div class="tk-page-head">
+    <div class="tk-page-head-inner">
+        <div class="brand">PAYMENT</div>
+        <h1>결제하기</h1>
+        <p>예매하신 공연 정보를 확인하고 결제를 진행해주세요.</p>
+        <div class="tk-steps">
+            <span class="tk-step"><span class="num">1</span>공연 선택</span>
+            <span class="tk-step-sep">›</span>
+            <span class="tk-step"><span class="num">2</span>좌석 선택</span>
+            <span class="tk-step-sep">›</span>
+            <span class="tk-step active"><span class="num">3</span>결제</span>
+            <span class="tk-step-sep">›</span>
+            <span class="tk-step"><span class="num">4</span>완료</span>
+        </div>
     </div>
+</div>
+
+<div class="pay-wrap" style="margin-top:24px;">
 
     <c:choose>
         <c:when test="${empty booking}">
@@ -278,11 +192,11 @@ body {
 
                 <!-- 버튼 -->
                 <div class="btn-area">
-                    <button type="button" class="btn-back"
+                    <button type="button" class="tk-btn tk-btn-ghost btn-back"
                             onclick="if(confirm('결제를 취소하고 이전 화면으로 돌아가시겠습니까?')) history.back();">
                         취소
                     </button>
-                    <button type="submit" class="btn-pay" id="btnPay" disabled>
+                    <button type="submit" class="tk-btn tk-btn-primary btn-pay" id="btnPay" disabled>
                         <fmt:formatNumber value="${booking.TOTALPRICE}" pattern="#,###"/>원 결제하기
                     </button>
                 </div>
