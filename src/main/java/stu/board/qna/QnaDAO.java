@@ -54,4 +54,9 @@ public class QnaDAO extends AbstractDao{
 	    return (Map<String, Object>) selectOne("qna.selectFileInfo", map);
 	}
 
+	@SuppressWarnings("unchecked")
+	public List<Map<String, Object>> searchQnaList(Map<String, Object> map) throws Exception {
+	    return (List<Map<String, Object>>) selectList("qna.searchQnaList", map);
+	}
+
 }

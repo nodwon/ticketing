@@ -5,12 +5,20 @@
  * FileName  : LoginController.java
  *
  * Developer : 심재학 (feature/batman)
- * Created   : 2026.05.25
- * Modified  : 2026.05.25
+ * Modified  : 2026.05.27 by 김태희 (feature/kth)
  *
  * Description :
  *   - 로그인 폼 / 로그인 처리 / 로그아웃
  *   - 아이디(이메일) 찾기 / 비밀번호 초기화
+ *
+ * History :
+ *   2026.05.26 - SESSION_GRADE 세션 저장 추가 (kth)
+ *                · header.jsp 가 SESSION_GRADE 로 ADMIN 판정하는데
+ *                  세션에 저장이 누락되어 관리자 버튼이 안 뜨던 문제 수정
+ *                · 일반 로그인 + 소셜 로그인 둘 다 적용
+ *   2026.05.27 - USER_BANNED 회원 로그인 차단 추가 (kth)
+ *                · admin 의 회원 권한 관리 기능과 연동
+ *                · USER_BANNED role 회원은 로그인 시 차단 메시지 표시
  * ============================================================
  */
 package stu.member.login;
@@ -53,12 +61,12 @@ public class LoginController {
 	        @RequestParam(value = "returnUrl", required = false) String returnUrl,
 	        CommandMap commandMap) throws Exception {
 	    ModelAndView mv = new ModelAndView("login/loginForm");
-	    
+
 	    // returnUrl을 JSP로 전달 (hidden input에 담길 예정)
 	    if (returnUrl != null && !returnUrl.isEmpty()) {
 	        mv.addObject("returnUrl", returnUrl);
 	    }
-	    
+
 	    return mv;
 	}
 
@@ -85,23 +93,40 @@ public class LoginController {
 			    // 비밀번호 검증: 사용자 입력(평문) vs DB 저장(BCrypt 해시)
 			    String plainPassword = (String) commandMap.get("MEMBER_PASSWD");
 			    String hashedPassword = (String) chk.get("MEMBER_PASSWD");
-			    
+
 			    if (BCrypt.checkpw(plainPassword, hashedPassword)) {
+
+			        // ⭐ 2026.05.26 추가: USER_BANNED 회원 로그인 차단
+			        // admin 페이지에서 정지 처리된 회원은 로그인 불가
+			        String memberGrade = (String) chk.get("MEMBER_GRADE");
+			        if ("USER_BANNED".equals(memberGrade)) {
+			            mv.setViewName("login/loginForm");
+			            mv.addObject("message", "정지된 계정입니다. 관리자에게 문의해주세요.");
+			            log.warn("[AUDIT][login][BLOCKED] USER_BANNED 회원 로그인 시도: "
+			                    + commandMap.get("MEMBER_ID")
+			                    + ", ip=" + getClientIp(request));
+			            return mv;
+			        }
+
+			        // 세션에 회원 정보 저장
 			        session.setAttribute("SESSION_ID", chk.get("MEMBER_ID"));
 			        session.setAttribute("SESSION_NO", chk.get("MEMBER_NO"));
 			        session.setAttribute("SESSION_NAME", chk.get("MEMBER_NAME"));
+
+			        // ⭐ 2026.05.26 추가: SESSION_GRADE 저장 (header.jsp 가 ADMIN 판정에 사용)
+			        session.setAttribute("SESSION_GRADE", chk.get("MEMBER_GRADE"));
 
 			        String redirectUrl = isValidReturnUrl(returnUrl) ? returnUrl : "/main.do";
 			        mv = new ModelAndView("redirect:" + redirectUrl);
 			        mv.addObject("MEMBER", chk);
 
 			        session.getMaxInactiveInterval();
-			        
-			        log.info("로그인 성공: " + chk.get("MEMBER_ID"));
+
+			        log.info("로그인 성공: " + chk.get("MEMBER_ID") + ", grade=" + memberGrade);
 			    } else {
 			        mv.setViewName("login/loginForm");
 			        mv.addObject("message", "해당 아이디 혹은 비밀번호가 일치하지 않습니다.");
-			        
+
 			        log.warn("로그인 실패(비밀번호 불일치): " + commandMap.get("MEMBER_ID"));
 			    }
 			}
@@ -111,9 +136,6 @@ public class LoginController {
 
 	/**
 	 * returnUrl 안전성 검증 (Open Redirect 공격 방어)
-	 * - null/empty 차단
-	 * - http://, https://, // 로 시작하는 외부 URL 차단
-	 * - / 로 시작하는 내부 경로만 허용
 	 */
 	private boolean isValidReturnUrl(String returnUrl) {
 	    if (returnUrl == null || returnUrl.isEmpty()) {
@@ -132,6 +154,21 @@ public class LoginController {
 	    return true;
 	}
 
+	/** 클라이언트 IP 추출 (X-Forwarded-For 우선 처리). */
+	private String getClientIp(HttpServletRequest request) {
+		String ip = request.getHeader("X-Forwarded-For");
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getHeader("Proxy-Client-IP");
+		}
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getHeader("WL-Proxy-Client-IP");
+		}
+		if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+			ip = request.getRemoteAddr();
+		}
+		return ip;
+	}
+
 	// 소셜로그인 이후 메인페이지 이동
 	@RequestMapping(value = "/socialLoginAction.do", method = RequestMethod.POST)
 	@ResponseBody
@@ -143,6 +180,10 @@ public class LoginController {
 		session.setAttribute("SESSION_ID", map.get("ID"));
 		session.setAttribute("SESSION_NO", map.get("MEMBER_NO"));
 		session.setAttribute("SESSION_NAME", map.get("Name"));
+
+		// ⭐ 2026.05.26 추가: 소셜 로그인도 GRADE 저장 (없으면 USER 로 기본)
+		Object grade = map.get("MEMBER_GRADE");
+		session.setAttribute("SESSION_GRADE", grade != null ? grade : "USER");
 
 		session.getMaxInactiveInterval();
 

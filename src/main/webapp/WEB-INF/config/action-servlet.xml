@@ -20,11 +20,24 @@
    		</mvc:argument-resolvers>
    </mvc:annotation-driven>
    
-   <!-- 모든 요청에 대해서 loggerInterceptor 동작되게 함 -->
+   <!--
+        인터셉터 설정
+         ① loggerInterceptor       : 모든 요청 로깅 (기존)
+         ② adminAuthInterceptor    : /admin/** 만 권한 체크 (2026.05.26 추가 by kth)
+                                      - 비로그인     → /loginForm.do
+                                      - USER_BANNED  → 강제 로그아웃 + /loginForm.do
+                                      - USER        → /main.do
+                                      - ADMIN       → 통과
+   -->
    <mvc:interceptors>
    		<mvc:interceptor>
    			<mvc:mapping path="/**/"/>
    			<bean id="loggerInterceptor" class="stu.common.logger.LoggerInterceptor" />
+   		</mvc:interceptor>
+   		
+   		<mvc:interceptor>
+   			<mvc:mapping path="/admin/**"/>
+   			<bean id="adminAuthInterceptor" class="stu.admin.main.AdminAuthInterceptor" />
    		</mvc:interceptor>
    </mvc:interceptors>
    

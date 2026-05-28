@@ -33,8 +33,13 @@ public class QnaController {
 	}
 	
 	@RequestMapping(value="/qna/selectQnaList.do")
-	public ModelAndView selectQnaList(CommandMap commandMap) throws Exception {
+	public ModelAndView selectQnaList(CommandMap commandMap, HttpServletRequest request) throws Exception {
 		ModelAndView mv = new ModelAndView("jsonView");
+
+		HttpSession session = request.getSession(false);
+		String sessionName = (session != null) ? (String) session.getAttribute("SESSION_NAME") : null;
+		commandMap.put("IS_ADMIN", "관리자".equals(sessionName) ? "1" : "0");
+
 		List<Map<String,Object>> list = qnaService.selectQnaList(commandMap.getMap());
 		mv.addObject("list", list);
 		
@@ -81,11 +86,11 @@ public class QnaController {
 			isSecret = String.valueOf(commandMap.get("QNA_SECRET"));
 		}
 		
-		if(isSecret.equals("1") || isSecret.equalsIgnoreCase("true")) {
-			commandMap.put("IS_SECRET", "1");
+		if(isSecret.equals("1") || isSecret.equalsIgnoreCase("true") || isSecret.equalsIgnoreCase("on")) {
+			commandMap.put("IS_SECRET", 1);
 			commandMap.put("QNA_SECRET", "1");
 		} else {
-			commandMap.put("IS_SECRET", "0");
+			commandMap.put("IS_SECRET", 0);
 			commandMap.put("QNA_SECRET", "0");
 			commandMap.put("QNA_PASSWD", "");
 		}
@@ -150,10 +155,23 @@ public class QnaController {
 		}
 
 		Map<String, Object> resultMap = qnaService.selectQnaDetail(commandMap.getMap());
-		
+
 		if (resultMap != null) {
 			Map<String, Object> detailMap = (Map<String, Object>) resultMap.get("map");
-			
+
+			// 비밀글 접근 제어: SESSION_NAME이 "관리자"가 아니면 열람 차단
+			if (detailMap != null) {
+				int secretVal = 0;
+				try { secretVal = ((Number) detailMap.get("IS_SECRET")).intValue(); } catch (Exception e) {}
+				if (secretVal == 1) {
+					HttpSession sess = request.getSession(false);
+					String sName = (sess != null) ? (String) sess.getAttribute("SESSION_NAME") : null;
+					if (!"관리자".equals(sName)) {
+						return new ModelAndView("redirect:/qna/openQnaList.do?accessDenied=1");
+					}
+				}
+			}
+
 			if (detailMap != null && detailMap.get("QNA_CONTENT") != null) {
 				Object contentObj = detailMap.get("QNA_CONTENT");
 				
@@ -212,6 +230,15 @@ public class QnaController {
 	@RequestMapping(value="/qna/chkPassword", method = RequestMethod.POST)
 	public int chkPassword(@RequestParam Map<String, Object> params) throws Exception{
 		return 1;
+	}
+
+	@RequestMapping(value="/qna/searchQnaList.do")
+	public ModelAndView searchQnaList(CommandMap commandMap) throws Exception {
+		ModelAndView mv = new ModelAndView("jsonView");
+		List<Map<String, Object>> list = qnaService.searchQnaList(commandMap.getMap());
+		mv.addObject("list", list);
+		mv.addObject("TOTAL", list.size());
+		return mv;
 	}
 	
 	// 🌟 [42번 명세서 API 신규 주입] Q&A 답변 등록/수정 (관리자 전용 엔드포인트) 🌟
