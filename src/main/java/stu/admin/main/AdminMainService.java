@@ -8,7 +8,7 @@ package stu.admin.main;
  *
  *  Developer : 김태희 (feature/kth)
  *  Created   : 2026.05.24
- *  Modified  : 2026.05.27
+ *  Modified  : 2026.05.28
  *
  *  Description :
  *    - 관리자 메인 Service 인터페이스
@@ -23,6 +23,10 @@ package stu.admin.main;
  *                 · promoteMember : USER / USER_BANNED -> ADMIN (승격)
  *                 · demoteMember  : ADMIN -> USER (강등, 마지막 관리자 보호)
  *                 · MemberRoleChangeException : 보호 장치 위반 시 발생
+ *    2026.05.28 - 예매 강제 취소 메서드 추가
+ *                 · cancelBooking : 결제 REFUNDED + 예매 CANCELLED + 좌석 복구
+ *                   (booking / payment 모듈에 위임하여 한 트랜잭션 처리)
+ *                 · BookingCancelException : 없는/이미 취소된 예매 등 위반 시 발생
  * ============================================================
  */
 
@@ -109,6 +113,23 @@ public interface AdminMainService {
 
 	List<Map<String, Object>> selectBookingList(Map<String, Object> map) throws Exception;
 
+	/**
+	 * 관리자에 의한 예매 강제 취소.
+	 *
+	 * <pre>
+	 *  처리 흐름 (한 트랜잭션):
+	 *    1) 결제 환불 : payments.status SUCCESS → REFUNDED
+	 *    2) 예매 취소 : bookings.status → CANCELLED
+	 *    3) 좌석 복구 : seats.status RESERVED/HELD → AVAILABLE + 잔여석 재계산
+	 *  보호 장치:
+	 *    - 존재하지 않거나 이미 취소된 예매 → BookingCancelException
+	 *    - 어느 단계든 실패 시 전체 롤백
+	 * </pre>
+	 *
+	 * @return 취소된 예매 정보 (memberName, title, REFUNDED 건수 등)
+	 */
+	Map<String, Object> cancelBooking(CommandMap commandMap) throws Exception;
+
 	// ---------- 예외 ----------
 
 	/**
@@ -118,6 +139,15 @@ public interface AdminMainService {
 	public static class MemberRoleChangeException extends Exception {
 		private static final long serialVersionUID = 1L;
 		public MemberRoleChangeException(String message) { super(message); }
+	}
+
+	/**
+	 * 예매 강제 취소 보호 장치 위반 시 발생하는 예외.
+	 * (예: 존재하지 않는 예매, 이미 취소된 예매, booking 모듈 취소 실패 등)
+	 */
+	public static class BookingCancelException extends Exception {
+		private static final long serialVersionUID = 1L;
+		public BookingCancelException(String message) { super(message); }
 	}
 
 }

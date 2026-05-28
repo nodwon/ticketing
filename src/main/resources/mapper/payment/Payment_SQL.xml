@@ -7,7 +7,7 @@
  
     Developer  : 이규왕 (feature/king)
     Created    : 2026.05.22
-    Modified   : 2026.05.24
+    Modified   : 2026.05.28
  
     Description :
       payments 테이블 MyBatis 매퍼.
@@ -15,6 +15,11 @@
         - payment_id 는 ERD에서 GENERATED ALWAYS AS IDENTITY 이므로
           INSERT 시 값을 지정하지 않고 Oracle이 자동 생성하게 둔다.
         - 생성된 payment_id 는 keyProperty 로 VO에 자동 채워진다.
+
+    History :
+      2026.05.28 - 관리자 강제 취소용 쿼리 2개 추가 (기존 쿼리는 변경 없음)
+                   · selectByBookingId  : 예매 ID 기준 결제 단건 조회 (환불 로그용)
+                   · refundByBookingId  : 예매 ID 기준 SUCCESS → REFUNDED UPDATE
     ============================================================
 -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
@@ -104,4 +109,39 @@
          WHERE b.booking_id = #{bookingId}
     </select>
  
+    <!-- ============================================================ -->
+    <!-- 6) [2026.05.28] 예매 ID 기준 결제 단건 조회                     -->
+    <!--    관리자 강제 취소 시 해당 예매의 결제 건을 찾기 위함           -->
+    <!--    가장 최근 결제 1건 (REFUNDED 아닌 건 우선) 반환              -->
+    <!-- ============================================================ -->
+    <select id="selectByBookingId" parameterType="long"
+            resultType="java.util.HashMap">
+        SELECT payment_id,
+               booking_id,
+               member_id,
+               transaction_id,
+               requested_amount,
+               status
+          FROM (
+            SELECT p.*
+              FROM payments p
+             WHERE p.booking_id = #{bookingId}
+             ORDER BY CASE WHEN p.status = 'SUCCESS' THEN 0 ELSE 1 END,
+                      p.payment_id DESC
+          )
+         WHERE ROWNUM = 1
+    </select>
+
+    <!-- ============================================================ -->
+    <!-- 7) [2026.05.28] 결제 환불 처리 (status -> REFUNDED)            -->
+    <!--    SUCCESS 인 결제만 환불 가능 (조건부 UPDATE)                  -->
+    <!--    return: 영향받은 행 수 (0 이면 환불 대상 아님)               -->
+    <!-- ============================================================ -->
+    <update id="refundByBookingId" parameterType="long">
+        UPDATE payments
+           SET status = 'REFUNDED'
+         WHERE booking_id = #{bookingId}
+           AND status = 'SUCCESS'
+    </update>
+
 </mapper>

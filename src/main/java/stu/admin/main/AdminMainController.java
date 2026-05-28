@@ -8,7 +8,7 @@ package stu.admin.main;
  *
  *  Developer : 김태희 (feature/kth)
  *  Created   : 2026.05.24
- *  Modified  : 2026.05.27
+ *  Modified  : 2026.05.28
  *
  *  Description :
  *    - 관리자 메인 페이지 컨트롤러
@@ -24,6 +24,12 @@ package stu.admin.main;
  *                 · POST /admin/member/promote.do  (승격)
  *                 · POST /admin/member/demote.do   (강등)
  *                 · 보호 장치 위반 시 MemberRoleChangeException 잡아서 error 배너 표시
+ *    2026.05.28 - 예매 강제 취소 endpoint 추가
+ *                 · POST /admin/booking/cancel.do (param: bookingId)
+ *                 · adminMainService.cancelBooking() 위임
+ *                   → 결제 REFUNDED + 예매 CANCELLED + 좌석 복구 (한 트랜잭션)
+ *                 · BookingCancelException 잡아서 error 배너 표시
+ *                 · SecurityLogger.adminAccess() 보안 감사 로그 (Splunk 연동)
  * ============================================================
  */
 
@@ -41,7 +47,9 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import stu.admin.main.AdminMainService.MemberRoleChangeException;
+import stu.admin.main.AdminMainService.BookingCancelException;
 import stu.common.common.CommandMap;
+import stu.common.logger.SecurityLogger;
 
 @Controller
 @RequestMapping("/admin")
@@ -243,9 +251,69 @@ public class AdminMainController {
 		return mv;
 	}
 
+	/**
+	 * 예매 강제 취소 (관리자).
+	 * URL : POST /admin/booking/cancel.do  (param: bookingId)
+	 *  - Service 가 결제 환불 + 예매 취소 + 좌석 복구를 한 트랜잭션으로 처리
+	 *  - 보호 장치 위반(BookingCancelException) 시 error 배너로 안내
+	 *  - 민감 작업이므로 SecurityLogger 로 보안 감사 로그 기록 (Splunk 연동)
+	 */
+	@RequestMapping(value = "/booking/cancel.do", method = RequestMethod.POST)
+	public String bookingCancel(CommandMap commandMap,
+			HttpServletRequest request,
+			RedirectAttributes redirectAttributes) throws Exception {
+
+		String ip = getClientIp(request);
+		Object bookingId = commandMap.get("bookingId");
+
+		log.info("[AUDIT][admin][CRITICAL] CANCEL_BOOKING requested from ip=" + ip
+				+ ", bookingId=" + bookingId);
+
+		try {
+			Map<String, Object> cancelled = adminMainService.cancelBooking(commandMap);
+
+			// 보안 감사 로그 (status_code=200)
+			SecurityLogger.adminAccess("/admin/booking/cancel.do",
+					getMemberId(cancelled), ip, 200);
+
+			Object refunded = cancelled.get("REFUNDED");
+			String refundMsg = (refunded instanceof Number && ((Number) refunded).intValue() > 0)
+				? " 결제 " + refunded + "건은 자동 환불 처리되었습니다."
+				: " (환불할 결제 내역은 없었습니다.)";
+
+			redirectAttributes.addFlashAttribute("msg",
+				"예매 [" + bookingId + "] 를 취소했습니다. "
+				+ "좌석이 다시 예매 가능 상태로 전환되었습니다." + refundMsg);
+			redirectAttributes.addFlashAttribute("msgType", "success");
+
+		} catch (BookingCancelException e) {
+			log.warn("[AUDIT][admin][CRITICAL] CANCEL_BOOKING REJECTED from ip=" + ip
+					+ ", bookingId=" + bookingId + ", reason=" + e.getMessage());
+
+			redirectAttributes.addFlashAttribute("msg", e.getMessage());
+			redirectAttributes.addFlashAttribute("msgType", "error");
+		}
+
+		return "redirect:/admin/booking/list.do";
+	}
+
 	// =====================================================================
 	// helper
 	// =====================================================================
+
+	/** Map 의 memberId 를 Long 으로 안전 변환 (SecurityLogger user_id 용). */
+	private Long getMemberId(Map<String, Object> map) {
+		if (map == null) return null;
+		Object idObj = map.get("memberId");
+		if (idObj == null) idObj = map.get("MEMBER_ID");
+		if (idObj == null) return null;
+		if (idObj instanceof Number) return ((Number) idObj).longValue();
+		try {
+			return Long.parseLong(String.valueOf(idObj).trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
 
 	/**
 	 * 회원 권한 변경(ban/unban/promote/demote) 공통 처리.
