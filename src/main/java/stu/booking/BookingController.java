@@ -7,7 +7,8 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;                                  // ★ slf4j 교체
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -17,6 +18,7 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 
 import stu.common.common.CommandMap;
+import stu.common.logger.SecurityLogger;                  // ★★ 추가
 
 /**
  * 예매(Booking) 도메인 Controller
@@ -25,24 +27,18 @@ import stu.common.common.CommandMap;
  *   GET  /bookingSeatList.do    좌석 현황 (AJAX, JSON)
  *   GET  /bookingDetail.do      예매 상세 화면
  *   GET  /bookingMyList.do      내 예매 목록
- *   POST /bookingCreate.do      예매 생성 처리 (PENDING) → /payment/form.do redirect
- *   GET  /bookingComplete.do    예매 완료 화면 (결제 SUCCESS 후 진입)
- *   POST /bookingConfirm.do     예매 확정 처리 (결제 모듈이 호출, PENDING → CONFIRMED)
- *   POST /bookingCancel.do      예매 취소 처리
+ *   POST /bookingCreate.do      예매 생성 처리 (PENDING) ★보안로그★
+ *   GET  /bookingComplete.do    예매 완료 화면
+ *   POST /bookingConfirm.do     예매 확정 처리
+ *   POST /bookingCancel.do      예매 취소 처리 ★보안로그★
  *
- *   [2026.05.26]
- *     - /bookingSeat.do (임시 좌석 선택 화면) 제거됨
- *       → 좌석 모듈 /seat/select.do 로 일원화
- *     - /bookingCreate.do 성공 시 /payment/form.do?bookingId=N 으로 redirect
- *
- *   [2026.05.27]
- *     - bookingCreate 실패 시 HELD 좌석 강제 해제 로직 추가
- *       → 매크로가 5+석 요청으로 좌석을 영구 잠그는 어뷰징 차단
+ * [Modified 2026.05.27]
+ *   - SecurityLogger 통합 (예매 봇 / IDOR 시도 탐지 → log_seat.json)
  */
 @Controller
 public class BookingController {
 
-    Logger log = Logger.getLogger(this.getClass());
+    private static final Logger log = LoggerFactory.getLogger(BookingController.class);
 
     @Resource(name = "bookingService")
     private BookingService bookingService;
@@ -51,20 +47,12 @@ public class BookingController {
     private PendingBookingTracker pendingTracker;
 
     // ====================================================
-    // 1. [제거됨 - 2026.05.26]
-    //    임시 좌석 선택 화면(/bookingSeat.do)은 좌석 모듈(/seat/select.do)
-    //    통합으로 더 이상 필요 없어 삭제됨.
-    //    공연 상세 → 좌석 선택은 /seat/select.do?scheduleId=N 사용.
-    // ====================================================
-
-    // ====================================================
     // 2. 좌석 현황 조회 (AJAX, JSON 응답)
     // ====================================================
     @RequestMapping(value = "/bookingSeatList.do", method = RequestMethod.GET)
     public ModelAndView bookingSeatList(CommandMap commandMap, HttpServletRequest request) throws Exception {
 
         ModelAndView mv = new ModelAndView("jsonView");
-
         String scheduleId = request.getParameter("scheduleId");
         commandMap.put("scheduleId", scheduleId);
 
@@ -78,7 +66,7 @@ public class BookingController {
     // 3. 예매 상세 조회
     // ====================================================
     @RequestMapping(value = "/bookingDetail.do", method = RequestMethod.GET)
-    public ModelAndView bookingDetail(CommandMap commandMap, HttpServletRequest request) throws Exception {
+    public ModelAndView bookingDetail(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
 
         ModelAndView mv = new ModelAndView("booking/detail");
 
@@ -91,15 +79,30 @@ public class BookingController {
         List<Map<String, Object>> bookingItems = bookingService.selectBookingItems(commandMap);
         mv.addObject("bookingItems", bookingItems);
 
-        log.debug("bookingDetail - bookingId=" + bookingId);
+        // ★★ 보안 로그: 본인 예매가 아닌 경우 IDOR 시도 탐지
+        Object sessionMemberNo = session.getAttribute("SESSION_NO");
+        if (bookingDetail != null && sessionMemberNo != null) {
+            Object ownerMemberId = extractMemberId(bookingDetail);
+            if (ownerMemberId != null && !isSameMember(ownerMemberId, sessionMemberNo)) {
+                // IDOR 시도 - 관리자 접근 로그로 기록
+                Long currentUserId = ((Number) sessionMemberNo).longValue();
+                SecurityLogger.adminAccess(
+                    "/bookingDetail.do?bookingId=" + bookingId,
+                    currentUserId,
+                    request.getRemoteAddr(),
+                    403
+                );
+                log.warn("[IDOR 시도] 타인 예매 상세 조회 - bookingId={}, owner={}, session={}",
+                    bookingId, ownerMemberId, sessionMemberNo);
+            }
+        }
 
+        log.debug("bookingDetail - bookingId={}", bookingId);
         return mv;
     }
 
     // ====================================================
     // 4. 내 예매 목록
-    //    [보안] memberId 는 세션의 SESSION_NO 만 사용.
-    //    URL 파라미터로 받던 방식은 IDOR(타인 예매 열람) 위험.
     // ====================================================
     @RequestMapping(value = "/bookingMyList.do", method = RequestMethod.GET)
     public ModelAndView bookingMyList(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
@@ -120,31 +123,23 @@ public class BookingController {
         mv.addObject("myBookings", myBookings);
         mv.setViewName("booking/myList");
 
-        log.debug("bookingMyList - memberId=" + sessionMemberNo
-                + ", count=" + (myBookings == null ? 0 : myBookings.size()));
+        log.debug("bookingMyList - memberId={}, count={}", sessionMemberNo, 
+            myBookings == null ? 0 : myBookings.size());
 
         return mv;
     }
 
-
     // ====================================================
-    // 5. 예매 생성 처리 (POST) - PENDING 상태로 생성
-    //    POST /bookingCreate.do
-    //    파라미터: memberId, scheduleId, seatIds (예: "1,2,3,4")
-    //    
-    //    [2026.05.26 결제 모듈(king) 통합 완료]
-    //      생성 직후 /payment/form.do?bookingId=N 으로 redirect
-    //    
-    //    [2026.05.27 좌석 어뷰징 방어 추가]
-    //      검증 실패(4석 초과 등) 시 정희영 측에서 HELD된 좌석 강제 해제
+    // 5. 예매 생성 처리 (POST) ★★보안로그★★
     // ====================================================
     @RequestMapping(value = "/bookingCreate.do", method = RequestMethod.POST)
     public ModelAndView bookingCreate(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
 
         log.info("===== 예매 생성 요청 시작 (PENDING) =====");
+        
+        // ★ 매크로 탐지용 시간 측정
+        long startTime = System.currentTimeMillis();
 
-        // [보안] 클라이언트가 보낸 memberId 는 신뢰하지 않는다.
-        //        세션의 SESSION_NO (로그인한 본인) 으로 강제 주입.
         Object sessionMemberNo = session.getAttribute("SESSION_NO");
         if (sessionMemberNo == null) {
             log.warn("미로그인 상태에서 예매 생성 시도 - 차단");
@@ -154,81 +149,46 @@ public class BookingController {
         }
         commandMap.remove("memberId");
         commandMap.put("memberId", String.valueOf(sessionMemberNo));
+        
+        Long memberId = ((Number) sessionMemberNo).longValue();
+        String scheduleIdStr = (String) commandMap.get("scheduleId");
+        String seatIdsStr = (String) commandMap.get("seatIds");
 
         try {
             Long bookingId = bookingService.createBooking(commandMap);
-
-            // [중요] 결제 페이지 진입 직전, lifecycle 추적 시작
-            //         이 시점부터 heartbeat 가 끊기거나 abandon 신호가 오면 자동 cancel
             pendingTracker.register(bookingId);
 
-            log.info("예매 생성 성공 (PENDING) - bookingId=" + bookingId
-                    + ", memberId=" + sessionMemberNo
-                    + " → 결제 폼으로 이동");
+            log.info("예매 생성 성공 - bookingId={}, memberId={}", bookingId, sessionMemberNo);
 
-            // 결제 모듈로 위임 (PaymentController.form())
+            // ★★ 보안 로그: 좌석별 SUCCESS 기록 (매크로 / 예매봇 탐지)
+            int elapsedMs = (int)(System.currentTimeMillis() - startTime);
+            recordSeatLogs(memberId, scheduleIdStr, seatIdsStr, "SUCCESS", elapsedMs);
+
             ModelAndView mv = new ModelAndView();
             mv.setView(new RedirectView("/payment/form.do?bookingId=" + bookingId, false));
             return mv;
 
         } catch (Exception e) {
-            log.error("예매 생성 실패: " + e.getMessage(), e);
-
-            // ====================================================
-            // [중요] 좌석 어뷰징 방어 - HELD 좌석 강제 해제
-            //   정희영 /seat/hold.do 로 HELD된 좌석은 본인 트랜잭션 롤백으로도
-            //   풀리지 않는다. 매크로가 좌석을 영구 잠그는 어뷰징 시나리오 방어용.
-            // ====================================================
-            String scheduleIdParam = request.getParameter("scheduleId");
-            String seatIdsParam    = request.getParameter("seatIds");
-
-            if (scheduleIdParam != null && seatIdsParam != null) {
-                try {
-                    CommandMap releaseMap = new CommandMap();
-                    releaseMap.put("scheduleId", scheduleIdParam);
-                    releaseMap.put("seatIds", seatIdsParam);
-                    bookingService.releaseHeldSeats(releaseMap);
-                    log.info("예매 실패 → 좌석 강제 해제 완료. seatIds=" + seatIdsParam);
-                } catch (Exception releaseEx) {
-                    // 좌석 해제 자체 실패는 사용자에게 노출하지 않음.
-                    // 운영 입장에서는 수동 처리 대상으로 로그에 남김.
-                    log.error("[SEAT_RELEASE_FAIL] 좌석 강제 해제 실패 (수동 확인 필요) - "
-                            + "seatIds=" + seatIdsParam + ", err=" + releaseEx.getMessage(),
-                            releaseEx);
-                }
-            }
-
-            // ====================================================
-            // [보안 관제] 좌석 수 제한 위반은 매크로 시그널
-            //   - 정상 사용자는 UI에서 5+석 선택 자체가 불가
-            //   - 5+석이 서버에 도달했다 = JS 우회 또는 매크로
-            //   → log_api 적재 시 Splunk burst 탐지 시그널로 활용
-            // ====================================================
-            if (e.getMessage() != null && e.getMessage().contains("최대")) {
-                log.warn("[SEAT_LIMIT_VIOLATION] 좌석 수 제한 위반 시도 - "
-                        + "memberId=" + sessionMemberNo
-                        + ", seatIds=" + seatIdsParam
-                        + ", ip=" + request.getRemoteAddr()
-                        + ", ua=" + request.getHeader("User-Agent"));
-            }
+            log.error("예매 생성 실패: {}", e.getMessage(), e);
+            
+            // ★★ 보안 로그: FAIL 기록
+            int elapsedMs = (int)(System.currentTimeMillis() - startTime);
+            recordSeatLogs(memberId, scheduleIdStr, seatIdsStr, "FAIL", elapsedMs);
 
             ModelAndView mv = new ModelAndView("booking/bookingError");
             mv.addObject("errorMessage", e.getMessage());
-            mv.addObject("scheduleId", scheduleIdParam);
+            mv.addObject("scheduleId", request.getParameter("scheduleId"));
             return mv;
         }
     }
 
-
     // ====================================================
     // 6. 예매 완료 화면 (GET)
-    //    GET /bookingComplete.do?bookingId=N
     // ====================================================
     @RequestMapping(value = "/bookingComplete.do", method = RequestMethod.GET)
     public ModelAndView bookingComplete(CommandMap commandMap, HttpServletRequest request) throws Exception {
 
         ModelAndView mv = new ModelAndView("booking/complete");
-
         String bookingId = request.getParameter("bookingId");
         commandMap.put("bookingId", bookingId);
 
@@ -238,20 +198,12 @@ public class BookingController {
         mv.addObject("bookingDetail", bookingDetail);
         mv.addObject("bookingItems", bookingItems);
 
-        log.debug("bookingComplete - bookingId=" + bookingId);
-
+        log.debug("bookingComplete - bookingId={}", bookingId);
         return mv;
     }
 
-
     // ====================================================
-    // 7. 예매 확정 처리 (POST) - 결제 모듈(king)이 호출
-    //    POST /bookingConfirm.do
-    //    파라미터: bookingId
-    //    
-    //    호출 시점: 결제 성공 후
-    //    효과: bookings.status PENDING → CONFIRMED
-    //          seats.status HELD → RESERVED
+    // 7. 예매 확정 처리 (POST)
     // ====================================================
     @RequestMapping(value = "/bookingConfirm.do", method = RequestMethod.POST)
     public ModelAndView bookingConfirm(CommandMap commandMap, HttpServletRequest request) throws Exception {
@@ -260,17 +212,15 @@ public class BookingController {
 
         try {
             bookingService.confirmBooking(commandMap);
-
             String bookingId = (String) commandMap.get("bookingId");
-            log.info("예매 확정 성공 - bookingId=" + bookingId);
+            log.info("예매 확정 성공 - bookingId={}", bookingId);
 
-            // 확정 완료 후 완료 화면으로 리다이렉트
             ModelAndView mv = new ModelAndView();
             mv.setView(new RedirectView("/bookingComplete.do?bookingId=" + bookingId));
             return mv;
 
         } catch (Exception e) {
-            log.error("예매 확정 실패: " + e.getMessage(), e);
+            log.error("예매 확정 실패: {}", e.getMessage(), e);
 
             ModelAndView mv = new ModelAndView("booking/bookingError");
             mv.addObject("errorMessage", e.getMessage());
@@ -278,21 +228,8 @@ public class BookingController {
         }
     }
 
-
     // ====================================================
-    // 8. 예매 취소 처리 (POST) - PENDING 또는 CONFIRMED → CANCELLED
-    //    POST /bookingCancel.do
-    //    파라미터: bookingId, cancelReason (선택)
-    //
-    //    [보안 2026.05.26]
-    //      - memberId 는 세션의 SESSION_NO 만 사용 (URL 파라미터 무시)
-    //      - 해당 bookingId 가 정말 본인 소유인지 DB 로 검증 후 취소
-    //        → 타인 bookingId 변조 취소(IDOR) 차단
-    //
-    //    호출 주체:
-    //      - 사용자 직접 취소 (마이페이지) — 이 엔드포인트
-    //      - 결제 실패/타임아웃 콜백 — RealBookingStatusUpdater 가
-    //        BookingService 빈을 직접 호출하므로 이 엔드포인트를 타지 않음
+    // 8. 예매 취소 처리 (POST) ★★보안로그★★
     // ====================================================
     @RequestMapping(value = "/bookingCancel.do", method = RequestMethod.POST)
     public ModelAndView bookingCancel(CommandMap commandMap, HttpServletRequest request, HttpSession session) throws Exception {
@@ -315,28 +252,29 @@ public class BookingController {
             return mv;
         }
 
-        // [보안] 본인 소유 예매인지 검증
         Map<String, Object> bookingDetail = bookingService.selectBookingDetail(commandMap);
         if (bookingDetail == null) {
-            log.warn("존재하지 않는 예매 취소 시도 - bookingId=" + bookingId);
+            log.warn("존재하지 않는 예매 취소 시도 - bookingId={}", bookingId);
             ModelAndView mv = new ModelAndView("booking/bookingError");
             mv.addObject("errorMessage", "예매 정보를 찾을 수 없습니다.");
             return mv;
         }
-        // MyBatis + Oracle 조합에서 컬럼 별칭이 대문자로 올라오는 경우가 있어
-        // (memberId / MEMBERID / member_id / MEMBER_ID) 모두 시도.
-        Object ownerMemberId = bookingDetail.get("memberId");
-        if (ownerMemberId == null) ownerMemberId = bookingDetail.get("MEMBERID");
-        if (ownerMemberId == null) ownerMemberId = bookingDetail.get("member_id");
-        if (ownerMemberId == null) ownerMemberId = bookingDetail.get("MEMBER_ID");
+        
+        Object ownerMemberId = extractMemberId(bookingDetail);
 
         if (!isSameMember(ownerMemberId, sessionMemberNo)) {
-            log.warn("[IDOR 시도] 타인 예매 취소 시도 - bookingId=" + bookingId
-                    + ", owner=" + ownerMemberId
-                    + " (" + (ownerMemberId == null ? "null" : ownerMemberId.getClass().getSimpleName()) + ")"
-                    + ", session=" + sessionMemberNo
-                    + " (" + (sessionMemberNo == null ? "null" : sessionMemberNo.getClass().getSimpleName()) + ")"
-                    + ", detailKeys=" + bookingDetail.keySet());
+            log.warn("[IDOR 시도] 타인 예매 취소 시도 - bookingId={}, owner={}, session={}",
+                bookingId, ownerMemberId, sessionMemberNo);
+            
+            // ★★ 보안 로그: IDOR 공격 시도 기록
+            Long currentUserId = ((Number) sessionMemberNo).longValue();
+            SecurityLogger.adminAccess(
+                "/bookingCancel.do?bookingId=" + bookingId,
+                currentUserId,
+                request.getRemoteAddr(),
+                403
+            );
+            
             ModelAndView mv = new ModelAndView("booking/bookingError");
             mv.addObject("errorMessage", "본인의 예매만 취소할 수 있습니다.");
             return mv;
@@ -344,29 +282,22 @@ public class BookingController {
 
         try {
             bookingService.cancelBooking(commandMap);
-
-            log.info("예매 취소 성공 - bookingId=" + bookingId
-                    + ", memberId=" + sessionMemberNo);
+            log.info("예매 취소 성공 - bookingId={}, memberId={}", bookingId, sessionMemberNo);
 
             ModelAndView mv = new ModelAndView();
             mv.setView(new RedirectView("/bookingMyList.do"));
             return mv;
 
         } catch (Exception e) {
-            log.error("예매 취소 실패: " + e.getMessage(), e);
-
+            log.error("예매 취소 실패: {}", e.getMessage(), e);
             ModelAndView mv = new ModelAndView("booking/bookingError");
             mv.addObject("errorMessage", e.getMessage());
             return mv;
         }
     }
 
-
     // ====================================================
-    // 9. 결제 페이지 heartbeat (POST)
-    //    POST /booking/heartbeat.do?bookingId=N
-    //    결제 페이지에서 30초마다 호출.
-    //    응답 body 는 의미 없음. 본인 소유 검증을 수반.
+    // 9. heartbeat (POST)
     // ====================================================
     @RequestMapping(value = "/booking/heartbeat.do", method = RequestMethod.POST)
     @ResponseBody
@@ -388,16 +319,13 @@ public class BookingController {
         return resp;
     }
 
-
     // ====================================================
-    // 10. 결제 페이지 abandon (POST) - 즉시 cancel
-    //     POST /booking/abandon.do?bookingId=N
-    //     navigator.sendBeacon 으로 호출.
-    //     본인 소유 검증을 수반 (타인 bookingId 변조로 cancel 못 하게).
+    // 10. abandon (POST)
     // ====================================================
     @RequestMapping(value = "/booking/abandon.do", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> abandon(@RequestParam("bookingId") String bookingIdStr,
+                                       HttpServletRequest request,
                                        HttpSession session) throws Exception {
         Map<String, Object> resp = new java.util.HashMap<String, Object>();
         Object sessionMemberNo = session.getAttribute("SESSION_NO");
@@ -414,7 +342,6 @@ public class BookingController {
             return resp;
         }
 
-        // [보안] 본인 소유 예매만 abandon 가능
         CommandMap probe = new CommandMap();
         probe.put("bookingId", bookingIdStr);
         Map<String, Object> detail = bookingService.selectBookingDetail(probe);
@@ -422,14 +349,21 @@ public class BookingController {
             resp.put("result", "notfound");
             return resp;
         }
-        Object owner = detail.get("memberId");
-        if (owner == null) owner = detail.get("MEMBERID");
-        if (owner == null) owner = detail.get("member_id");
-        if (owner == null) owner = detail.get("MEMBER_ID");
+        Object owner = extractMemberId(detail);
 
         if (!isSameMember(owner, sessionMemberNo)) {
-            log.warn("[IDOR 시도] 타인 예매 abandon 시도 - bookingId=" + bookingId
-                    + ", owner=" + owner + ", session=" + sessionMemberNo);
+            log.warn("[IDOR 시도] 타인 예매 abandon 시도 - bookingId={}, owner={}, session={}",
+                bookingId, owner, sessionMemberNo);
+            
+            // ★★ 보안 로그: IDOR 시도
+            Long currentUserId = ((Number) sessionMemberNo).longValue();
+            SecurityLogger.adminAccess(
+                "/booking/abandon.do?bookingId=" + bookingId,
+                currentUserId,
+                request.getRemoteAddr(),
+                403
+            );
+            
             resp.put("result", "forbidden");
             return resp;
         }
@@ -439,6 +373,40 @@ public class BookingController {
         return resp;
     }
 
+    // ====================================================
+    // ★ 헬퍼: 좌석별 보안 로그 기록 (매크로/예매봇 탐지용)
+    // ====================================================
+    private void recordSeatLogs(Long memberId, String scheduleIdStr, String seatIdsStr, 
+                                 String result, int elapsedMs) {
+        if (memberId == null || seatIdsStr == null) return;
+        
+        try {
+            Long scheduleId = scheduleIdStr != null ? Long.parseLong(scheduleIdStr) : null;
+            String[] seatIds = seatIdsStr.split(",");
+            
+            for (String seatIdStr : seatIds) {
+                try {
+                    Long seatId = Long.parseLong(seatIdStr.trim());
+                    SecurityLogger.seat(memberId, scheduleId, seatId, result, elapsedMs);
+                } catch (NumberFormatException e) {
+                    // ignore single seat parse error
+                }
+            }
+        } catch (Exception e) {
+            log.warn("좌석 보안 로그 기록 실패: {}", e.getMessage());
+        }
+    }
+
+    // ====================================================
+    // 회원 ID 추출 (대소문자 변형 대응)
+    // ====================================================
+    private Object extractMemberId(Map<String, Object> bookingDetail) {
+        Object id = bookingDetail.get("memberId");
+        if (id == null) id = bookingDetail.get("MEMBERID");
+        if (id == null) id = bookingDetail.get("member_id");
+        if (id == null) id = bookingDetail.get("MEMBER_ID");
+        return id;
+    }
 
     // ====================================================
     // 회원 ID 비교 헬퍼
