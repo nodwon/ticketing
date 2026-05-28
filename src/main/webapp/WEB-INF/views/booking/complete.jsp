@@ -6,74 +6,83 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>
     <c:choose>
         <c:when test="${bookingDetail.STATUS == 'PENDING'}">결제 대기 중 - #${bookingDetail.BOOKINGID}</c:when>
         <c:otherwise>예매 완료 - #${bookingDetail.BOOKINGID}</c:otherwise>
     </c:choose>
+     | GWANJE TICKET
 </title>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/theme.css">
 <style>
-    body { font-family: 'Malgun Gothic', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-    .container { max-width: 700px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    
-    /* PENDING 헤더 (노란색 - 결제 대기) */
+    body { background: var(--gray); }
+    .cp-container { max-width: 700px; margin: 24px auto 60px; background: var(--white); padding: 40px; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+
+    /* PENDING 헤더 */
     .pending-header { text-align: center; padding: 20px 0; }
     .pending-icon { font-size: 64px; color: #f39c12; margin-bottom: 10px; }
-    .pending-title { font-size: 28px; color: #333; margin: 10px 0; }
-    
-    /* CONFIRMED 헤더 (초록색 - 완료) */
+    .pending-title { font-size: 28px; color: var(--dark); margin: 10px 0; font-weight: 800; }
+
+    /* CONFIRMED 헤더 */
     .success-header { text-align: center; padding: 20px 0; }
-    .success-icon { font-size: 64px; color: #4caf50; margin-bottom: 10px; }
-    .success-title { font-size: 28px; color: #333; margin: 10px 0; }
-    
-    .booking-number { color: #ff6b6b; font-weight: bold; font-size: 18px; margin: 5px 0; }
-    .status-badge {
-        display: inline-block;
-        padding: 6px 16px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: bold;
-        margin-left: 8px;
-    }
-    .status-PENDING { background: #fff3cd; color: #856404; }
-    .status-CONFIRMED { background: #d4edda; color: #155724; }
-    
-    .divider { border: 0; height: 2px; background: #ff6b6b; margin: 25px 0; }
-    .section-title { font-size: 16px; font-weight: bold; color: #333; margin: 20px 0 10px 0; }
+    .success-icon { width: 80px; height: 80px; border-radius: 50%; background: var(--red); color: #fff; font-size: 42px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .success-title { font-size: 28px; color: var(--dark); margin: 10px 0; font-weight: 800; }
+
+    .booking-number { color: var(--red); font-weight: 700; font-size: 18px; margin: 5px 0; }
+    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 700; margin-left: 8px; }
+    .status-PENDING { background: #fdecc8; color: #8a5a00; }
+    .status-CONFIRMED { background: #d7f0df; color: #1a7a3a; }
+
+    .divider { border: 0; height: 2px; background: var(--red); margin: 25px 0; }
+    .section-title { font-size: 16px; font-weight: 700; color: var(--dark); margin: 24px 0 10px 0; }
     .info-table { width: 100%; border-collapse: collapse; }
-    .info-table th, .info-table td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; font-size: 14px; }
-    .info-table th { background: #f8f8f8; width: 30%; color: #555; }
-    .seats-box { background: #fff8f8; padding: 15px 20px; border-radius: 8px; }
-    .seat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #ddd; }
+    .info-table th, .info-table td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 14px; }
+    .info-table th { background: var(--gray); width: 30%; color: var(--muted); font-weight: 600; }
+    .seats-box { background: #fff5f6; padding: 16px 20px; border-radius: var(--radius); }
+    .seat-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); }
     .seat-row:last-child { border-bottom: none; }
-    .total-box { text-align: right; font-size: 20px; font-weight: bold; color: #ff6b6b; margin-top: 15px; padding-top: 15px; border-top: 2px solid #eee; }
-    .actions { text-align: center; margin-top: 30px; }
-    .btn { display: inline-block; padding: 12px 25px; border-radius: 6px; text-decoration: none; margin: 5px; font-size: 14px; cursor: pointer; border: none; font-weight: bold; }
-    .btn-primary { background: #ff6b6b; color: #fff; }
-    .btn-secondary { background: #999; color: #fff; }
-    .btn-pay { background: #f39c12; color: #fff; font-size: 16px; padding: 14px 30px; }
-    .btn-pay:hover { background: #e67e22; }
-    
-    .notice { padding: 12px 15px; margin-top: 20px; font-size: 13px; border-radius: 4px; }
-    .notice-warning { background: #fff8e7; border-left: 4px solid #ffc107; color: #856404; }
-    .notice-info { background: #e8f4f8; border-left: 4px solid #3498db; color: #2874a6; }
-    .notice-success { background: #f0f9f0; border-left: 4px solid #4caf50; color: #2e7d32; }
-    
-    .payment-temp-box {
-        background: #fff8e7;
-        border: 2px dashed #f39c12;
-        padding: 20px;
-        text-align: center;
-        border-radius: 10px;
-        margin: 25px 0;
-    }
+    .total-box { text-align: right; font-size: 20px; font-weight: 800; color: var(--red); margin-top: 15px; padding-top: 15px; border-top: 2px solid var(--border); }
+
+    .actions { text-align: center; margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .actions form { display: inline; }
+
+    .notice { padding: 13px 16px; margin-top: 20px; font-size: 13px; border-radius: 0 var(--radius) var(--radius) 0; line-height: 1.6; }
+    .notice-warning { background: #fff8e7; border-left: 4px solid #f39c12; color: #856404; }
+    .notice-info { background: var(--gray); border-left: 4px solid var(--muted); color: #555; }
+    .notice-success { background: #fde8ea; border-left: 4px solid var(--red); color: #7a2230; }
+
+    .payment-temp-box { background: #fff8e7; border: 2px dashed #f39c12; padding: 22px; text-align: center; border-radius: var(--radius); margin: 25px 0; }
     .payment-temp-box h3 { color: #e67e22; margin: 0 0 10px 0; }
     .payment-temp-box p { color: #856404; margin: 8px 0; font-size: 14px; }
 </style>
 </head>
 <body>
 
-<div class="container">
+<!-- 페이지 헤더 (공통 톤) -->
+<div class="tk-page-head">
+    <div class="tk-page-head-inner">
+        <div class="brand">BOOKING</div>
+        <h1>
+            <c:choose>
+                <c:when test="${bookingDetail.STATUS == 'PENDING'}">결제 대기</c:when>
+                <c:otherwise>예매 완료</c:otherwise>
+            </c:choose>
+        </h1>
+        <p>예매번호 #${bookingDetail.BOOKINGID}</p>
+        <div class="tk-steps">
+            <span class="tk-step"><span class="num">1</span>공연 선택</span>
+            <span class="tk-step-sep">›</span>
+            <span class="tk-step"><span class="num">2</span>좌석 선택</span>
+            <span class="tk-step-sep">›</span>
+            <span class="tk-step ${bookingDetail.STATUS == 'PENDING' ? 'active' : ''}"><span class="num">3</span>결제</span>
+            <span class="tk-step-sep">›</span>
+            <span class="tk-step ${bookingDetail.STATUS != 'PENDING' ? 'active' : ''}"><span class="num">4</span>완료</span>
+        </div>
+    </div>
+</div>
+
+<div class="cp-container">
 
     <c:choose>
         <%-- ============================================
@@ -98,13 +107,13 @@
                 <p style="font-size:12px; color:#999; margin-top:15px;">
                     ※ 결제 모듈은 별도 개발 중이며, 아래 [임시 결제 확정] 버튼으로 시뮬레이션 가능합니다.
                 </p>
-                
+
                 <!-- 임시 결제 확정 form (king 모듈 통합 전까지 사용) -->
                 <form action="<c:url value='/bookingConfirm.do'/>" method="post"
                       style="margin-top: 15px;"
                       onsubmit="return confirm('결제를 시뮬레이션 하시겠습니까?\n(실제 결제는 결제 모듈 통합 후 가능합니다)');">
                     <input type="hidden" name="bookingId" value="${bookingDetail.BOOKINGID}" />
-                    <button type="submit" class="btn btn-pay">💳 임시 결제 확정 (개발용)</button>
+                    <button type="submit" class="tk-btn tk-btn-primary tk-btn-lg">💳 임시 결제 확정 (개발용)</button>
                 </form>
             </div>
         </c:when>
@@ -194,16 +203,16 @@
          하단 버튼
          ============================================ -->
     <div class="actions">
-        <a href="<c:url value='/bookingMyList.do?memberId=${bookingDetail.MEMBERID}'/>" class="btn btn-primary">내 예매 목록</a>
-        
+        <a href="<c:url value='/bookingMyList.do?memberId=${bookingDetail.MEMBERID}'/>" class="tk-btn tk-btn-primary">내 예매 목록</a>
+
         <c:if test="${bookingDetail.STATUS == 'PENDING'}">
             <!-- PENDING 상태에서 취소 가능 -->
-            <form action="<c:url value='/bookingCancel.do'/>" method="post" style="display:inline;"
+            <form action="<c:url value='/bookingCancel.do'/>" method="post"
                   onsubmit="return confirm('예매를 취소하시겠습니까? (좌석이 해제됩니다)');">
                 <input type="hidden" name="bookingId" value="${bookingDetail.BOOKINGID}" />
                 <input type="hidden" name="memberId" value="${bookingDetail.MEMBERID}" />
                 <input type="hidden" name="cancelReason" value="결제 전 사용자 취소" />
-                <button type="submit" class="btn btn-secondary">예매 취소</button>
+                <button type="submit" class="tk-btn tk-btn-ghost">예매 취소</button>
             </form>
         </c:if>
     </div>

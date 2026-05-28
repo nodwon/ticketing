@@ -6,40 +6,42 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>예매 상세 - 예매번호 ${bookingDetail.BOOKINGID}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>예매 상세 - 예매번호 ${bookingDetail.BOOKINGID} | GWANJE TICKET</title>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/theme.css">
 <style>
-    body { font-family: 'Malgun Gothic', sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
-    .container { max-width: 700px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h1 { color: #333; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px; }
-    .status {
-        display: inline-block;
-        padding: 5px 15px;
-        border-radius: 20px;
-        font-size: 13px;
-        font-weight: bold;
-        margin-left: 10px;
-    }
-    .status-CONFIRMED { background: #d4edda; color: #155724; }
-    .status-PENDING { background: #fff3cd; color: #856404; }
-    .status-CANCELLED { background: #f8d7da; color: #721c24; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-    th { background: #f8f8f8; width: 30%; color: #555; }
-    .seats-list { background: #fff8f8; padding: 15px; border-radius: 8px; }
-    .seat-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #ddd; }
+    body { background: var(--gray); }
+    .dt-container { max-width: 700px; margin: 24px auto 60px; background: var(--white); padding: 32px; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+    .dt-container h1 { color: var(--dark); border-bottom: 2px solid var(--red); padding-bottom: 12px; font-size: 24px; }
+    .dt-container h3 { color: var(--dark); margin: 24px 0 10px; font-size: 16px; }
+    .status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-left: 10px; }
+    .status-CONFIRMED { background: #d7f0df; color: #1a7a3a; }
+    .status-PENDING { background: #fdecc8; color: #8a5a00; }
+    .status-CANCELLED { background: #fde2e5; color: var(--red); }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 14px; }
+    th { background: var(--gray); width: 30%; color: var(--muted); font-weight: 600; }
+    .seats-list { background: #fff5f6; padding: 16px; border-radius: var(--radius); }
+    .seat-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
     .seat-item:last-child { border-bottom: none; }
-    .total { font-size: 20px; font-weight: bold; color: #ff6b6b; text-align: right; margin-top: 15px; }
-    .btn { display: inline-block; padding: 10px 25px; border-radius: 6px; text-decoration: none; margin: 5px; font-size: 14px; cursor: pointer; border: none; }
-    .btn-primary { background: #ff6b6b; color: #fff; }
-    .btn-danger { background: #dc3545; color: #fff; }
-    .btn-secondary { background: #999; color: #fff; }
-    .actions { text-align: center; margin-top: 30px; }
-    .empty-msg { text-align: center; color: #999; padding: 50px 20px; }
+    .total { font-size: 20px; font-weight: 800; color: var(--red); text-align: right; margin-top: 15px; }
+    .actions { text-align: center; margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .actions form { display: inline; }
+    .empty-msg { text-align: center; color: var(--muted); padding: 50px 20px; }
 </style>
 </head>
 <body>
 
-<div class="container">
+<!-- 페이지 헤더 (공통 톤) -->
+<div class="tk-page-head">
+    <div class="tk-page-head-inner">
+        <div class="brand">BOOKING DETAIL</div>
+        <h1>예매 상세</h1>
+        <p>예매 내역을 확인하실 수 있습니다.</p>
+    </div>
+</div>
+
+<div class="dt-container">
 
     <c:choose>
         <c:when test="${empty bookingDetail}">
@@ -48,7 +50,7 @@
                 <p>해당 예매 정보를 찾을 수 없습니다.</p>
             </div>
             <div class="actions">
-                <a href="<c:url value='/bookingMyList.do'/>" class="btn btn-primary">내 예매 목록</a>
+                <a href="<c:url value='/bookingMyList.do'/>" class="tk-btn tk-btn-primary">내 예매 목록</a>
             </div>
         </c:when>
 
@@ -94,15 +96,14 @@
             </div>
 
             <div class="actions">
-                <a href="<c:url value='/bookingMyList.do?memberId=${bookingDetail.MEMBERID}'/>" class="btn btn-secondary">목록</a>
+                <a href="<c:url value='/bookingMyList.do?memberId=${bookingDetail.MEMBERID}'/>" class="tk-btn tk-btn-ghost">목록</a>
 
                 <c:if test="${bookingDetail.STATUS == 'CONFIRMED'}">
-                    <form action="<c:url value='/bookingCancel.do'/>" method="post" 
-                          style="display: inline;"
+                    <form action="<c:url value='/bookingCancel.do'/>" method="post"
                           onsubmit="return confirm('정말 예매를 취소하시겠습니까?');">
                         <input type="hidden" name="bookingId" value="${bookingDetail.BOOKINGID}" />
                         <input type="hidden" name="memberId" value="${bookingDetail.MEMBERID}" />
-                        <button type="submit" class="btn btn-danger">예매 취소</button>
+                        <button type="submit" class="tk-btn tk-btn-primary">예매 취소</button>
                     </form>
                 </c:if>
             </div>
