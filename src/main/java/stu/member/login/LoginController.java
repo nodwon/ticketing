@@ -204,7 +204,8 @@ public class LoginController {
 		int ran = new Random().nextInt(100000) + 10000;
 		String password = String.valueOf(ran);
 
-		commandMap.put("MEMBER_PASSWD", password);
+		// 임시 비밀번호를 BCrypt 해시로 저장 (로그인 시 BCrypt.checkpw 검증과 일치)
+		commandMap.put("MEMBER_PASSWD", BCrypt.hashpw(password, BCrypt.gensalt()));
 		loginService.updatePw(commandMap.getMap());
 
 		ra.addFlashAttribute("resultMsg", "귀하의 임시 비밀번호는 " + password + " 입니다.");

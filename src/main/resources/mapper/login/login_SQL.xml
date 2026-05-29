@@ -48,8 +48,8 @@ Description :
     </select>
 
     <!--
-        아이디 찾기 (전화번호 기반)
-        - 입력: MEMBER_NAME, MEMBER_PHONE
+        아이디 찾기 (이름 + 이메일 기반)
+        - 입력: MEMBER_NAME, MEMBER_EMAIL
         - 출력: MEMBER_ID(=email), MEMBER_NAME
     -->
     <select id="selectFindId" parameterType="hashMap" resultType="hashMap">
@@ -58,7 +58,7 @@ Description :
             name  AS MEMBER_NAME
         FROM members
         WHERE name = #{MEMBER_NAME}
-          AND phone = #{MEMBER_PHONE}
+          AND email = #{MEMBER_EMAIL}
     </select>
 
     <!--
@@ -76,15 +76,13 @@ Description :
 
     <!--
         비밀번호 찾기 1단계: 회원 존재 확인
-        - 입력: MEMBER_ID(=email), MEMBER_NAME, MEMBER_PHONE
+        - 입력: MEMBER_ID(=email)
         - 출력: email (String)
     -->
     <select id="selectFindPw" parameterType="hashMap" resultType="string">
         SELECT email
         FROM members
         WHERE email = #{MEMBER_ID}
-          AND name  = #{MEMBER_NAME}
-          AND phone = #{MEMBER_PHONE}
     </select>
 
     <!--
