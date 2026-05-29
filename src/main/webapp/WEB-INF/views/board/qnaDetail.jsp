@@ -12,7 +12,18 @@
 		}
 		if (_secretVal == 1) {
 			String _adminName = (String) session.getAttribute("SESSION_NAME");
-			if (!"관리자".equals(_adminName)) {
+			Object _sessNo = session.getAttribute("SESSION_NO");
+			Object _memberId = _dm.get("MEMBER_ID");
+			boolean _isAdmin = "관리자".equals(_adminName);
+			boolean _isAuthor = false;
+			if (_sessNo != null && _memberId != null) {
+				try {
+					_isAuthor = ((Number)_sessNo).longValue() == ((Number)_memberId).longValue();
+				} catch (Exception _ex) {
+					_isAuthor = _sessNo.toString().equals(_memberId.toString());
+				}
+			}
+			if (!_isAdmin && !_isAuthor) {
 				response.sendRedirect(request.getContextPath() + "/qna/openQnaList.do?accessDenied=1");
 				return;
 			}
@@ -139,6 +150,7 @@ h1 {
 										<a href="<c:url value='/qna/downloadFile.do'/>?fileId=${row.FILE_ID}">
 											${row.ORIGINAL_FILE_NAME}
 										</a>
+										<a href="<c:url value='/upload/'/>${row.UPLOAD_SAVE_NAME}">[직접열기]</a>
 										<span class="file-size">
 											<c:choose>
 												<c:when test="${row.FILE_SIZE >= 1048576}">

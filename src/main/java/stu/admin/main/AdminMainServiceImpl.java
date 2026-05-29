@@ -8,7 +8,7 @@ package stu.admin.main;
  *
  *  Developer : 김태희 (feature/kth)
  *  Created   : 2026.05.24
- *  Modified  : 2026.05.27
+ *  Modified  : 2026.05.28
  *
  *  Description :
  *    - AdminMainService 구현체 (비즈니스 로직 + AUDIT 로그)
@@ -25,6 +25,15 @@ package stu.admin.main;
  *                   - 잘못된 현재 role 이면 MemberRoleChangeException
  *                   - 마지막 ADMIN 강등 시도 시 차단
  *                 · 권한 변경은 [AUDIT][admin][CRITICAL] 태그로 로그 강화
+ *    2026.05.28 - 예매 강제 취소 메서드 구현 (cancelBooking)
+ *                 · bookingService / paymentService 를 주입받아 조립
+ *                   (두 모듈 원본은 수정하지 않고 호출만 함)
+ *                 · 처리 순서 (한 @Transactional):
+ *                   1) paymentService.refundByBooking() → 결제 SUCCESS→REFUNDED
+ *                   2) bookingService.cancelBooking()    → 예매 CANCELLED
+ *                      + 좌석 RESERVED/HELD→AVAILABLE + 잔여석 재계산
+ *                 · 없는 예매 / 이미 취소된 예매 → BookingCancelException
+ *                 · 어느 단계든 실패 시 전체 롤백
  * ============================================================
  */
 
@@ -38,6 +47,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import stu.common.common.CommandMap;
+import stu.booking.BookingService;
+import stu.payment.PaymentService;
 
 @Service("adminMainService")
 public class AdminMainServiceImpl implements AdminMainService {
@@ -57,6 +68,14 @@ public class AdminMainServiceImpl implements AdminMainService {
 
 	@Resource(name = "adminDao")
 	private AdminDao adminDao;
+
+	/** 예매 취소(좌석 복구 포함) 위임용 - 검증된 booking 모듈 재사용. */
+	@Resource(name = "bookingService")
+	private BookingService bookingService;
+
+	/** 결제 환불 위임용. */
+	@Resource(name = "paymentService")
+	private PaymentService paymentService;
 
 	// ---------- 대시보드 ----------
 
@@ -218,7 +237,102 @@ public class AdminMainServiceImpl implements AdminMainService {
 		return adminDao.selectBookingList(map);
 	}
 
+	/**
+	 * 관리자에 의한 예매 강제 취소.
+	 *  - 검증된 모듈에 위임하여 한 트랜잭션으로 묶음:
+	 *    1) paymentService.refundByBooking  : 결제 SUCCESS → REFUNDED (자동 결제 취소)
+	 *    2) bookingService.cancelBooking    : 예매 → CANCELLED + 좌석 RESERVED → AVAILABLE
+	 *                                         + 잔여 좌석수 재계산
+	 *  - 어느 한 단계라도 실패하면 전체 롤백 (결제만 취소되고 좌석이 안 풀리는 일 방지)
+	 *  - 취소 불가 예매(이미 CANCELLED 등)는 BookingService 가 예외 → 여기서 래핑
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public Map<String, Object> cancelBooking(CommandMap commandMap) throws Exception {
+
+		Object bookingIdObj = commandMap.get("bookingId");
+		Long bookingId = parseLong(bookingIdObj);
+		if (bookingId == null) {
+			throw new BookingCancelException("잘못된 예매 ID 입니다. (bookingId=" + bookingIdObj + ")");
+		}
+
+		// 취소 전 정보 조회 (Flash 메시지 + 감사 로그용)
+		CommandMap detailCm = new CommandMap();
+		detailCm.put("bookingId", String.valueOf(bookingId));
+		Map<String, Object> detail = bookingService.selectBookingDetail(detailCm);
+		if (detail == null) {
+			throw new BookingCancelException("존재하지 않는 예매입니다. (bookingId=" + bookingId + ")");
+		}
+
+		String currentStatus = String.valueOf(pick(detail, "status"));
+		if ("CANCELLED".equalsIgnoreCase(currentStatus)) {
+			throw new BookingCancelException("이미 취소된 예매입니다. (bookingId=" + bookingId + ")");
+		}
+
+		// [1] 결제 환불 (SUCCESS → REFUNDED). 결제 내역 없으면 0 (정상 흐름).
+		int refunded = paymentService.refundByBooking(bookingId);
+
+		// [2] 예매 취소 + 좌석 복구 + 잔여석 재계산 (검증된 booking 모듈)
+		try {
+			CommandMap cancelCm = new CommandMap();
+			cancelCm.put("bookingId",    String.valueOf(bookingId));
+			cancelCm.put("cancelReason", "admin:force_cancel");
+			bookingService.cancelBooking(cancelCm);
+		} catch (Exception e) {
+			// booking 모듈의 "취소 불가" 예외를 보호 장치 예외로 변환 (롤백 유지)
+			throw new BookingCancelException(
+				"예매 취소에 실패했습니다: " + e.getMessage());
+		}
+
+		log.warn(AUDIT_TAG_CRITICAL + " CANCEL_BOOKING "
+				+ "bookingId="  + bookingId
+				+ ", memberId=" + pick(detail, "memberId")
+				+ ", email="    + pick(detail, "memberEmail")
+				+ ", concert="  + pick(detail, "title")
+				+ ", before="   + currentStatus
+				+ ", after=CANCELLED"
+				+ ", refundedPayments=" + refunded);
+
+		// Controller 메시지/감사로그 구성용 (대문자 키로 정규화해서 담아줌)
+		detail.put("BOOKING_ID",     bookingId);
+		detail.put("MEMBER_ID",      pick(detail, "memberId"));
+		detail.put("MEMBER_NAME",    pick(detail, "memberName"));
+		detail.put("BEFORE_STATUS",  currentStatus);
+		detail.put("AFTER_STATUS",   "CANCELLED");
+		detail.put("REFUNDED",       refunded);
+		return detail;
+	}
+
 	// ---------- 내부 helper ----------
+
+	/** Object → Long 안전 변환. */
+	private Long parseLong(Object o) {
+		if (o == null) return null;
+		if (o instanceof Number) return ((Number) o).longValue();
+		try {
+			return Long.parseLong(String.valueOf(o).trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Map 에서 키 대소문자/언더스코어를 무시하고 값 조회.
+	 * Oracle JDBC 가 컬럼명을 대문자로 올려보내므로 selectBookingDetail 결과의
+	 * 'bookingId' 별칭이 실제로는 'BOOKINGID' 로 들어오는 문제를 흡수한다.
+	 */
+	private Object pick(Map<String, Object> map, String key) {
+		if (map == null || key == null) return null;
+		if (map.containsKey(key)) return map.get(key);
+		String target = key.replace("_", "").toLowerCase();
+		for (Map.Entry<String, Object> e : map.entrySet()) {
+			String k = e.getKey();
+			if (k != null && k.replace("_", "").toLowerCase().equals(target)) {
+				return e.getValue();
+			}
+		}
+		return null;
+	}
 
 	/**
 	 * memberId 로 회원 조회. 없으면 예외.

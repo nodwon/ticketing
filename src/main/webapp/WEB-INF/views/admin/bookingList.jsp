@@ -5,7 +5,7 @@
 
  Developer : 김태희 (feature/kth)
  Created   : 2026.05.24
- Modified  : 2026.05.25
+ Modified  : 2026.05.28
 
  Description :
    - 예매 내역 목록
@@ -14,6 +14,10 @@
  History :
    2026.05.25 - 변조 탐지 관련 컬럼 / 필터 / 스타일 모두 제거
    2026.05.25 - URL 팀 규칙 적용 (/admin/xxx/list.do)
+   2026.05.28 - 관리자 강제 취소 기능 추가
+                · "관리" 컬럼 + 강제취소 버튼 (PENDING/CONFIRMED 만 노출)
+                · POST /admin/booking/cancel.do (confirm 확인 후 전송)
+                · flash 메시지(msg/msgType) 배너 표시
 ============================================================
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
@@ -74,6 +78,21 @@
 
 		.info { margin: 15px 0; color: #718093; font-size: 14px; }
 		.empty { padding: 40px; text-align: center; color: #718093; }
+
+		.flash { padding: 12px 18px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; }
+		.flash.success { background: #c8e6c9; color: #2d7a2d; }
+		.flash.info    { background: #d6eaf8; color: #2471a3; }
+		.flash.error   { background: #f8d7da; color: #c0392b; }
+
+		.btn-cancel {
+			padding: 5px 12px; background: #e84118; color: #fff;
+			border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+		}
+		.btn-cancel:hover { background: #c23616; }
+		.btn-disabled {
+			padding: 5px 12px; background: #dcdde1; color: #888;
+			border: none; border-radius: 4px; font-size: 12px; cursor: not-allowed;
+		}
 	</style>
 </head>
 <body>
@@ -110,6 +129,10 @@
 		</div>
 	</form>
 
+	<c:if test="${not empty msg}">
+		<div class="flash ${empty msgType ? 'info' : msgType}"><c:out value="${msg}" /></div>
+	</c:if>
+
 	<div class="info">총 <strong>${TOTAL}</strong>건</div>
 
 	<table>
@@ -123,12 +146,13 @@
 				<th style="width:120px;" class="price">예매금액</th>
 				<th style="width:110px;">예매상태</th>
 				<th style="width:160px;">예매일시</th>
+				<th style="width:90px;">관리</th>
 			</tr>
 		</thead>
 		<tbody>
 			<c:choose>
 				<c:when test="${empty bookingList}">
-					<tr><td colspan="8" class="empty">조회된 예매가 없습니다.</td></tr>
+					<tr><td colspan="9" class="empty">조회된 예매가 없습니다.</td></tr>
 				</c:when>
 				<c:otherwise>
 					<c:forEach var="row" items="${bookingList}">
@@ -148,6 +172,21 @@
 							</td>
 							<td><span class="status ${row.BOOKING_STATUS}">${row.BOOKING_STATUS}</span></td>
 							<td>${row.CREATED_AT}</td>
+							<td>
+								<c:choose>
+									<c:when test="${row.BOOKING_STATUS eq 'CANCELLED'}">
+										<button type="button" class="btn-disabled" disabled>취소됨</button>
+									</c:when>
+									<c:otherwise>
+										<form method="post" action="/admin/booking/cancel.do"
+											onsubmit="return confirm('예매 [${row.BOOKING_ID}] 를 강제 취소하시겠습니까?\n좌석이 예매 가능 상태로 풀리고, 결제는 자동 환불됩니다.');"
+											style="margin:0;">
+											<input type="hidden" name="bookingId" value="${row.BOOKING_ID}" />
+											<button type="submit" class="btn-cancel">강제취소</button>
+										</form>
+									</c:otherwise>
+								</c:choose>
+							</td>
 						</tr>
 					</c:forEach>
 				</c:otherwise>

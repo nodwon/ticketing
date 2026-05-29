@@ -38,7 +38,9 @@ public class QnaController {
 
 		HttpSession session = request.getSession(false);
 		String sessionName = (session != null) ? (String) session.getAttribute("SESSION_NAME") : null;
+		Object sessionNo = (session != null) ? session.getAttribute("SESSION_NO") : null;
 		commandMap.put("IS_ADMIN", "관리자".equals(sessionName) ? "1" : "0");
+		commandMap.put("MEMBER_NO", sessionNo != null ? sessionNo : 0);
 
 		List<Map<String,Object>> list = qnaService.selectQnaList(commandMap.getMap());
 		mv.addObject("list", list);
@@ -159,14 +161,25 @@ public class QnaController {
 		if (resultMap != null) {
 			Map<String, Object> detailMap = (Map<String, Object>) resultMap.get("map");
 
-			// 비밀글 접근 제어: SESSION_NAME이 "관리자"가 아니면 열람 차단
+			// 비밀글 접근 제어: 관리자 또는 글쓴이 본인만 열람 허용
 			if (detailMap != null) {
 				int secretVal = 0;
 				try { secretVal = ((Number) detailMap.get("IS_SECRET")).intValue(); } catch (Exception e) {}
 				if (secretVal == 1) {
 					HttpSession sess = request.getSession(false);
 					String sName = (sess != null) ? (String) sess.getAttribute("SESSION_NAME") : null;
-					if (!"관리자".equals(sName)) {
+					Object sessNo = (sess != null) ? sess.getAttribute("SESSION_NO") : null;
+					Object postMemberId = detailMap.get("MEMBER_ID");
+					boolean isAdmin = "관리자".equals(sName);
+					boolean isAuthor = false;
+					if (sessNo != null && postMemberId != null) {
+						try {
+							isAuthor = ((Number) sessNo).longValue() == ((Number) postMemberId).longValue();
+						} catch (Exception e) {
+							isAuthor = sessNo.toString().equals(postMemberId.toString());
+						}
+					}
+					if (!isAdmin && !isAuthor) {
 						return new ModelAndView("redirect:/qna/openQnaList.do?accessDenied=1");
 					}
 				}
@@ -295,7 +308,8 @@ public class QnaController {
 	    String savedName = String.valueOf(fileInfo.get("SAVED_NAME"));
 	    
 	    // 2. 실제 파일 위치
-	    String uploadPath = "C:\\sts4File\\";
+	    String uploadPath = request.getSession().getServletContext()
+	            .getRealPath("/upload") + java.io.File.separator;
 	    java.io.File file = new java.io.File(uploadPath + savedName);
 	    
 	    log.info("[FILE DOWNLOAD] 디스크 경로=" + file.getAbsolutePath());
