@@ -5,25 +5,13 @@
   File      : logback.xml
   Location  : src/main/resources/logback.xml
 
-  ★ 변경사항 (2026-05-29):
-    - 보안 로그 6종을 1시간 단위로 롤링하도록 변경
-    - %d{yyyy-MM-dd}        → %d{yyyy-MM-dd_HH}
-    - maxHistory 단위가 "일" → "시간"으로 바뀌므로 값 재계산:
-        30일  = 720시간
-        90일  = 2160시간
-        180일 = 4320시간
-
-  파일명 규칙 (시간별 분리):
-    - 현재 1시간 :  log_auth.json
-    - 이전 1시간 :  log_auth.2026-05-29_14.json.gz  (14시 분량)
-                  log_auth.2026-05-29_15.json.gz  (15시 분량)
-
-  ※ 일반 로그(application.log, sql.log)는 일별 그대로 유지
+  파일명 규칙 (일별 분리):
+    - 오늘:   log_auth.json
+    - 어제:   log_auth.2026-05-26.json.gz
   ============================================================
 -->
 <configuration scan="true" scanPeriod="60 seconds">
 
-  <!-- LOG_HOME 기본값: Windows(C:/...) / Linux는 환경변수로 /var/log/... 주입 -->
   <property name="LOG_HOME" value="${LOG_HOME:-C:/logs/ticketing/security}"/>
 
   <!-- 1) 콘솔 -->
@@ -34,7 +22,7 @@
     </encoder>
   </appender>
 
-  <!-- 2) 일반 애플리케이션 로그 (일별 유지) -->
+  <!-- 2) 일반 애플리케이션 로그 (일별 롤링) -->
   <appender name="FILE_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/application.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -48,7 +36,7 @@
     </encoder>
   </appender>
 
-  <!-- 3) SQL 로그 (일별 유지) -->
+  <!-- 3) SQL 로그 (일별 롤링) -->
   <appender name="FILE_SQL" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/sql.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -63,13 +51,13 @@
   </appender>
 
   <!-- ============================================================
-       4) [보안 로그] log_auth - 1시간 단위 롤링 (30일치 = 720시간)
+       4) [보안 로그] log_auth
        ============================================================ -->
   <appender name="FILE_AUTH" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_auth.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_auth.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
-      <maxHistory>720</maxHistory>
+      <fileNamePattern>${LOG_HOME}/log_auth.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -89,12 +77,12 @@
     </encoder>
   </appender>
 
-  <!-- 5) [보안 로그] log_seat - 1시간 단위 롤링 (30일 = 720시간) -->
+  <!-- 5) [보안 로그] log_seat -->
   <appender name="FILE_SEAT" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_seat.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_seat.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
-      <maxHistory>720</maxHistory>
+      <fileNamePattern>${LOG_HOME}/log_seat.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -114,12 +102,12 @@
     </encoder>
   </appender>
 
-  <!-- 6) [보안 로그] log_payment - 1시간 단위 (90일 = 2160시간, 결제 중요도 높음) -->
+  <!-- 6) [보안 로그] log_payment (90일 보관) -->
   <appender name="FILE_PAYMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_payment.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_payment.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
-      <maxHistory>2160</maxHistory>
+      <fileNamePattern>${LOG_HOME}/log_payment.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>90</maxHistory>
       <totalSizeCap>20GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -139,12 +127,12 @@
     </encoder>
   </appender>
 
-  <!-- 7) [보안 로그] log_admin_access - 1시간 단위 (180일 = 4320시간, 감사용) -->
+  <!-- 7) [보안 로그] log_admin_access (180일 보관) -->
   <appender name="FILE_ADMIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_admin_access.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_admin_access.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
-      <maxHistory>4320</maxHistory>
+      <fileNamePattern>${LOG_HOME}/log_admin_access.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>180</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -164,12 +152,12 @@
     </encoder>
   </appender>
 
-  <!-- 8) [보안 로그] log_board - 1시간 단위 (30일 = 720시간) -->
+  <!-- 8) [보안 로그] log_board -->
   <appender name="FILE_BOARD" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_board.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_board.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
-      <maxHistory>720</maxHistory>
+      <fileNamePattern>${LOG_HOME}/log_board.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -189,12 +177,12 @@
     </encoder>
   </appender>
 
-  <!-- 9) [보안 로그] log_behavior_feature - 1시간 단위 (30일 = 720시간, MLTK용) -->
+  <!-- 9) [보안 로그] log_behavior_feature -->
   <appender name="FILE_BEHAVIOR" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/log_behavior_feature.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_behavior_feature.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
-      <maxHistory>720</maxHistory>
+      <fileNamePattern>${LOG_HOME}/log_behavior_feature.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
+      <maxHistory>30</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -214,7 +202,7 @@
     </encoder>
   </appender>
 
-  <!-- 비동기 래퍼 (성능 - 변경 없음) -->
+  <!-- 비동기 래퍼 -->
   <appender name="ASYNC_AUTH" class="ch.qos.logback.classic.AsyncAppender">
     <appender-ref ref="FILE_AUTH"/>
     <queueSize>5000</queueSize>
@@ -257,7 +245,7 @@
     <neverBlock>false</neverBlock>
   </appender>
 
-  <!-- 보안 로거 매핑 (변경 없음) -->
+  <!-- 보안 로거 매핑 -->
   <logger name="SECURITY.AUTH"     level="INFO" additivity="false">
     <appender-ref ref="ASYNC_AUTH"/>
   </logger>

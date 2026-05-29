@@ -6,13 +6,22 @@
  *
  * Developer : 정희영 (feature/jhyjhy)
  * Modified  : 2026.05.26 - MacroDetectionLogger 통합
+ * Modified  : 2026.05.29 - zone.do 보안 로그 추가 ★
  *
  * Description :
  *   1) GET  /seat/select.do  - 좌석 선택 페이지 진입
  *   2) GET  /seat/list.do    - 좌석 현황 조회 (Ajax)
  *   3) POST /seat/hold.do    - 좌석 임시 선점 ★매크로 탐지 로그★
  *   4) POST /seat/release.do - 좌석 선점 해제
- *   5) GET  /seat/zone.do    - 구역별 좌석 조회 (봇 탐지용)
+ *   5) GET  /seat/zone.do    - 구역별 좌석 조회 ★봇 탐지 로그 추가★
+ *
+ * 매크로 탐지 시그니처 (zone.do):
+ *   - 사람: 구역당 평균 2~5초 머묾, 보통 2~3개 구역만 둘러봄
+ *   - 봇:  0.1초 안에 A→B→C→D→E 다 훑음 (정찰 패턴)
+ *
+ *   → log_seat.json 에 "request_result=ZONE_SCAN_X" 기록
+ *      X = 클릭된 구역 (A/B/C/D/E)
+ *      elapsed_time = 직전 zone 클릭 이후 경과시간 (세션에 저장)
  * ============================================================
  */
 package stu.seat;
@@ -70,10 +79,6 @@ public class SeatController {
 
     // ================================================================
     // 3) 좌석 임시 선점 (AVAILABLE → HELD) ★매크로 탐지 로그★
-    //
-    //    클라이언트에서 추가로 전송해야 할 파라미터:
-    //    - seat_page_load_ts : seatSelect.jsp 로드 시각 (JS에서 Date.now())
-    //    - concert_id        : 공연 ID
     // ================================================================
     @RequestMapping(value = "/seat/hold.do", method = RequestMethod.POST)
     @ResponseBody
@@ -124,13 +129,11 @@ public class SeatController {
             if (seatPageLoadTsStr != null && !seatPageLoadTsStr.isEmpty()) {
                 long seatPageLoadTs = Long.parseLong(seatPageLoadTsStr);
 
-                // redirectTime: GET /seat/select.do ~ POST /seat/hold.do 전체 소요 시간
                 int redirectMs = (int)(startTime - seatPageLoadTs);
                 MacroDetectionLogger.redirectTime(
                     userIdLong, srcIp, concertIdLong, scheduleIdLong, redirectMs
                 );
 
-                // seatHoldTime: 페이지 체류 시간 + 서버 처리 시간
                 MacroDetectionLogger.seatHoldTime(
                     userIdLong, srcIp, concertIdLong, seatIdLong,
                     seatPageLoadTs, elapsedMs, requestResult
@@ -186,14 +189,28 @@ public class SeatController {
     }
 
     // ================================================================
-    // 5) 구역별 좌석 조회 (Ajax) ★봇 탐지용★
-    //    zone(A~E) → seat_row 범위 매핑
+    // 5) 구역별 좌석 조회 (Ajax) ★봇 탐지 로그 추가★
+    //
+    //    탐지 시그니처:
+    //    - 직전 zone 클릭으로부터 elapsed_time 측정 (세션 활용)
+    //    - 사람: 평균 2000~5000ms
+    //    - 봇:   100ms 이하 (구역 스캐닝 패턴)
+    //
+    //    기록 위치: log_seat.json
+    //      - request_result = "ZONE_SCAN_A" / "ZONE_SCAN_B" / ...
+    //      - elapsed_time   = 직전 zone 클릭 이후 경과시간
+    //      - seat_id        = -1 (좌석이 아닌 구역 이벤트라는 의미)
     // ================================================================
     @RequestMapping(value = "/seat/zone.do", method = RequestMethod.GET)
     @ResponseBody
     public List<Map<String, Object>> seatListByZone(
             @RequestParam("scheduleId") String scheduleId,
-            @RequestParam("zone")       String zone) throws Exception {
+            @RequestParam("zone")       String zone,
+            HttpServletRequest request,
+            HttpSession session) throws Exception {
+
+        long startTime = System.currentTimeMillis();
+        String srcIp   = getClientIp(request);
 
         log.debug("==== 구역별 좌석 조회 : scheduleId={}, zone={} ====", scheduleId, zone);
 
@@ -212,7 +229,48 @@ public class SeatController {
         map.put("rowStart",   rowStart);
         map.put("rowEnd",     rowEnd);
 
-        return seatService.selectSeatListByZone(map);
+        List<Map<String, Object>> seatList = seatService.selectSeatListByZone(map);
+
+        // ★★ 봇 탐지 보안 로그 (zone 클릭마다 기록) ─────────────
+        try {
+            // 세션에서 사용자 ID + 이전 zone 클릭 시각 추출
+            Object sessionMemberNo = session.getAttribute("SESSION_NO");
+            Long userId = sessionMemberNo != null
+                    ? Long.parseLong(String.valueOf(sessionMemberNo)) : null;
+
+            Long scheduleIdLong = parseLong(scheduleId);
+
+            // ── 직전 zone 클릭 이후 경과시간 계산 ──
+            String sessKey = "_last_zone_click_ts_" + scheduleId;
+            Object lastClickObj = session.getAttribute(sessKey);
+            int gapMs;
+
+            if (lastClickObj != null) {
+                gapMs = (int)(startTime - (Long) lastClickObj);
+            } else {
+                gapMs = -1;   // 첫 클릭 (이전 데이터 없음)
+            }
+            // 이번 클릭 시각 저장 (다음 클릭의 기준)
+            session.setAttribute(sessKey, startTime);
+
+            // ── log_seat.json 기록 ──
+            // seatId=-1 (구역 이벤트라는 의미), result에 zone 정보 포함
+            SecurityLogger.seat(
+                userId,
+                scheduleIdLong,        // concertId 자리에 scheduleId 사용 (기존 패턴 유지)
+                -1L,                   // seatId = -1 (구역 이벤트)
+                "ZONE_SCAN_" + zone.toUpperCase(),
+                gapMs                  // ★ 핵심: 직전 zone 클릭부터 경과시간
+            );
+
+            log.debug("[ZONE_SCAN] user={}, zone={}, gap={}ms, isFast={}",
+                    userId, zone, gapMs, (gapMs >= 0 && gapMs < 200));
+
+        } catch (Exception e) {
+            log.warn("zone 보안 로그 기록 실패: {}", e.getMessage());
+        }
+
+        return seatList;
     }
 
     // ── 헬퍼 ────────────────────────────────────────────
