@@ -5,9 +5,20 @@
   File      : logback.xml
   Location  : src/main/resources/logback.xml
 
-  파일명 규칙 (일별 분리):
-    - 오늘:   log_auth.json
-    - 어제:   log_auth.2026-05-26.json.gz
+  ★ 변경사항 (2026-05-29):
+    - 보안 로그 6종을 종류별 하위 폴더에 저장
+    - 1시간 단위 롤링 유지
+
+  폴더 구조:
+    ${LOG_HOME}/
+      ├── auth/          log_auth.json + 시간별 .gz
+      ├── seat/          log_seat.json + 시간별 .gz
+      ├── payment/       log_payment.json + 시간별 .gz
+      ├── admin_access/  log_admin_access.json + 시간별 .gz
+      ├── board/         log_board.json + 시간별 .gz
+      └── behavior/      log_behavior_feature.json + 시간별 .gz
+
+  ★ run.bat 또는 run.sh 가 위 폴더들을 미리 생성해야 함
   ============================================================
 -->
 <configuration scan="true" scanPeriod="60 seconds">
@@ -22,7 +33,7 @@
     </encoder>
   </appender>
 
-  <!-- 2) 일반 애플리케이션 로그 (일별 롤링) -->
+  <!-- 2) 일반 애플리케이션 로그 (LOG_HOME 루트, 일별) -->
   <appender name="FILE_APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/application.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -36,7 +47,7 @@
     </encoder>
   </appender>
 
-  <!-- 3) SQL 로그 (일별 롤링) -->
+  <!-- 3) SQL 로그 (LOG_HOME 루트, 일별) -->
   <appender name="FILE_SQL" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_HOME}/sql.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
@@ -51,13 +62,13 @@
   </appender>
 
   <!-- ============================================================
-       4) [보안 로그] log_auth
+       4) [보안 로그] log_auth → auth/ 폴더
        ============================================================ -->
   <appender name="FILE_AUTH" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_HOME}/log_auth.json</file>
+    <file>${LOG_HOME}/auth/log_auth.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_auth.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
-      <maxHistory>30</maxHistory>
+      <fileNamePattern>${LOG_HOME}/auth/log_auth.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
+      <maxHistory>720</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -77,12 +88,12 @@
     </encoder>
   </appender>
 
-  <!-- 5) [보안 로그] log_seat -->
+  <!-- 5) [보안 로그] log_seat → seat/ 폴더 -->
   <appender name="FILE_SEAT" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_HOME}/log_seat.json</file>
+    <file>${LOG_HOME}/seat/log_seat.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_seat.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
-      <maxHistory>30</maxHistory>
+      <fileNamePattern>${LOG_HOME}/seat/log_seat.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
+      <maxHistory>720</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -102,12 +113,12 @@
     </encoder>
   </appender>
 
-  <!-- 6) [보안 로그] log_payment (90일 보관) -->
+  <!-- 6) [보안 로그] log_payment → payment/ 폴더 -->
   <appender name="FILE_PAYMENT" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_HOME}/log_payment.json</file>
+    <file>${LOG_HOME}/payment/log_payment.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_payment.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
-      <maxHistory>90</maxHistory>
+      <fileNamePattern>${LOG_HOME}/payment/log_payment.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
+      <maxHistory>2160</maxHistory>
       <totalSizeCap>20GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -127,12 +138,12 @@
     </encoder>
   </appender>
 
-  <!-- 7) [보안 로그] log_admin_access (180일 보관) -->
+  <!-- 7) [보안 로그] log_admin_access → admin_access/ 폴더 -->
   <appender name="FILE_ADMIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_HOME}/log_admin_access.json</file>
+    <file>${LOG_HOME}/admin_access/log_admin_access.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_admin_access.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
-      <maxHistory>180</maxHistory>
+      <fileNamePattern>${LOG_HOME}/admin_access/log_admin_access.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
+      <maxHistory>4320</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -152,12 +163,12 @@
     </encoder>
   </appender>
 
-  <!-- 8) [보안 로그] log_board -->
+  <!-- 8) [보안 로그] log_board → board/ 폴더 -->
   <appender name="FILE_BOARD" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_HOME}/log_board.json</file>
+    <file>${LOG_HOME}/board/log_board.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_board.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
-      <maxHistory>30</maxHistory>
+      <fileNamePattern>${LOG_HOME}/board/log_board.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
+      <maxHistory>720</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -177,12 +188,12 @@
     </encoder>
   </appender>
 
-  <!-- 9) [보안 로그] log_behavior_feature -->
+  <!-- 9) [보안 로그] log_behavior_feature → behavior/ 폴더 -->
   <appender name="FILE_BEHAVIOR" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_HOME}/log_behavior_feature.json</file>
+    <file>${LOG_HOME}/behavior/log_behavior_feature.json</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>${LOG_HOME}/log_behavior_feature.%d{yyyy-MM-dd}.json.gz</fileNamePattern>
-      <maxHistory>30</maxHistory>
+      <fileNamePattern>${LOG_HOME}/behavior/log_behavior_feature.%d{yyyy-MM-dd_HH}.json.gz</fileNamePattern>
+      <maxHistory>720</maxHistory>
       <totalSizeCap>10GB</totalSizeCap>
     </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
