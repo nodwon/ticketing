@@ -1,9 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
 	pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<%
-	session.setAttribute("joinCode", "");
-%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -75,7 +72,6 @@ h1 {
 						<option value="gmail.com">@gmail.com</option>
 						<option value="nate.com">@nate.com</option>
 					</select>
-<%--					<button type="button" class="btn btn-default" id="isCheck_Email">인증</button>--%>
 					<button type="button" class="btn btn-default" id="checkEmailBtn">중복확인</button>
 					<input type="hidden" id="isEmailCheck" value="0">
 				</div>
@@ -141,16 +137,6 @@ h1 {
 				<input type="checkbox" id="SMS_AGREE" name="SMS_AGREE" value="0">
 				<font size="3"> SMS 수신에 동의합니다.</font>
 			</div>
-			<div id="isCheck_EmailForm" class="form-group">
-				<label for="user_email">인증번호 확인 *</label>
-				<div class="form-inline">
-					<input type="email" class="form-control" id="emailAuth"
-						name="emailAuth" placeholder="인증번호를 입력하세요">
-					<button type="button" class="btn btn-default" id="isAuth">확인</button>
-					<input type="hidden" id="isEmailAuth" value="1">
-				</div>
-			</div>
-
 			<div class="form-group" id="checkboxes">
 				<div>
 					<input type="checkbox" name="check1" id="check1"> <b>서비스 이용약관 동의</b><font color="red">(필수)</font>
@@ -302,10 +288,6 @@ $(function() {
 	    $("#isEmailCheck").val("0");
 	    $("#email_check").text("중복 확인 버튼을 눌러주세요.");
 	    $("#email_check").css("color", "#888");
-	});
-	
-	$(document).ready(function() {
-		$("#isCheck_EmailForm").hide();
 	});
 	
 	//이름입력
@@ -647,70 +629,6 @@ $(function() {
 		}
 	}
 
-	/*
-	//   이메일 인증 버튼 클릭시 발생하는 이벤트
-	$(document).on("click","#isCheck_Email",function(e) {
-
-		var user_email;
-		
-		if ($("#MEMBER_EMAIL2").val().length < 1) {
-			user_email = $("#MEMBER_EMAIL").val();
-		} else {
-			user_email = $("#MEMBER_EMAIL").val() + "@" + $("#MEMBER_EMAIL2").val();
-		}
-
-		if ($("#isEmailCheck").val() != '1') {
-			alert("이메일을 확인해주세요.");
-			return false;
-		} else {
-			e.preventDefault();
-			$("#loadingBar").show();
-			// 이메일 중복 체크 후 메일 발송 비동기 처리 
-				$.ajax({
-					type : "POST",
-					url : "${pageContext.request.contextPath}/emailAuth.do",
-					data : "user_email="+ user_email,
-					
-					success : function(data) {
-					$("#loadingBar").hide();
-					alert("인증번호가 발송되었습니다. 이메일을 확인해주세요.");
-					$("#isCheck_EmailForm").show();
-				},
-				error : function(data) {
-					alert("에러가 발생했습니다.");
-					return false;
-				}
-			});
-		}
-	});
-
-	// 이메일 인증번호 입력 후 인증 버튼 클릭 이벤트
-
-	$(document).on("click","#isAuth",function() {
-		$.ajax({
-			type : "POST",
-			url : "${pageContext.request.contextPath}/emailAuthCheck.do",
-			data : "joinCode="
-					+ $('#emailAuth').val()
-					+ "&ran=" + $("#ran").val(),
-			success : function(data) {
-				console.log(data.result);
-				if (data.result == "complete") {
-					$("#isAuth").contents().unwrap().wrap('<div id="isAuth"></div>');
-					$("#isAuth").text("인증완료");
-					$("#isAuth").css('color','blue').css('display','inline');
-					$("#emailAuth").attr('disabled', true);
-					$("#isEmailAuth").val("1");
-				} else if (data.result == "fail") {
-					alert("인증번호가 올바르지 않습니다.")
-				}
-			},
-			error : function(data) {
-				alert("에러가 발생했습니다.");
-			}
-		});
-	});
-	*/
 	// modal의 동의하기 버튼 클릭 시 체크박스에 checked 속성 활성화
 	$("#check1_agree").click(function() {
 		$("#check1").prop("checked", true);
