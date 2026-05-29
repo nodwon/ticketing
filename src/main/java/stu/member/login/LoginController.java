@@ -142,43 +142,6 @@ public class LoginController {
 	    return true;
 	}
 
-	// 소셜 로그인 (SESSION_GRADE 추가)
-	@RequestMapping(value = "/socialLoginAction.do", method = RequestMethod.POST)
-	@ResponseBody
-	public Map<String, Object> googleLoginAction(@RequestBody Map<String, Object> map, HttpServletRequest request)
-			throws Exception {
-
-		HttpSession session = request.getSession();
-		String srcIp = request.getRemoteAddr();
-
-		session.setAttribute("SESSION_ID", map.get("ID"));
-		session.setAttribute("SESSION_NO", map.get("MEMBER_NO"));
-		session.setAttribute("SESSION_NAME", map.get("Name"));
-		
-		// ★ 소셜 로그인도 SESSION_GRADE 설정 (기본 USER)
-		Object grade = map.get("MEMBER_GRADE");
-		if (grade == null) grade = map.get("ROLE");
-		session.setAttribute("SESSION_GRADE", grade != null ? String.valueOf(grade) : "USER");
-
-		session.getMaxInactiveInterval();
-
-		Long userId = map.get("MEMBER_NO") != null
-			? ((Number) map.get("MEMBER_NO")).longValue() : null;
-		SecurityLogger.auth(userId, srcIp, "SUCCESS");
-
-		String url = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort()
-				+ request.getContextPath() + "/main.do";
-		map.put("URL", url);
-
-		return map;
-	}
-
-	@RequestMapping(value = "/loginCallback.do")
-	public ModelAndView loginCallback(CommandMap commandMap) throws Exception {
-		ModelAndView mv = new ModelAndView("/loginCallback");
-		return mv;
-	}
-
 	@RequestMapping(value = "/logout.do", method = RequestMethod.POST)
 	@ResponseBody
 	public Map<String, Object> logout(HttpServletRequest request, @RequestBody Map<String, Object> map) throws Exception {
