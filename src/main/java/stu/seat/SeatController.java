@@ -27,6 +27,8 @@
 package stu.seat;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 
@@ -108,6 +110,15 @@ public class SeatController {
             response.put("result",  "success");
             response.put("message", "좌석 선점 성공");
             requestResult = "SUCCESS";
+
+            // ★ 세션에 '내가 hold한 좌석' 기록 → BookingService가 본인 좌석이면 통과시킴
+            @SuppressWarnings("unchecked")
+            Set<Long> myHeld = (Set<Long>) session.getAttribute("_my_held_seats");
+            if (myHeld == null) {
+                myHeld = new HashSet<Long>();
+                session.setAttribute("_my_held_seats", myHeld);
+            }
+            try { myHeld.add(Long.parseLong(seatId)); } catch (Exception ignore) {}
         } else {
             response.put("result",  "fail");
             response.put("message", "이미 선점된 좌석입니다");
@@ -155,7 +166,8 @@ public class SeatController {
     public Map<String, Object> releaseSeat(
             @RequestParam("seatId")   String seatId,
             @RequestParam("memberId") String memberId,
-            @RequestParam(value = "concertId", required = false) String concertId) throws Exception {
+            @RequestParam(value = "concertId", required = false) String concertId,
+            HttpSession session) throws Exception {
 
         long startTime = System.currentTimeMillis();
 
@@ -172,6 +184,13 @@ public class SeatController {
         if (result == 1) {
             response.put("result", "success");
             requestResult = "SUCCESS";
+
+            // ★ 세션에서 '내가 hold한 좌석' 목록에서 제거
+            @SuppressWarnings("unchecked")
+            Set<Long> myHeld = (Set<Long>) session.getAttribute("_my_held_seats");
+            if (myHeld != null) {
+                try { myHeld.remove(Long.parseLong(seatId)); } catch (Exception ignore) {}
+            }
         } else {
             response.put("result", "fail");
             requestResult = "FAIL";

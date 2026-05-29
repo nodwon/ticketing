@@ -134,9 +134,18 @@ public class BookingServiceImpl implements BookingService {
             }
 
             if (!"AVAILABLE".equals(status)) {
-                // HELD: 다른 사용자가 결제 진행 중인 좌석
-                log.warn("이미 선점된 좌석 시도 - seatId=" + seatId + ", status=" + status);
-                throw new Exception("이미 다른 사용자가 선택 중인 좌석입니다 (seatId=" + seatId + ")");
+                // ★ [예외] HELD인데 본인이 사전에 /seat/hold.do로 잡아둔 좌석이면 통과
+                // (세션에 저장된 _my_held_seats 를 BookingController가 commandMap에 주입)
+                @SuppressWarnings("unchecked")
+                java.util.Set<Long> myHeld = (java.util.Set<Long>) params.get("_my_held_seats");
+                Long seatIdLong = parseLong(seatId);
+                if ("HELD".equals(status) && myHeld != null && seatIdLong != null && myHeld.contains(seatIdLong)) {
+                    log.info("본인이 사전 hold한 좌석 - 통과: seatId=" + seatId);
+                    // 통과 - throw 안 하고 계속 진행
+                } else {
+                    log.warn("이미 선점된 좌석 시도 - seatId=" + seatId + ", status=" + status);
+                    throw new Exception("이미 다른 사용자가 선택 중인 좌석입니다 (seatId=" + seatId + ")");
+                }
             }
 
             totalPrice += ((Number) seat.get("PRICE")).longValue();
@@ -174,10 +183,21 @@ public class BookingServiceImpl implements BookingService {
         updateSeatParam.put("memberId", memberId);
         int seatsAffected = bookingDao.updateSeatStatusToHeld(updateSeatParam);
 
-        if (seatsAffected != seatIds.size()) {
+        // ★ [완화] 본인이 사전 hold한 좌석은 이미 HELD이므로 UPDATE 영향 0이 정상
+        @SuppressWarnings("unchecked")
+        java.util.Set<Long> myHeldForCheck = (java.util.Set<Long>) params.get("_my_held_seats");
+        int alreadyHeldByMe = 0;
+        if (myHeldForCheck != null) {
+            for (Long sid : seatIds) {
+                if (myHeldForCheck.contains(sid)) alreadyHeldByMe++;
+            }
+        }
+        int expected = seatIds.size() - alreadyHeldByMe;
+        if (seatsAffected != expected) {
             log.error("동시성 충돌 감지 - 요청 좌석=" + seatIds.size()
-                    + ", HELD 전환 성공=" + seatsAffected
-                    + " (차이: " + (seatIds.size() - seatsAffected) + "석이 이미 선점됨)");
+                    + ", 사전 hold된 본인 좌석=" + alreadyHeldByMe
+                    + ", AVAILABLE→HELD 전환=" + seatsAffected
+                    + " (예상=" + expected + ")");
             throw new Exception("동시성 충돌: 일부 좌석이 이미 다른 사용자에게 선점되었습니다");
         }
         log.info("좌석 HELD 처리 완료 - " + seatsAffected + "석");

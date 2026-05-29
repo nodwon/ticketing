@@ -110,6 +110,12 @@ public class BookingController {
         }
         commandMap.remove("memberId");
         commandMap.put("memberId", String.valueOf(sessionMemberNo));
+
+        // ★ 사전 hold한 좌석 목록을 Service에 전달 (SeatController.holdSeat에서 저장)
+        Object myHeld = session.getAttribute("_my_held_seats");
+        if (myHeld != null) {
+            commandMap.put("_my_held_seats", myHeld);
+        }
         mv.addObject("myBookings", bookingService.selectMyBookings(commandMap));
         mv.setViewName("booking/myList");
         return mv;
@@ -171,6 +177,9 @@ public class BookingController {
             // ★ 세션에 예매 생성 시각 저장 → PaymentController 에서 사용
             session.setAttribute("_booking_create_ts", System.currentTimeMillis());
             session.setAttribute("_booking_seat_page_ts", seatPageTs);
+
+            // ★ 예매 성공 후 세션의 _my_held_seats 정리 (이미 booking_items에 기록됨)
+            session.removeAttribute("_my_held_seats");
 
             ModelAndView mv = new ModelAndView();
             mv.setView(new RedirectView("/payment/form.do?bookingId=" + bookingId, false));
