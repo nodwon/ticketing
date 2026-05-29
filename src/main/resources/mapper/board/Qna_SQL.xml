@@ -12,7 +12,7 @@
 				IS_SECRET
 			FROM
 				QNA_POSTS
-			WHERE (IS_SECRET = 0 OR #{IS_ADMIN, jdbcType=VARCHAR} = '1')
+			WHERE (IS_SECRET = 0 OR #{IS_ADMIN, jdbcType=VARCHAR} = '1' OR (IS_SECRET = 1 AND MEMBER_ID = #{MEMBER_NO, jdbcType=NUMERIC}))
 		<include refid="common1.pagingPost1"/>
 	</select>
 	
