@@ -257,6 +257,7 @@ body {
 	width: 100%;
 }
 </style>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
 
@@ -460,34 +461,88 @@ body {
 		//     - 최대 선택 좌석 2석으로 변경
 		// ─────────────────────────────────────────────
 		function selectSeat(seatId, status, seatRow, seatCol) {
+			// ★★ 매크로 탐지: 클릭 타임스탬프 누적
+			if (typeof clickTimestamps !== 'undefined') {
+				clickTimestamps.push(Date.now());
+			}
+
 			var isMine = selectedSeats.some(function(s) {
 				return s.seatId === seatId;
 			});
 
+			// ── [Case 1] 이미 내가 선택한 좌석 → /seat/release.do AJAX ──
 			if (isMine) {
-				selectedSeats = selectedSeats.filter(function(s) {
-					return s.seatId !== seatId;
+				$.ajax({
+					url   : '/seat/release.do',
+					method: 'POST',
+					data  : {
+						seatId   : seatId,
+						memberId : memberId,
+						concertId: scheduleId
+					},
+					success: function(res) {
+						if (res.result === 'success') {
+							selectedSeats = selectedSeats.filter(function(s) {
+								return s.seatId !== seatId;
+							});
+							afterSeatChange();
+						} else {
+							alert('좌석 해제에 실패했습니다.');
+						}
+					},
+					error: function() { alert('네트워크 오류가 발생했습니다.'); }
 				});
-			} else if (status === 'HELD') {
-				alert('이미 결제 중인 좌석입니다.');
 				return;
-			} else if (status !== 'AVAILABLE') {
-				alert('선택할 수 없는 좌석입니다.');
-				return;
-			} else {
-				if (selectedSeats.length >= 2) {
-					alert('최대 2석까지 선택 가능합니다.');
-					return;
-				}
-				selectedSeats.push({
-					seatId : seatId,
-					seatRow : seatRow,
-					seatCol : seatCol
-				});
 			}
 
-			sessionStorage.setItem('selectedSeats_' + scheduleId, JSON
-					.stringify(selectedSeats));
+			// ── [Case 2] 점유 중인 좌석 ──
+			if (status === 'HELD') {
+				alert('이미 결제 중인 좌석입니다.');
+				return;
+			}
+			if (status !== 'AVAILABLE') {
+				alert('선택할 수 없는 좌석입니다.');
+				return;
+			}
+
+			// ── [Case 3] 2석 초과 체크 ──
+			if (selectedSeats.length >= 2) {
+				alert('최대 2석까지 선택 가능합니다.');
+				return;
+			}
+
+			// ── [Case 4] 신규 선택 → /seat/hold.do AJAX (★ 매크로 탐지 핵심) ──
+			$.ajax({
+				url   : '/seat/hold.do',
+				method: 'POST',
+				data  : {
+					seatId           : seatId,
+					memberId         : memberId,
+					concertId        : scheduleId,
+					scheduleId       : scheduleId,
+					seat_page_load_ts: (typeof PAGE_LOAD_TS !== 'undefined' ? PAGE_LOAD_TS : Date.now())
+				},
+				success: function(res) {
+					if (res.result === 'success') {
+						selectedSeats.push({
+							seatId : seatId,
+							seatRow: seatRow,
+							seatCol: seatCol
+						});
+						afterSeatChange();
+					} else {
+						alert(res.message || '이미 선점된 좌석입니다.');
+						loadZoneSeats(currentZone);
+					}
+				},
+				error: function() { alert('네트워크 오류가 발생했습니다.'); }
+			});
+		}
+
+		// ── 좌석 변경 후 공통 처리 ──
+		function afterSeatChange() {
+			sessionStorage.setItem('selectedSeats_' + scheduleId,
+					JSON.stringify(selectedSeats));
 			updateInfo();
 			renderZoneTabs();
 			renderSeats(currentZoneSeats);
@@ -541,7 +596,8 @@ body {
 			var fields = {
 				memberId : memberId,
 				scheduleId : scheduleId,
-				seatIds : seatIds
+				seatIds : seatIds,
+				seat_page_load_ts : (typeof PAGE_LOAD_TS !== 'undefined' ? PAGE_LOAD_TS : Date.now())
 			};
 			for ( var key in fields) {
 				var input = document.createElement('input');
