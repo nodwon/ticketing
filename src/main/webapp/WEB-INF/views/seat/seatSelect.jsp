@@ -4,22 +4,23 @@
  * FileName : seatSelect.jsp
  * Modified  : 2026.05.28 (UI 공통 테마 통일 - theme.css 적용)
  * Modified  : 2026.05.29 - 김희재 (봇 탐지용 개편)
- *   - 구역 클릭 시 AJAX /seat/zone.do 호출 (서버 로그 적재)
- *   - 좌석 번호 숨김 (클릭 시 하단 정보창에만 표시)
- *   - HELD/RESERVED → UI에서 "예매불가" 로 통합 (회색)
- *   - 색상 재정의 : 예매가능=빨강 / 예매불가=회색 / 선택됨=노랑
- *   - HELD 클릭 시 "이미 결제 중인 좌석입니다" 안내
- *   - 최대 선택 가능 좌석 4석 → 2석
- *   - 우측 사이드바 레이아웃 (STAGE / 구역 A~E / 선택정보 / 예매하기)
- *   - 색상 설명은 좌석맵 아래 중앙
+ * Modified  : 2026.05.29 - 매크로 탐지 로그 통합
+ *   ★ selectSeat() → /seat/hold.do AJAX 호출로 변경
+ *   ★ 해제 시 /seat/release.do 호출
+ *   ★ goToBooking() 에 seat_page_load_ts hidden input 추가
+ *   ★ PAGE_LOAD_TS 변수를 메인 script 에 노출 (전역)
  *
  * Description :
- *   - 좌석 클릭 시 로컬 selectedSeats 에만 저장 (서버 hold 없음)
- *   - 좌석 구역(Zone) 탭 클릭 시마다 서버 요청 → log_api 기록
- *   - 좌석 상태별 색상 구분 (UI 단순화)
+ *   - 좌석 상태별 색상 구분
  *     * 예매가능 (AVAILABLE)         : 빨강
  *     * 예매불가 (HELD + RESERVED)   : 회색
  *     * 선택됨   (본인이 클릭)        : 노랑 (개인 화면 전용)
+ *
+ * 매크로 탐지 로그 (이 JSP 동작으로 자동 기록):
+ *   - log_seat.json : redirect_ms, seat_select_ms, hold_elapsed_ms
+ *   - log_seat.json : booking.create (좌석~예매 총시간)
+ *   - log_seat.json : booking.payment_redirect (예매~결제 시간)
+ *   - log_behavior_feature.json : click_interval (자동)
  * ============================================================
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8"
@@ -233,7 +234,16 @@
 
 </div>
 
+<!-- jQuery (AJAX 사용을 위해 메인 스크립트 위에 로드) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
 <script>
+    // ============================================================
+    // ★ 전역 변수 (매크로 탐지용 - 두 script 블록에서 공유)
+    // ============================================================
+    var PAGE_LOAD_TS = Date.now();          // ★ seat/select.do 페이지 로드 시각
+    var clickTimestamps = [];               // 좌석 클릭 타임스탬프 누적
+
     // 페이지 진입 시 scheduleId 받기 (Controller에서 넘긴 값)
     var scheduleId = '${scheduleId}';
 
@@ -254,8 +264,6 @@
 
     // ─────────────────────────────────────────────
     // [2026.05.29 김희재] 구역 탭 렌더링
-    //   - [사이드바 레이아웃] 가로 5칸 그리드 — A~E 한 글자만 표시
-    //   - tooltip(title)로 "X구역 (N~M열)" 표기
     // ─────────────────────────────────────────────
     function renderZoneTabs() {
         var html = '';
@@ -284,9 +292,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // [2026.05.29 김희재] 구역 전환 (★ 핵심 변경)
-    //   기존: 로컬 allSeats 필터링만 함 (서버 요청 없음)
-    //   변경: 구역 클릭마다 AJAX /seat/zone.do 호출 → log_api 기록
+    // 구역 전환
     // ─────────────────────────────────────────────
     function switchZone(zone) {
         currentZone = zone;
@@ -295,7 +301,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // [2026.05.29 김희재] 구역별 좌석 로드 (서버 요청)
+    // 구역별 좌석 로드 (서버 요청)
     // ─────────────────────────────────────────────
     function loadZoneSeats(zone) {
         document.getElementById('seatMap').innerHTML =
@@ -320,12 +326,12 @@
     }
 
     // ─────────────────────────────────────────────
-    // [2026.05.29 김희재] 좌석 그리기 — 번호 숨김 + 상태 통합
+    // 좌석 그리기
     // ─────────────────────────────────────────────
     function renderSeats(seats) {
         var html = '';
         var currentRow = null;
-        var rowIndex = 0;   // [2026.05.29 김희재] 행 라벨용 (구역 무관 1부터)
+        var rowIndex = 0;
 
         seats.forEach(function(seat) {
             if (currentRow !== seat.seatRow) {
@@ -360,41 +366,96 @@
         document.getElementById('seatMap').innerHTML = html;
     }
 
-    // ─────────────────────────────────────────────
-    // 좌석 클릭 처리
-    //   [2026.05.29 김희재]
-    //     - HELD  → "이미 결제 중인 좌석입니다" 안내
-    //     - RESERVED 등 그 외 → "선택할 수 없는 좌석입니다"
-    //     - 최대 선택 좌석 2석으로 변경
-    // ─────────────────────────────────────────────
+    // ============================================================
+    // ★★ 좌석 클릭 → 서버 hold.do AJAX 호출 (매크로 탐지 로그용)
+    // ============================================================
     function selectSeat(seatId, status, seatRow, seatCol) {
+        // 클릭 타임스탬프 누적 (clickInterval 분석용)
+        clickTimestamps.push(Date.now());
+
         var isMine = selectedSeats.some(function(s) {
             return s.seatId === seatId;
         });
 
+        // ── [Case 1] 이미 내가 선택한 좌석 → 해제 + release.do ──
         if (isMine) {
-            selectedSeats = selectedSeats.filter(function(s) {
-                return s.seatId !== seatId;
+            $.ajax({
+                url   : '/seat/release.do',
+                method: 'POST',
+                data  : {
+                    seatId   : seatId,
+                    memberId : memberId,
+                    concertId: scheduleId
+                },
+                success: function(res) {
+                    if (res.result === 'success') {
+                        selectedSeats = selectedSeats.filter(function(s) {
+                            return s.seatId !== seatId;
+                        });
+                        afterSeatChange();
+                    } else {
+                        alert('좌석 해제에 실패했습니다.');
+                    }
+                },
+                error: function() {
+                    alert('네트워크 오류가 발생했습니다.');
+                }
             });
-        } else if (status === 'HELD') {
-            alert('이미 결제 중인 좌석입니다.');
             return;
-        } else if (status !== 'AVAILABLE') {
-            alert('선택할 수 없는 좌석입니다.');
-            return;
-        } else {
-            if (selectedSeats.length >= 2) {
-                alert('최대 2석까지 선택 가능합니다.');
-                return;
-            }
-            selectedSeats.push({
-                seatId: seatId,
-                seatRow: seatRow,
-                seatCol: seatCol
-            });
         }
 
-        sessionStorage.setItem('selectedSeats_' + scheduleId, JSON.stringify(selectedSeats));
+        // ── [Case 2] 다른 사람이 점유 중인 좌석 ──
+        if (status === 'HELD') {
+            alert('이미 결제 중인 좌석입니다.');
+            return;
+        }
+        if (status !== 'AVAILABLE') {
+            alert('선택할 수 없는 좌석입니다.');
+            return;
+        }
+
+        // ── [Case 3] 2석 초과 체크 ──
+        if (selectedSeats.length >= 2) {
+            alert('최대 2석까지 선택 가능합니다.');
+            return;
+        }
+
+        // ── [Case 4] 신규 좌석 선택 → hold.do AJAX 호출 ★★ ──
+        $.ajax({
+            url   : '/seat/hold.do',
+            method: 'POST',
+            data  : {
+                seatId           : seatId,
+                memberId         : memberId,
+                concertId        : scheduleId,
+                scheduleId       : scheduleId,
+                seat_page_load_ts: PAGE_LOAD_TS    // ★ 페이지 로드 시각
+            },
+            success: function(res) {
+                if (res.result === 'success') {
+                    selectedSeats.push({
+                        seatId : seatId,
+                        seatRow: seatRow,
+                        seatCol: seatCol
+                    });
+                    afterSeatChange();
+                } else {
+                    alert(res.message || '이미 선점된 좌석입니다.');
+                    loadZoneSeats(currentZone);     // 화면 새로고침
+                }
+            },
+            error: function() {
+                alert('네트워크 오류가 발생했습니다.');
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    // 좌석 변경 후 공통 처리 (sessionStorage / UI 갱신)
+    // ─────────────────────────────────────────────
+    function afterSeatChange() {
+        sessionStorage.setItem('selectedSeats_' + scheduleId,
+                                JSON.stringify(selectedSeats));
         updateInfo();
         renderZoneTabs();
         renderSeats(currentZoneSeats);
@@ -402,7 +463,6 @@
 
     // ─────────────────────────────────────────────
     // 선택 좌석 정보 화면 업데이트 (사이드바용)
-    //   [2026.05.29 김희재] label 헤더 + 세로 나열
     // ─────────────────────────────────────────────
     function updateInfo() {
         if (selectedSeats.length === 0) {
@@ -424,7 +484,9 @@
         document.getElementById('info').innerHTML = msg;
     }
 
-    // 예매 페이지로 이동 → 결제 폼까지 자동 redirect
+    // ============================================================
+    // ★ 예매 페이지로 이동 (seat_page_load_ts hidden input 추가)
+    // ============================================================
     function goToBooking() {
         if (selectedSeats.length === 0) {
             alert('좌석을 먼저 선택해주세요!');
@@ -434,6 +496,9 @@
         if (!confirm(selectedSeats.length + '개 좌석을 결제하시겠습니까?')) {
             return;
         }
+
+        // 클릭 간격 서버 전송 (매크로 탐지)
+        sendClickIntervalsNow();
 
         var seatIds = selectedSeats.map(function(s) {
             return s.seatId;
@@ -445,11 +510,14 @@
         form.method = 'POST';
         form.action = '/bookingCreate.do';
 
+        // ★★ seat_page_load_ts 도 함께 전송 → BookingController 시간 측정용
         var fields = {
-            memberId  : memberId,
-            scheduleId: scheduleId,
-            seatIds   : seatIds
+            memberId         : memberId,
+            scheduleId       : scheduleId,
+            seatIds          : seatIds,
+            seat_page_load_ts: PAGE_LOAD_TS     // ★ 추가됨
         };
+
         for (var key in fields) {
             var input = document.createElement('input');
             input.type  = 'hidden';
@@ -461,97 +529,45 @@
         form.submit();
     }
 
+    // ─────────────────────────────────────────────
+    // 클릭 간격 즉시 전송 (예매하기 클릭 시 호출)
+    // ─────────────────────────────────────────────
+    function sendClickIntervalsNow() {
+        if (clickTimestamps.length < 2) return;
+        $.ajax({
+            url   : '/log/clickInterval.do',
+            method: 'POST',
+            async : false,   // form submit 전에 보내기 위해 동기 호출
+            data  : {
+                timestamps: clickTimestamps.join(','),
+                concertId : scheduleId
+            }
+        });
+    }
+
     window.onload = function() {
         renderZoneTabs();
         loadZoneSeats('A');
         updateInfo();
     };
 </script>
+
 <script>
 /**
- * ★ 매크로 탐지용 클릭 간격 수집
- *
- * 1. 페이지 로드 시각(PAGE_LOAD_TS)을 기록
- * 2. 좌석 클릭 타임스탬프를 배열에 누적
- * 3. 예매하기 버튼 클릭 시:
- *    - 클릭 간격을 서버(/log/clickInterval.do)로 전송
- *    - seat_page_load_ts 를 예매 form hidden input에 주입
- * 4. 페이지 이탈 시 beacon으로 전송
+ * ★ 매크로 탐지용 - 페이지 이탈 시 클릭 간격 전송
+ *   (예매하기 버튼 클릭 시에는 sendClickIntervalsNow() 가 처리)
  */
 (function() {
-    var clickTimestamps = [];
-    var PAGE_LOAD_TS    = Date.now();   // ★ seat/select.do 페이지 로드 시각
-    var SCHEDULE_ID     = '${scheduleId}';
-
-    /* ── 좌석 클릭 이벤트 감지 ──────────────────── */
-    document.addEventListener('click', function(e) {
-        var target = e.target;
-        /* 좌석 요소 클릭만 기록 — 클래스명은 프로젝트에 맞게 수정 */
-        if (target.closest && (
-            target.closest('.seat-cell')   ||
-            target.closest('.seat-btn')    ||
-            target.closest('[data-seat-id]')
-        )) {
-            clickTimestamps.push(Date.now());
-        }
-    });
-
-    /* ── 예매하기 form 에 PAGE_LOAD_TS 주입 ─────── */
-    function injectPageLoadTs(formEl) {
-        /* 이미 있으면 값만 갱신 */
-        var existing = formEl.querySelector('input[name="seat_page_load_ts"]');
-        if (existing) {
-            existing.value = PAGE_LOAD_TS;
-        } else {
-            var inp = document.createElement('input');
-            inp.type  = 'hidden';
-            inp.name  = 'seat_page_load_ts';
-            inp.value = PAGE_LOAD_TS;
-            formEl.appendChild(inp);
-        }
-    }
-
-    /* ── 클릭 간격 서버 전송 ─────────────────────── */
-    function sendClickIntervals() {
-        if (clickTimestamps.length < 2) return;
-        $.ajax({
-            url   : '/log/clickInterval.do',
-            method: 'POST',
-            data  : {
-                timestamps: clickTimestamps.join(','),
-                concertId : SCHEDULE_ID
-            },
-            success: function(data) {
-                if (data && data.avg_ms < 100) {
-                    console.warn('[SECURITY] avg_click=' + data.avg_ms + 'ms — 비정상');
-                }
-            }
-        });
-    }
-
-    /* ── 예매하기 버튼 클릭 시 처리 ─────────────── */
-    /* 버튼 ID/클래스는 프로젝트 실제 값으로 수정 */
-    $(document).on('click', '#btn-booking, .btn-booking, [data-action="booking"]', function() {
-        /* 클릭 간격 전송 */
-        sendClickIntervals();
-
-        /* 가장 가까운 form 에 PAGE_LOAD_TS 주입 */
-        var form = $(this).closest('form')[0]
-                || document.getElementById('bookingForm')
-                || document.getElementById('commonForm');
-        if (form) injectPageLoadTs(form);
-    });
-
     /* ── 페이지 이탈 시 beacon 전송 ─────────────── */
     window.addEventListener('beforeunload', function() {
-        if (clickTimestamps.length < 2) return;
+        if (typeof clickTimestamps === 'undefined' || clickTimestamps.length < 2) return;
         var body = 'timestamps=' + encodeURIComponent(clickTimestamps.join(','))
-                 + '&concertId=' + encodeURIComponent(SCHEDULE_ID);
+                 + '&concertId=' + encodeURIComponent(scheduleId);
         navigator.sendBeacon('/log/clickInterval.do',
             new Blob([body], { type: 'application/x-www-form-urlencoded' }));
     });
 })();
- </script>
+</script>
 
 </body>
 </html>

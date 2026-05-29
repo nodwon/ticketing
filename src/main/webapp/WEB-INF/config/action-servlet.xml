@@ -7,68 +7,89 @@
     xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
        http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd">
-       
-   <!-- 자동스캔 first들어간 패키지를 다 찾음 -->    
+
+   <!-- 자동스캔 first들어간 패키지를 다 찾음 -->
    <context:component-scan base-package="stu" >
-   
+
    </context:component-scan>
-   
+
    <mvc:annotation-driven>
    <!-- 전송된 데이터를 commandMap으로 다 받을수 있음 -->
    		<mvc:argument-resolvers>
    			<bean class="stu.common.resolver.CustomMapArgumentResolver"/>
    		</mvc:argument-resolvers>
    </mvc:annotation-driven>
-   
+
    <!--
-        인터셉터 설정
-         ① loggerInterceptor       : 모든 요청 로깅 (기존)
-         ② adminAuthInterceptor    : /admin/** 만 권한 체크 (2026.05.26 추가 by kth)
+        인터셉터 설정 (★ 2026.05.29 수정)
+         ① loggerInterceptor       : 모든 요청 로깅
+                                     기존 path="/**/" → "/**" 로 수정
+                                     (끝 슬래시 때문에 매칭 안 되던 문제)
+         ② timingInterceptor       : 요청 처리 시간 측정 (★ 신규 등록)
+                                     - request attribute 에 start_time 저장
+                                     - 컨트롤러에서 elapsed_ms 계산에 사용
+         ③ adminAuthInterceptor    : /admin/** 만 권한 체크
                                       - 비로그인     → /loginForm.do
                                       - USER_BANNED  → 강제 로그아웃 + /loginForm.do
                                       - USER        → /main.do
                                       - ADMIN       → 통과
    -->
    <mvc:interceptors>
+   		<!-- ① 모든 요청 로깅 -->
    		<mvc:interceptor>
-   			<mvc:mapping path="/**/"/>
+   			<mvc:mapping path="/**"/>
+   			<mvc:exclude-mapping path="/resources/**"/>
+   			<mvc:exclude-mapping path="/css/**"/>
+   			<mvc:exclude-mapping path="/js/**"/>
+   			<mvc:exclude-mapping path="/img/**"/>
    			<bean id="loggerInterceptor" class="stu.common.logger.LoggerInterceptor" />
    		</mvc:interceptor>
-   		
+
+   		<!-- ② ★ 요청 처리 시간 측정 (TimingInterceptor) -->
+   		<mvc:interceptor>
+   			<mvc:mapping path="/**"/>
+   			<mvc:exclude-mapping path="/resources/**"/>
+   			<mvc:exclude-mapping path="/css/**"/>
+   			<mvc:exclude-mapping path="/js/**"/>
+   			<mvc:exclude-mapping path="/img/**"/>
+   			<bean class="stu.common.logger.TimingInterceptor" />
+   		</mvc:interceptor>
+
+   		<!-- ③ /admin/** 권한 체크 -->
    		<mvc:interceptor>
    			<mvc:mapping path="/admin/**"/>
    			<bean id="adminAuthInterceptor" class="stu.admin.main.AdminAuthInterceptor" />
    		</mvc:interceptor>
    </mvc:interceptors>
-   
+
    <!-- 아마 mvc:annotation-driven 역할을 다 할꺼임..? -->
    <bean class="org.springframework.web.servlet.mvc.annotation.DefaultAnnotationHandlerMapping"/>
-   
- 
+
+
    <bean class="org.springframework.web.servlet.view.BeanNameViewResolver" p:order="0"/>
-   
+
    <bean id="jsonView" class="org.springframework.web.servlet.view.json.MappingJackson2JsonView" />
-   
+
    <!-- Jstl을 쓰기위해 설정 -->
    <bean
-   		class="org.springframework.web.servlet.view.UrlBasedViewResolver" p:order="2" 
+   		class="org.springframework.web.servlet.view.UrlBasedViewResolver" p:order="2"
    		p:viewClass="org.springframework.web.servlet.view.JstlView"
    		p:prefix="/WEB-INF/views/" p:suffix=".jsp">
-   		
+
    </bean>
-   
+
    <!-- Tiles -->
-    <bean id="tilesConfigurer" 
+    <bean id="tilesConfigurer"
                 class="org.springframework.web.servlet.view.tiles3.TilesConfigurer">
         <property name="definitions">
             <list>
                 <value>/WEB-INF/tiles/tiles.xml</value>
             </list>
         </property>
-    </bean>        
-    <bean id="tilesViewResolver" 
+    </bean>
+    <bean id="tilesViewResolver"
                 class="org.springframework.web.servlet.view.UrlBasedViewResolver">
-        <property name="viewClass" 
+        <property name="viewClass"
                         value="org.springframework.web.servlet.view.tiles3.TilesView" />
         <property name="order" value="1" />
     </bean>
@@ -93,5 +114,5 @@
 		class="stu.member.join.JoinServiceImpl">
 		<property name="javaMailSender" ref="javaMailSender" />
 	</bean>
-   
+
 </beans>
