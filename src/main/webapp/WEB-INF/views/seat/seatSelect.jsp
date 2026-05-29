@@ -467,5 +467,91 @@
         updateInfo();
     };
 </script>
+<script>
+/**
+ * ★ 매크로 탐지용 클릭 간격 수집
+ *
+ * 1. 페이지 로드 시각(PAGE_LOAD_TS)을 기록
+ * 2. 좌석 클릭 타임스탬프를 배열에 누적
+ * 3. 예매하기 버튼 클릭 시:
+ *    - 클릭 간격을 서버(/log/clickInterval.do)로 전송
+ *    - seat_page_load_ts 를 예매 form hidden input에 주입
+ * 4. 페이지 이탈 시 beacon으로 전송
+ */
+(function() {
+    var clickTimestamps = [];
+    var PAGE_LOAD_TS    = Date.now();   // ★ seat/select.do 페이지 로드 시각
+    var SCHEDULE_ID     = '${scheduleId}';
+
+    /* ── 좌석 클릭 이벤트 감지 ──────────────────── */
+    document.addEventListener('click', function(e) {
+        var target = e.target;
+        /* 좌석 요소 클릭만 기록 — 클래스명은 프로젝트에 맞게 수정 */
+        if (target.closest && (
+            target.closest('.seat-cell')   ||
+            target.closest('.seat-btn')    ||
+            target.closest('[data-seat-id]')
+        )) {
+            clickTimestamps.push(Date.now());
+        }
+    });
+
+    /* ── 예매하기 form 에 PAGE_LOAD_TS 주입 ─────── */
+    function injectPageLoadTs(formEl) {
+        /* 이미 있으면 값만 갱신 */
+        var existing = formEl.querySelector('input[name="seat_page_load_ts"]');
+        if (existing) {
+            existing.value = PAGE_LOAD_TS;
+        } else {
+            var inp = document.createElement('input');
+            inp.type  = 'hidden';
+            inp.name  = 'seat_page_load_ts';
+            inp.value = PAGE_LOAD_TS;
+            formEl.appendChild(inp);
+        }
+    }
+
+    /* ── 클릭 간격 서버 전송 ─────────────────────── */
+    function sendClickIntervals() {
+        if (clickTimestamps.length < 2) return;
+        $.ajax({
+            url   : '/log/clickInterval.do',
+            method: 'POST',
+            data  : {
+                timestamps: clickTimestamps.join(','),
+                concertId : SCHEDULE_ID
+            },
+            success: function(data) {
+                if (data && data.avg_ms < 100) {
+                    console.warn('[SECURITY] avg_click=' + data.avg_ms + 'ms — 비정상');
+                }
+            }
+        });
+    }
+
+    /* ── 예매하기 버튼 클릭 시 처리 ─────────────── */
+    /* 버튼 ID/클래스는 프로젝트 실제 값으로 수정 */
+    $(document).on('click', '#btn-booking, .btn-booking, [data-action="booking"]', function() {
+        /* 클릭 간격 전송 */
+        sendClickIntervals();
+
+        /* 가장 가까운 form 에 PAGE_LOAD_TS 주입 */
+        var form = $(this).closest('form')[0]
+                || document.getElementById('bookingForm')
+                || document.getElementById('commonForm');
+        if (form) injectPageLoadTs(form);
+    });
+
+    /* ── 페이지 이탈 시 beacon 전송 ─────────────── */
+    window.addEventListener('beforeunload', function() {
+        if (clickTimestamps.length < 2) return;
+        var body = 'timestamps=' + encodeURIComponent(clickTimestamps.join(','))
+                 + '&concertId=' + encodeURIComponent(SCHEDULE_ID);
+        navigator.sendBeacon('/log/clickInterval.do',
+            new Blob([body], { type: 'application/x-www-form-urlencoded' }));
+    });
+})();
+ </script>
+
 </body>
 </html>
