@@ -7,6 +7,7 @@
  * Developer : 정희영 (feature/jhyjhy)
  * Created  : 2026.05.24
  * Modified  : 2026.05.24
+ * Modified  : 2026.05.29 - 김희재 (구역별 좌석 조회 추가, 봇 탐지용)
  * 
  * Description :
  * - 좌석 DB 접근 계층 (DAO)
@@ -48,5 +49,14 @@ public class SeatDao extends AbstractDao {
     @SuppressWarnings("unchecked")
     public Map<String, Object> selectSeat(Map<String, Object> map) throws Exception {
         return (Map<String, Object>) selectOne("seat.selectSeat", map);
+    }
+    
+    // 5. 구역별 좌석 조회 (봇 탐지용)
+    //    [2026.05.29 김희재 추가]
+    //    - 구역(A~E) 클릭 시 호출, seat_row 범위로 필터링
+    //    - 정상 사용자는 여러 구역을 둘러보고, 봇은 구역 조회를 건너뛰는 패턴
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> selectSeatListByZone(Map<String, Object> map) throws Exception {
+        return (List<Map<String, Object>>) selectList("seat.selectSeatListByZone", map);
     }
 }

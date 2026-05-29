@@ -7,6 +7,7 @@
  * Developer : 정희영 (feature/jhyjhy)
  * Created  : 2026.05.24
  * Modified  : 2026.05.24
+ * Modified  : 2026.05.29 - 김희재 (구역별 좌석 조회 추가, 봇 탐지용)
  * 
  * Description :
  * - SeatService 인터페이스 구현체
@@ -58,5 +59,14 @@ public class SeatServiceImpl implements SeatService {
     @Override
     public Map<String, Object> selectSeat(Map<String, Object> map) throws Exception {
         return seatDao.selectSeat(map);
+    }
+    
+    // 5. 구역별 좌석 조회 (봇 탐지용)
+    //    [2026.05.29 김희재 추가]
+    //    - SELECT만 수행하므로 @Transactional 불필요
+    //    - 구역(A~E) 클릭 시마다 호출되어 log_api에 흔적이 남음
+    @Override
+    public List<Map<String, Object>> selectSeatListByZone(Map<String, Object> map) throws Exception {
+        return seatDao.selectSeatListByZone(map);
     }
 }

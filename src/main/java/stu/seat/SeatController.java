@@ -7,6 +7,7 @@
  * Developer : 정희영 (feature/jhyjhy)
  * Created   : 2026.05.24
  * Modified  : 2026.05.27 - SecurityLogger 통합 (매크로 봇 탐지)
+ * Modified  : 2026.05.29 - 김희재 (구역별 좌석 조회 추가, 봇 탐지용)
  * 
  * Description :
  * - 좌석 관련 요청 처리 Controller
@@ -16,6 +17,7 @@
  *   2) GET    /seat/list.do     - 좌석 현황 조회 (Ajax)
  *   3) POST   /seat/hold.do     - 좌석 임시 선점 ★보안로그★
  *   4) POST   /seat/release.do  - 좌석 선점 해제 ★보안로그★
+ *   5) GET    /seat/zone.do     - 구역별 좌석 조회 (Ajax) ★봇 탐지용★ [김희재 추가]
  * ============================================================
  */
 package stu.seat;
@@ -163,6 +165,44 @@ public class SeatController {
         }
         
         return response;
+    }
+    
+    /**
+     * 5) 구역별 좌석 조회 (Ajax) ★봇 탐지용★
+     *    [2026.05.29 김희재 추가]
+     *    - 구역(A~E) 버튼 클릭 시마다 호출되는 AJAX 엔드포인트
+     *    - 정상 사용자: 평균 2~3개 구역 조회 (둘러보는 행동)
+     *    - 봇: 0개 또는 5개 전부 순식간에 조회
+     *    - 봇 시그니처: log_api에 동일 session/IP의 zone.do 호출 패턴 분석
+     *    
+     *    zone(A~E) → seat_row 범위 매핑 (DB에 zone 컬럼 없음, UI 정의 기준)
+     *      A: 1~10  / B: 11~20 / C: 21~30 / D: 31~40 / E: 41~50
+     */
+    @RequestMapping(value="/seat/zone.do", method=RequestMethod.GET)
+    @ResponseBody
+    public List<Map<String, Object>> seatListByZone(
+            @RequestParam("scheduleId") String scheduleId,
+            @RequestParam("zone") String zone) throws Exception {
+        
+        log.debug("==== 구역별 좌석 조회 : scheduleId={}, zone={} ====", scheduleId, zone);
+        
+        // zone(A~E) → seat_row 범위 매핑
+        int rowStart, rowEnd;
+        switch (zone.toUpperCase()) {
+            case "A": rowStart = 1;  rowEnd = 10; break;
+            case "B": rowStart = 11; rowEnd = 20; break;
+            case "C": rowStart = 21; rowEnd = 30; break;
+            case "D": rowStart = 31; rowEnd = 40; break;
+            case "E": rowStart = 41; rowEnd = 50; break;
+            default:  rowStart = 1;  rowEnd = 50;   // 잘못된 zone 값이면 전체
+        }
+        
+        Map<String, Object> map = new HashMap<String, Object>();
+        map.put("scheduleId", scheduleId);
+        map.put("rowStart", rowStart);
+        map.put("rowEnd", rowEnd);
+        
+        return seatService.selectSeatListByZone(map);
     }
     
     /**

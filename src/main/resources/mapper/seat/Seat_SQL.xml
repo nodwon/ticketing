@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
 <!--
     ============================================================
     Project  : 관제 티켓 (Ticketing System)
@@ -11,6 +10,7 @@
     Developer : 정희영 (feature/jhyjhy)
     Created  : 2026.05.24
     Modified  : 2026.05.25
+    Modified  : 2026.05.29 - 김희재 (구역별 좌석 조회 추가, 봇 탐지용)
     
     Description :
     - 좌석 관련 SQL 매퍼
@@ -18,10 +18,11 @@
     - 컬럼 별칭에 큰따옴표 사용 (Oracle camelCase 반환을 위함)
     
     [SQL 목록]
-    - selectSeatList : 좌석 현황 조회 (스케줄별 전체)
-    - selectSeat     : 좌석 단건 조회
-    - holdSeat       : 좌석 임시 선점 (조건부 UPDATE)
-    - releaseSeat    : 좌석 선점 해제 (조건부 UPDATE)
+    - selectSeatList       : 좌석 현황 조회 (스케줄별 전체)
+    - selectSeat           : 좌석 단건 조회
+    - holdSeat             : 좌석 임시 선점 (조건부 UPDATE)
+    - releaseSeat          : 좌석 선점 해제 (조건부 UPDATE)
+    - selectSeatListByZone : 구역별 좌석 조회 (봇 탐지용)
     ============================================================
 -->
 <mapper namespace="seat">
@@ -71,5 +72,24 @@
         WHERE seat_id = #{seatId}
           AND status = 'HELD'
     </update>
+    
+    <!-- 5. 구역별 좌석 조회 (봇 탐지용) -->
+    <!--    [2026.05.29 김희재 추가]
+            - 구역(A~E) 클릭마다 호출되는 AJAX 엔드포인트용 SQL
+            - seat_row 범위로 구역 구분 (DB에 zone 컬럼 없음, UI 정의 기준)
+              A: 1~10  / B: 11~20 / C: 21~30 / D: 31~40 / E: 41~50 -->
+    <select id="selectSeatListByZone" parameterType="map" resultType="hashmap">
+        SELECT
+            seat_id      AS "seatId",
+            schedule_id  AS "scheduleId",
+            seat_row     AS "seatRow",
+            seat_col     AS "seatCol",
+            price        AS "price",
+            status       AS "status"
+        FROM seats
+        WHERE schedule_id = #{scheduleId}
+          AND seat_row BETWEEN #{rowStart} AND #{rowEnd}
+        ORDER BY seat_row, seat_col
+    </select>
     
 </mapper>
