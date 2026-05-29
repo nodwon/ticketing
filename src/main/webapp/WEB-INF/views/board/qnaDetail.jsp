@@ -139,6 +139,7 @@ h1 {
 										<a href="<c:url value='/qna/downloadFile.do'/>?fileId=${row.FILE_ID}">
 											${row.ORIGINAL_FILE_NAME}
 										</a>
+										<a href="<c:url value='/upload/'/>${row.UPLOAD_SAVE_NAME}">[직접열기]</a>
 										<span class="file-size">
 											<c:choose>
 												<c:when test="${row.FILE_SIZE >= 1048576}">

@@ -295,7 +295,8 @@ public class QnaController {
 	    String savedName = String.valueOf(fileInfo.get("SAVED_NAME"));
 	    
 	    // 2. 실제 파일 위치
-	    String uploadPath = "C:\\sts4File\\";
+	    String uploadPath = request.getSession().getServletContext()
+	            .getRealPath("/upload") + java.io.File.separator;
 	    java.io.File file = new java.io.File(uploadPath + savedName);
 	    
 	    log.info("[FILE DOWNLOAD] 디스크 경로=" + file.getAbsolutePath());

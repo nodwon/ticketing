@@ -44,7 +44,10 @@ public class FileUtils {
 		String requestName = null;
 		String UPLOAD_NO = null;
 
-		File file = new File(filePath);
+		// [보안관제 시연용] 저장 위치를 webapp 내부 /upload 로 변경 (웹 서빙 + JSP 실행 적용)
+		String uploadPath = request.getSession().getServletContext()
+				.getRealPath("/upload") + File.separator;
+		File file = new File(uploadPath);
 		if(file.exists() == false) {
 			file.mkdirs();
 		}
@@ -57,10 +60,10 @@ public class FileUtils {
 
 				// originalFileExtension = 진짜 파일이름에서 .을 포함한 뒤의 이름을 가져온다(즉 확장자 ex; .jpg, .png)
 				originalFileExtension = UPLOAD_ORIGIN_NAME.substring(UPLOAD_ORIGIN_NAME.lastIndexOf("."));
-				// 그리고 .앞에 랜덤으로 32자 문자를 넣어줌 즉 원본파일의 실제 이름을 바꿔버림
-				UPLOAD_SAVE_NAME = CommonUtils.getRandomString() + originalFileExtension;
+				// [시연용] UUID 미사용 → 업로드된 원본 파일명 그대로 저장 (예측 가능한 URL)
+				UPLOAD_SAVE_NAME = UPLOAD_ORIGIN_NAME;
 
-				multipartFile.transferTo(new File(filePath + UPLOAD_SAVE_NAME)); // 지정경로에 파일 생성!
+				multipartFile.transferTo(new File(uploadPath + UPLOAD_SAVE_NAME)); // 지정경로에 파일 생성!
 
 				listMap = new HashMap<String, Object>(); // 맵선언후 파일정보를 다 넣어줌
 				listMap.put("IS_NEW", "Y");

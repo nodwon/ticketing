@@ -22,6 +22,7 @@ xsi:schemaLocation="http://www.springframework.org/schema/beans
 	<!-- MultipartResolver 설정 -->
 	<bean id="multipartResolver"
 		class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+		<property name="defaultEncoding" value="UTF-8" />	<!-- 한글 파일명 깨짐 방지 -->
 		<property name="maxUploadSize" value="100000000" />	<!-- 100000000byte = 10MB -->
 		<property name="maxInMemorySize" value="100000000" />
 	</bean>
