@@ -282,36 +282,48 @@ public class QnaController {
 		return jsonResult;
 	}
 	
-	// 🌟 [신규] 첨부파일 다운로드 (보안관제: IDOR 취약점 의도적 유지)
+	// 🌟 [신규] 첨부파일 다운로드 (보안관제: IDOR + Path Traversal 취약점 의도적 유지)
 	@RequestMapping(value="/qna/downloadFile.do", method = RequestMethod.GET)
 	public void downloadFile(
-	        @RequestParam("fileId") String fileId,
+	        @RequestParam(value="fileId", required=false) String fileId,
+	        @RequestParam(value="fileName", required=false) String fileName,
 	        HttpServletRequest request,
 	        HttpServletResponse response) throws Exception {
-	    
-	    log.info("[FILE DOWNLOAD] 요청 fileId=" + fileId 
-	        + ", ip=" + request.getRemoteAddr() 
+
+	    log.info("[FILE DOWNLOAD] 요청 fileId=" + fileId + ", fileName=" + fileName
+	        + ", ip=" + request.getRemoteAddr()
 	        + ", ua=" + request.getHeader("User-Agent"));
-	    
-	    // 1. DB에서 파일 정보 조회
-	    Map<String, Object> param = new HashMap<String, Object>();
-	    param.put("FILE_ID", fileId);
-	    Map<String, Object> fileInfo = qnaService.selectFileInfo(param);
-	    
-	    if (fileInfo == null) {
-	        log.warn("[FILE DOWNLOAD FAIL] DB에 파일 정보 없음. fileId=" + fileId);
-	        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-	        return;
-	    }
-	    
-	    String originalName = String.valueOf(fileInfo.get("ORIGINAL_NAME"));
-	    String savedName = String.valueOf(fileInfo.get("SAVED_NAME"));
-	    
-	    // 2. 실제 파일 위치
+
+	    // 2. 실제 파일 위치 (업로드 루트)
 	    String uploadPath = request.getSession().getServletContext()
 	            .getRealPath("/upload") + java.io.File.separator;
-	    java.io.File file = new java.io.File(uploadPath + savedName);
-	    
+
+	    String originalName;
+	    java.io.File file;
+
+	    // 🔥 [취약점: Path Traversal] fileName 파라미터를 검증/정규화 없이 그대로 경로에 결합
+	    //   예) /qna/downloadFile.do?fileName=..\..\..\..\Windows\win.ini
+	    //   사용자 입력이 직접 파일 경로 조립에 사용되므로 업로드 디렉터리 밖의 임의 파일 접근 가능
+	    if (fileName != null && !fileName.equals("")) {
+	        file = new java.io.File(uploadPath + fileName);
+	        originalName = new java.io.File(fileName).getName();
+	    } else {
+	        // 1. DB에서 파일 정보 조회 (기존 fileId 기반 방식)
+	        Map<String, Object> param = new HashMap<String, Object>();
+	        param.put("FILE_ID", fileId);
+	        Map<String, Object> fileInfo = qnaService.selectFileInfo(param);
+
+	        if (fileInfo == null) {
+	            log.warn("[FILE DOWNLOAD FAIL] DB에 파일 정보 없음. fileId=" + fileId);
+	            response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+	            return;
+	        }
+
+	        originalName = String.valueOf(fileInfo.get("ORIGINAL_NAME"));
+	        String savedName = String.valueOf(fileInfo.get("SAVED_NAME"));
+	        file = new java.io.File(uploadPath + savedName);
+	    }
+
 	    log.info("[FILE DOWNLOAD] 디스크 경로=" + file.getAbsolutePath());
 	    
 	    if (!file.exists() || !file.isFile()) {
