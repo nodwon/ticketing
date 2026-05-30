@@ -120,9 +120,19 @@ public class SeatController {
             }
             try { myHeld.add(Long.parseLong(seatId)); } catch (Exception ignore) {}
         } else {
-            response.put("result",  "fail");
-            response.put("message", "이미 선점된 좌석입니다");
-            requestResult = "FAIL";
+            // ★ fail: 이미 HELD상태. 본인이 이전에 잡았을 가능성이 있으니 세션에는 추가
+            // (BookingService가 DB에서 정밀 검증하므로 다른 사람의 좌석이면 자동 거부됨)
+            response.put("result",  "success");
+            response.put("message", "좌석 선택됨 (본인 잡아둠)");
+            requestResult = "ALREADY_HELD";
+
+            @SuppressWarnings("unchecked")
+            Set<Long> myHeld = (Set<Long>) session.getAttribute("_my_held_seats");
+            if (myHeld == null) {
+                myHeld = new HashSet<Long>();
+                session.setAttribute("_my_held_seats", myHeld);
+            }
+            try { myHeld.add(Long.parseLong(seatId)); } catch (Exception ignore) {}
         }
 
         int elapsedMs = (int)(System.currentTimeMillis() - startTime);

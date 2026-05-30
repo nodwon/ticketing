@@ -144,6 +144,12 @@ public class BookingController {
         commandMap.remove("memberId");
         commandMap.put("memberId", String.valueOf(sessionMemberNo));
 
+        // ★ 사전 hold한 좌석 목록을 Service에 전달 (SeatController.holdSeat에서 저장)
+        Object myHeld = session.getAttribute("_my_held_seats");
+        if (myHeld != null) {
+            commandMap.put("_my_held_seats", myHeld);
+        }
+
         Long   memberId      = ((Number) sessionMemberNo).longValue();
         String srcIp         = getClientIp(request);
         String scheduleIdStr = (String) commandMap.get("scheduleId");
