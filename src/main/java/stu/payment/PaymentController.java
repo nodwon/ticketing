@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import stu.common.logger.SecurityLogger;
 import stu.common.logger.StructuredLogger;
 import stu.common.logger.MacroDetectionLogger;
+import stu.common.logger.BehaviorTracker;
 
 import static stu.common.logger.StructuredLogger.kv;
 
@@ -177,16 +178,38 @@ public class PaymentController {
         long seatPageTs = (seatPageTsObj != null) ? (Long) seatPageTsObj : 0;
 
         if ("SUCCESS".equals(paymentResult) && memberIdForLog != null) {
+            // ★ 세션에 누적된 실제 행동값으로 채움 (기존 0 하드코딩 대체)
+            BehaviorTracker bt = BehaviorTracker.get(session);
             MacroDetectionLogger.fullFlowComplete(
                 memberIdForLog,
                 getClientIp(request),
                 null,                        // concertId (필요 시 세션에 저장해서 전달)
                 vo.getBookingId(),
                 seatPageTs,
-                0,                           // seatChangeCount (JS에서 수집 시 세션 저장 후 전달)
-                0,                           // uniqueSeatCount
-                0.0                          // requestsPerSecond
+                bt.getSeatChangeCount(),
+                bt.getUniqueSeatCount(),
+                bt.getRequestsPerSecond()
             );
+
+            // ★ 전체 behavior_feature 발행 — 0/빈 칸이던 필드를 실제 누적값으로 채움
+            SecurityLogger.BehaviorBuilder bb =
+                SecurityLogger.behavior(memberIdForLog, getClientIp(request))
+                    .requestsPerSecond(bt.getRequestsPerSecond())
+                    .requestsPerMinute(bt.getRequestsPerMinute())
+                    .burstRequestCount(bt.getBurstRequestCount())
+                    .seatChangeCount(bt.getSeatChangeCount())
+                    .uniqueSeatCount(bt.getUniqueSeatCount())
+                    .avgActionInterval(bt.getAvgActionInterval())
+                    .loginFailRatio(bt.getLoginFailRatio())
+                    .repeatedFailCount(bt.getRepeatedFailCount())
+                    .targetAccountCount(bt.getTargetAccountCount());
+            if (bt.getAvgClickInterval() != null && bt.getClickCount() != null) {
+                bb.avgClickInterval(bt.getAvgClickInterval())
+                  .clickIntervalStd(bt.getClickIntervalStd() != null ? bt.getClickIntervalStd() : 0.0)
+                  .clickCount(bt.getClickCount());
+            }
+            bb.emit();
+
             session.removeAttribute("_booking_seat_page_ts");
         }
 

@@ -71,6 +71,7 @@ public class ClickIntervalController {
             double std = stdDev(intervals, avg);
 
             MacroDetectionLogger.clickInterval(userId, srcIp, avg, std, ts.length, concertId);
+            BehaviorTracker.get(session).recordClicks(avg, std, ts.length);
 
             log.debug("[클릭간격] userId={}, avg={}ms, std={}, clicks={}", userId, avg, std, ts.length);
 

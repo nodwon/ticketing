@@ -125,6 +125,9 @@ public final class SecurityLogger {
         private Double  loginFailRatio;
         private Integer targetAccountCount, repeatedFailCount, jailbreakKeywordCount;
         private Integer excessiveTokenRequest;
+        // ★ 명세서 확장 필드 (클릭 행동 + LLM 프롬프트)
+        private Double  avgClickInterval, clickIntervalStd, promptSimilarity;
+        private Integer clickCount, repeatedPromptPattern;
 
         private BehaviorBuilder(Long userId, String srcIp) {
             this.userId = userId;
@@ -145,11 +148,19 @@ public final class SecurityLogger {
         public BehaviorBuilder excessiveTokenRequest(boolean v) {
             this.excessiveTokenRequest = v ? 1 : 0; return this;
         }
+        public BehaviorBuilder avgClickInterval(double v)       { this.avgClickInterval = v; return this; }
+        public BehaviorBuilder clickIntervalStd(double v)       { this.clickIntervalStd = v; return this; }
+        public BehaviorBuilder clickCount(int v)                { this.clickCount = v; return this; }
+        public BehaviorBuilder promptSimilarity(double v)       { this.promptSimilarity = v; return this; }
+        public BehaviorBuilder repeatedPromptPattern(boolean v) { this.repeatedPromptPattern = v ? 1 : 0; return this; }
 
         public void emit() {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("user_id",                 userId);
             map.put("src_ip",                  srcIp);
+            map.put("avg_click_interval",      avgClickInterval);
+            map.put("click_interval_std",      clickIntervalStd);
+            map.put("click_count",             clickCount);
             map.put("requests_per_second",     requestsPerSecond);
             map.put("requests_per_minute",     requestsPerMinute);
             map.put("burst_request_count",     burstRequestCount);
@@ -161,6 +172,8 @@ public final class SecurityLogger {
             map.put("login_fail_ratio",        loginFailRatio);
             map.put("target_account_count",    targetAccountCount);
             map.put("repeated_fail_count",     repeatedFailCount);
+            map.put("repeated_prompt_pattern", repeatedPromptPattern);
+            map.put("prompt_similarity",       promptSimilarity);
             map.put("jailbreak_keyword_count", jailbreakKeywordCount);
             map.put("excessive_token_request", excessiveTokenRequest);
 

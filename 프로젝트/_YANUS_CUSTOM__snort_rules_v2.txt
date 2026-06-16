@@ -1,0 +1,157 @@
+#==============================================================================
+# ticketing-soc.rules  
+#------------------------------------------------------------------------------
+#  ※ detection_filter count/seconds 는 운영 baseline 후 재튜닝.
+#==============================================================================
+
+
+#============================ 1) SQL INJECTION ============================
+# UNION 기반 SQLi: 다른 테이블 컬럼을 결과에 합쳐 데이터 탈취 (예: ' UNION SELECT pw FROM members--) [URI/GET]  [sid:1000001]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] UNION SELECT (URI)"; flow:established,to_server; content:"union"; nocase; http_uri; content:"select"; nocase; http_uri; pcre:"/union\s+(all\s+)?select/U"; classtype:web-application-attack; sid:1000001; rev:1;)
+
+# UNION 기반 SQLi: 다른 테이블 컬럼을 결과에 합쳐 데이터 탈취 (예: ' UNION SELECT pw FROM members--) [POST 본문]  [sid:1000002]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] UNION SELECT (body)"; flow:established,to_server; content:"union"; nocase; http_client_body; content:"select"; nocase; http_client_body; pcre:"/union\s+(all\s+)?select/P"; classtype:web-application-attack; sid:1000002; rev:1;)
+
+# 항상 참(tautology) 조건으로 인증/조회 우회 (예: ' OR '1'='1) [URI/GET]  [sid:1000003]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Tautology OR/AND condition (URI)"; flow:established,to_server; pcre:"/(\x27|\x22)\s*(or|and)\s+(\x27|\x22)?\w+(\x27|\x22)?\s*(=|like)\s*(\x27|\x22)?\w+/Ui"; classtype:web-application-attack; sid:1000003; rev:1;)
+
+# 항상 참(tautology) 조건으로 인증/조회 우회 (예: ' OR '1'='1) [POST 본문]  [sid:1000004]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Tautology OR/AND condition (body)"; flow:established,to_server; pcre:"/(\x27|\x22)\s*(or|and)\s+(\x27|\x22)?\w+(\x27|\x22)?\s*(=|like)\s*(\x27|\x22)?\w+/Pi"; classtype:web-application-attack; sid:1000004; rev:1;)
+
+# OR/AND 뒤 서브쿼리 주입 (예: OR (SELECT COUNT(*) FROM members)>0) [URI/GET]  [sid:1000005]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Subquery injection (OR/AND (SELECT)) (URI)"; flow:established,to_server; pcre:"/\b(or|and)\b\s+(not\s+)?\(?\s*\bselect\b/Ui"; classtype:web-application-attack; sid:1000005; rev:1;)
+
+# OR/AND 뒤 서브쿼리 주입 (예: OR (SELECT COUNT(*) FROM members)>0) [POST 본문]  [sid:1000006]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Subquery injection (OR/AND (SELECT)) (body)"; flow:established,to_server; pcre:"/\b(or|and)\b\s+(not\s+)?\(?\s*\bselect\b/Pi"; classtype:web-application-attack; sid:1000006; rev:1;)
+
+# Boolean 블라인드: 추출함수로 한 글자씩 노출 (substring/ascii/count 등) [URI/GET]  [sid:1000007]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Boolean-blind extraction func (URI)"; flow:established,to_server; pcre:"/(\x27|\x22|\)|\d)\s*\b(and|or)\b\s+[^\x3b\x26]{0,60}?\b(substring|substr|mid|ascii|ord|length|char_length|left|right|count|unicode)\b\s*\(/Ui"; classtype:web-application-attack; sid:1000007; rev:1;)
+
+# Boolean 블라인드: 추출함수로 한 글자씩 노출 (substring/ascii/count 등) [POST 본문]  [sid:1000008]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Boolean-blind extraction func (body)"; flow:established,to_server; pcre:"/(\x27|\x22|\)|\d)\s*\b(and|or)\b\s+[^\x3b\x26]{0,60}?\b(substring|substr|mid|ascii|ord|length|char_length|left|right|count|unicode)\b\s*\(/Pi"; classtype:web-application-attack; sid:1000008; rev:1;)
+
+# Boolean 블라인드: 숫자비교/CASE WHEN/IF 분기 (예: AND 1=1) [URI/GET]  [sid:1000009]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Boolean-blind comparison/conditional (URI)"; flow:established,to_server; pcre:"/(\b(and|or)\b\s+\d+\s*(=|<|>|<=|>=|<>|!=)\s*\d+|\bcase\s+when\b.{0,60}?\bthen\b|\b(if|iif)\s*\(\s*[^)\x3b,]{1,40}?(=|<|>|<=|>=|<>|!=)[^)\x3b]{0,40}?,)/Ui"; classtype:web-application-attack; sid:1000009; rev:1;)
+
+# Boolean 블라인드: 숫자비교/CASE WHEN/IF 분기 (예: AND 1=1) [POST 본문]  [sid:1000010]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Boolean-blind comparison/conditional (body)"; flow:established,to_server; pcre:"/(\b(and|or)\b\s+\d+\s*(=|<|>|<=|>=|<>|!=)\s*\d+|\bcase\s+when\b.{0,60}?\bthen\b|\b(if|iif)\s*\(\s*[^)\x3b,]{1,40}?(=|<|>|<=|>=|<>|!=)[^)\x3b]{0,40}?,)/Pi"; classtype:web-application-attack; sid:1000010; rev:1;)
+
+# 시간기반 블라인드: 응답 지연으로 참/거짓 판별 (SLEEP/WAITFOR/pg_sleep) [URI/GET]  [sid:1000011]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Time-based blind (URI)"; flow:established,to_server; pcre:"/(sleep|benchmark|pg_sleep|dbms_lock\.sleep|dbms_pipe\.receive_message|waitfor\s+delay)\s*\(/Ui"; classtype:web-application-attack; sid:1000011; rev:1;)
+
+# 시간기반 블라인드: 응답 지연으로 참/거짓 판별 (SLEEP/WAITFOR/pg_sleep) [POST 본문]  [sid:1000012]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Time-based blind (body)"; flow:established,to_server; pcre:"/(sleep|benchmark|pg_sleep|dbms_lock\.sleep|dbms_pipe\.receive_message|waitfor\s+delay)\s*\(/Pi"; classtype:web-application-attack; sid:1000012; rev:1;)
+
+# 에러기반: DB 에러로 데이터 노출 (MySQL extractvalue / Oracle CTXSYS.DRITHSX.SN 등) [URI/GET]  [sid:1000013]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Error-based extraction (URI)"; flow:established,to_server; pcre:"/(extractvalue|updatexml|exp\s*\(\s*~|floor\s*\(\s*rand|convert\s*\(.+using|ctxsys\.drithsx\.sn|utl_inaddr\.get_host_address|dbms_utility\.|xmltype\s*\(|utl_http\.request|to_char\s*\(\s*dbms_)/Ui"; classtype:web-application-attack; sid:1000013; rev:1;)
+
+# 에러기반: DB 에러로 데이터 노출 (MySQL extractvalue / Oracle CTXSYS.DRITHSX.SN 등) [POST 본문]  [sid:1000014]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Error-based extraction (body)"; flow:established,to_server; pcre:"/(extractvalue|updatexml|exp\s*\(\s*~|floor\s*\(\s*rand|convert\s*\(.+using|ctxsys\.drithsx\.sn|utl_inaddr\.get_host_address|dbms_utility\.|xmltype\s*\(|utl_http\.request|to_char\s*\(\s*dbms_)/Pi"; classtype:web-application-attack; sid:1000014; rev:1;)
+
+# 스택쿼리: 세미콜론(;) 뒤 DROP/INSERT/UPDATE 등 추가 구문 실행 [URI/GET]  [sid:1000015]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Stacked query / DDL (URI)"; flow:established,to_server; pcre:"/\x3b\s*(drop|insert|update|delete|create|alter|truncate|exec|merge|grant)\b/Ui"; classtype:web-application-attack; sid:1000015; rev:1;)
+
+# 스택쿼리: 세미콜론(;) 뒤 DROP/INSERT/UPDATE 등 추가 구문 실행 [POST 본문]  [sid:1000016]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Stacked query / DDL (body)"; flow:established,to_server; pcre:"/\x3b\s*(drop|insert|update|delete|create|alter|truncate|exec|merge|grant)\b/Pi"; classtype:web-application-attack; sid:1000016; rev:1;)
+
+# 스키마 탐색: information_schema / Oracle dual·all_objects 등 메타데이터 조회 [URI/GET]  [sid:1000017]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] DB metadata enumeration (URI)"; flow:established,to_server; pcre:"/(information_schema|sysobjects|sys\.tables|pg_catalog|all_tables|user_tables|all_objects|\bdual\b|msysobjects)/Ui"; classtype:web-application-attack; sid:1000017; rev:1;)
+
+# 스키마 탐색: information_schema / Oracle dual·all_objects 등 메타데이터 조회 [POST 본문]  [sid:1000018]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] DB metadata enumeration (body)"; flow:established,to_server; pcre:"/(information_schema|sysobjects|sys\.tables|pg_catalog|all_tables|user_tables|all_objects|\bdual\b|msysobjects)/Pi"; classtype:web-application-attack; sid:1000018; rev:1;)
+
+# SQL로 서버 파일 읽기/쓰기 (LOAD_FILE / INTO OUTFILE / UTL_FILE) [URI/GET]  [sid:1000019]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] File access via SQL (URI)"; flow:established,to_server; pcre:"/(load_file\s*\(|into\s+(out|dump)file|utl_file\.)/Ui"; classtype:web-application-attack; sid:1000019; rev:1;)
+
+# SQL로 서버 파일 읽기/쓰기 (LOAD_FILE / INTO OUTFILE / UTL_FILE) [POST 본문]  [sid:1000020]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] File access via SQL (body)"; flow:established,to_server; pcre:"/(load_file\s*\(|into\s+(out|dump)file|utl_file\.)/Pi"; classtype:web-application-attack; sid:1000020; rev:1;)
+
+# 16진(0x..)/CHAR()/CONCAT() 로 문자열 우회 인코딩 [URI/GET]  [sid:1000021]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Hex/char encoding evasion (URI)"; flow:established,to_server; pcre:"/(0x[0-9a-f]{6,}|\b(char|chr)\s*\(\s*\d+\s*(,\s*\d+\s*)*\)|concat\s*\()/Ui"; classtype:web-application-attack; sid:1000021; rev:1;)
+
+# 16진(0x..)/CHAR()/CONCAT() 로 문자열 우회 인코딩 [POST 본문]  [sid:1000022]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Hex/char encoding evasion (body)"; flow:established,to_server; pcre:"/(0x[0-9a-f]{6,}|\b(char|chr)\s*\(\s*\d+\s*(,\s*\d+\s*)*\)|concat\s*\()/Pi"; classtype:web-application-attack; sid:1000022; rev:1;)
+
+# 주석(--,#,/**/)으로 쿼리 꼬리 제거 + SELECT 동반 시 탐지 [URI/GET]  [sid:1000023]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Comment evasion (quote+line-comment) (URI)"; flow:established,to_server; pcre:"/((\x27|\x22)\s*(\x2d\x2d[\s\x00#]|\x23)|\x2f\x2a\x21)/U"; classtype:web-application-attack; sid:1000023; rev:1;)
+
+# 주석(--,#,/**/)으로 쿼리 꼬리 제거 + SELECT 동반 시 탐지 [POST 본문]  [sid:1000024]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [SQLi] Comment evasion (quote+line-comment) (body)"; flow:established,to_server; pcre:"/((\x27|\x22)\s*(\x2d\x2d[\s\x00#]|\x23)|\x2f\x2a\x21)/P"; classtype:web-application-attack; sid:1000024; rev:1;)
+
+#============================ 2) XSS ============================
+# 인코딩된 <script>(%3cscript) 원본바이트 탐지 (이중인코딩/정규화 OFF 대비) [원본 바이트]  [sid:1001001]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] URL-encoded script tag (raw)"; flow:established,to_server; content:"%3cscript"; nocase; fast_pattern; classtype:web-application-attack; sid:1001001; rev:1;)
+
+# <script> 태그 삽입 [URI/GET]  [sid:1001002]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Script tag (URI)"; flow:established,to_server; pcre:"/<\s*script[\s/>]/Ui"; classtype:web-application-attack; sid:1001002; rev:1;)
+
+# <script> 태그 삽입 [POST 본문]  [sid:1001003]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Script tag (body)"; flow:established,to_server; pcre:"/<\s*script[\s/>]/Pi"; classtype:web-application-attack; sid:1001003; rev:1;)
+
+# 태그 이벤트핸들러(onerror/onload 등)로 스크립트 실행 [URI/GET]  [sid:1001004]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Inline event handler (URI)"; flow:established,to_server; pcre:"/<\s*[a-z][a-z0-9]*\b[^>]*\son\w+\s*=/Ui"; classtype:web-application-attack; sid:1001004; rev:1;)
+
+# 태그 이벤트핸들러(onerror/onload 등)로 스크립트 실행 [POST 본문]  [sid:1001005]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Inline event handler (body)"; flow:established,to_server; pcre:"/<\s*[a-z][a-z0-9]*\b[^>]*\son\w+\s*=/Pi"; classtype:web-application-attack; sid:1001005; rev:1;)
+
+# javascript:/vbscript:/data: 스킴으로 스크립트 실행 [URI/GET]  [sid:1001006]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Dangerous URI scheme (URI)"; flow:established,to_server; pcre:"/(javascript|vbscript)\s*:|data\s*:\s*[^,]{0,40}?(script|base64)/Ui"; classtype:web-application-attack; sid:1001006; rev:1;)
+
+# javascript:/vbscript:/data: 스킴으로 스크립트 실행 [POST 본문]  [sid:1001007]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Dangerous URI scheme (body)"; flow:established,to_server; pcre:"/(javascript|vbscript)\s*:|data\s*:\s*[^,]{0,40}?(script|base64)/Pi"; classtype:web-application-attack; sid:1001007; rev:1;)
+
+# img/svg/iframe 등 태그+핸들러/소스로 XSS (예: <img src=x onerror=...>) [URI/GET]  [sid:1001008]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Markup vector (img/svg/iframe...) (URI)"; flow:established,to_server; pcre:"/<\s*(img|svg|iframe|body|object|embed|video|audio|details|marquee|input|form)\b[^>]*(\son\w+\s*=|src\s*=\s*[\x22\x27]?\s*(javascript|data))/Ui"; classtype:web-application-attack; sid:1001008; rev:1;)
+
+# img/svg/iframe 등 태그+핸들러/소스로 XSS (예: <img src=x onerror=...>) [POST 본문]  [sid:1001009]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Markup vector (img/svg/iframe...) (body)"; flow:established,to_server; pcre:"/<\s*(img|svg|iframe|body|object|embed|video|audio|details|marquee|input|form)\b[^>]*(\son\w+\s*=|src\s*=\s*[\x22\x27]?\s*(javascript|data))/Pi"; classtype:web-application-attack; sid:1001009; rev:1;)
+
+# document.cookie/new Image().src 등으로 쿠키·세션 탈취 [URI/GET]  [sid:1001010]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Cookie/DOM exfiltration (URI)"; flow:established,to_server; pcre:"/(document\.cookie|document\.location|window\.location|document\.write|\.innerHTML\s*=|new\s+Image\s*\(|\.src\s*=)/Ui"; classtype:web-application-attack; sid:1001010; rev:1;)
+
+# document.cookie/new Image().src 등으로 쿠키·세션 탈취 [POST 본문]  [sid:1001011]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Cookie/DOM exfiltration (body)"; flow:established,to_server; pcre:"/(document\.cookie|document\.location|window\.location|document\.write|\.innerHTML\s*=|new\s+Image\s*\(|\.src\s*=)/Pi"; classtype:web-application-attack; sid:1001011; rev:1;)
+
+# alert/eval/fetch 등 실행 함수 호출형 페이로드 [URI/GET]  [sid:1001012]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Script execution payload (URI)"; flow:established,to_server; pcre:"/<[^>]*?(alert|prompt|confirm|eval|fetch|atob|String\.fromCharCode)\s*\(/Ui"; classtype:web-application-attack; sid:1001012; rev:1;)
+
+# alert/eval/fetch 등 실행 함수 호출형 페이로드 [POST 본문]  [sid:1001013]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [XSS] Script execution payload (body)"; flow:established,to_server; pcre:"/<[^>]*?(alert|prompt|confirm|eval|fetch|atob|String\.fromCharCode)\s*\(/Pi"; classtype:web-application-attack; sid:1001013; rev:1;)
+
+#============================ 3) 파일 업/다운로드 ============================
+# 멀티파트 업로드의 서버실행 확장자(.php/.jsp/.exe 등)  [sid:1002001]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Upload] Dangerous executable extension (multipart)"; flow:established,to_server; content:"Content-Disposition"; nocase; http_client_body; content:"filename"; nocase; http_client_body; pcre:"/filename\s*=\s*[\x22\x27]?[^\x22\x27]+\.(php[3457s]?|phtml|jsp[afx]?|aspx?|cer|cfm|sh|exe|dll|bat|cgi|pl|py)\b/P"; classtype:web-application-attack; sid:1002001; rev:1;)
+
+# 이중확장자/널바이트로 업로드 필터 우회 (shell.php.jpg, shell.jsp%00.jpg)  [sid:1002002]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Upload] Double-extension or null-byte evasion"; flow:established,to_server; content:"filename"; nocase; http_client_body; pcre:"/filename\s*=\s*[\x22\x27]?[^\x22\x27]+\.(php|jsp|asp|aspx|sh|exe)(%00|\x00|\.)/P"; classtype:web-application-attack; sid:1002002; rev:1;)
+
+# 업로드 본문 내 웹셸 코드(Runtime.exec/system()/<%@ page 등)  [sid:1002003]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Upload] Webshell code signature"; flow:established,to_server; pcre:"/(eval\s*\(\s*\x24_(post|get|request)|system\s*\(|passthru\s*\(|shell_exec\s*\(|base64_decode\s*\(\s*\x24|Runtime\.getRuntime\(\)\.exec|getRuntime\(\)|pageContext\.getRequest|<\x25@\s*page)/P"; classtype:web-application-attack; sid:1002003; rev:1;)
+
+# 경로조작 ../ 및 인코딩 변형(%2e%2e, %c0%af) 원본 탐지  [sid:1002004]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Download] Directory traversal (encoded/raw)"; flow:established,to_server; pcre:"/(\.\.[\x2f\x5c]|%2e%2e[\x2f\x5c%]|%252e%252e|\.\.%c0%af|\.\.%c1%9c)/i"; classtype:web-application-attack; sid:1002004; rev:1;)
+
+# 정규화된 URI에서 ../ 경로조작 탐지  [sid:1002005]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Download] Directory traversal (URI norm)"; flow:established,to_server; pcre:"/\.\.[\x2f\x5c]/U"; classtype:web-application-attack; sid:1002005; rev:1;)
+
+# 민감파일 접근 시도(/etc/passwd, web.xml, .env, .git, 백업파일 등)  [sid:1002006]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Download] Sensitive file access"; flow:established,to_server; pcre:"/(\/etc\/(passwd|shadow|hosts)|win\.ini|boot\.ini|web\.config|web-inf\/web\.xml|\.env\b|\.git\/config|wp-config\.php|\/proc\/self\/environ|backup\.(zip|tar|sql))/Ui"; classtype:web-application-attack; sid:1002006; rev:1;)
+
+#============================ 4) 인가/리다이렉트/브루트포스 ============================
+# 권한 파라미터 주입/Mass Assignment (role=ADMIN, MEMBER_GRADE=ADMIN 등) [URI/GET]  [sid:1003001]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Authz] Privilege parameter injection (URI)"; flow:established,to_server; pcre:"/[?\x26\x22\x27\s,]?(is_?admin|role|member_?grade|grade|authority|user_?type|privilege|is_superuser)\s*(=|\x22\s*:\s*\x22?)\s*[\x22\x27]?(admin|administrator|root|superuser|super|manager)\b/Ui"; classtype:web-application-attack; sid:1003001; rev:1;)
+
+# 권한 파라미터 주입/Mass Assignment (role=ADMIN, MEMBER_GRADE=ADMIN 등) [POST 본문]  [sid:1003002]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Authz] Privilege parameter injection (body)"; flow:established,to_server; pcre:"/[?\x26\x22\x27\s,]?(is_?admin|role|member_?grade|grade|authority|user_?type|privilege|is_superuser)\s*(=|\x22\s*:\s*\x22?)\s*[\x22\x27]?(admin|administrator|root|superuser|super|manager)\b/Pi"; classtype:web-application-attack; sid:1003002; rev:1;)
+
+# redirect/returnUrl 등에 외부 절대 URL 주입(피싱 연계) [URI/GET]  [sid:1003003]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Redirect] Open redirect to external URL (URI)"; flow:established,to_server; pcre:"/(redirect(_?uri|url)?|return_?url|return|url|next|dest(ination)?|target|goto|continue|callback)\s*=\s*(https?:(\x2f\x2f|\/{2})|\/{2}\w)/Ui"; classtype:web-application-attack; sid:1003003; rev:1;)
+
+# redirect/returnUrl 등에 외부 절대 URL 주입(피싱 연계) [POST 본문]  [sid:1003004]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Redirect] Open redirect to external URL (body)"; flow:established,to_server; pcre:"/(redirect(_?uri|url)?|return_?url|return|url|next|dest(ination)?|target|goto|continue|callback)\s*=\s*(https?:(\x2f\x2f|\/{2})|\/{2}\w)/Pi"; classtype:web-application-attack; sid:1003004; rev:1;)
+
+# 로그인/회원가입 무차별 대입 임계치(20회/60초; 운영 baseline 후 조정)  [sid:1003005]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Auth] Login/Join brute-force (rate)"; flow:established,to_server; content:"POST"; nocase; http_method; pcre:"/(loginaction|loginprocess|\/login|\/signin|\/auth|joinaction)/Ui"; detection_filter:track by_src, count 20, seconds 60; classtype:attempted-recon; sid:1003005; rev:1;)
+
+# URL에 세션ID 노출(세션 고정 흔적; 저신뢰)  [sid:1003006]
+alert tcp $EXTERNAL_NET any -> $HTTP_SERVERS $HTTP_PORTS (msg:"[YANUS CUSTOM] [Session] Session ID in URL (possible fixation)"; flow:established,to_server; pcre:"/[\x3b?\x26](jsessionid|phpsessid|sessionid|asp\.net_sessionid)=/Ui"; classtype:web-application-attack; sid:1003006; rev:1;)

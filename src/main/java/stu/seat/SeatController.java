@@ -47,6 +47,7 @@ import org.springframework.web.servlet.ModelAndView;
 
 import stu.common.logger.SecurityLogger;
 import stu.common.logger.MacroDetectionLogger;
+import stu.common.logger.BehaviorTracker;
 
 @Controller
 public class SeatController {
@@ -134,6 +135,9 @@ public class SeatController {
             }
             try { myHeld.add(Long.parseLong(seatId)); } catch (Exception ignore) {}
         }
+
+        // ★ 행동 누적: 좌석 클릭 (seat_change_count / unique_seat_count)
+        try { BehaviorTracker.get(session).recordSeat(parseLong(seatId)); } catch (Exception ignore) {}
 
         int elapsedMs = (int)(System.currentTimeMillis() - startTime);
 
